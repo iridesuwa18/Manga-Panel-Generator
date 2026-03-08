@@ -1,0 +1,2222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manga Panel Generator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&family=Bangers&family=Permanent+Marker&family=Caveat:wght@600&display=swap');
+
+  :root {
+    --bg: #0e0e0e;
+    --surface: #161616;
+    --surface2: #1f1f1f;
+    --surface3: #2a2a2a;
+    --border: #333;
+    --border2: #444;
+    --accent: #e8d5a3;
+    --accent2: #c4a96b;
+    --text: #f0ede6;
+    --text2: #a09890;
+    --text3: #6b6460;
+    --danger: #e05a5a;
+    --success: #6abf7b;
+    --ink: #1a1a1a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 13px;
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  header h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 26px;
+    letter-spacing: 2px;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+  header .subtitle {
+    color: var(--text3);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+  }
+  .header-actions { margin-left: auto; display: flex; gap: 8px; }
+
+  /* ── BUTTONS ── */
+  .btn {
+    padding: 7px 14px;
+    border: 1px solid var(--border2);
+    background: var(--surface2);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all .15s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: var(--surface3); border-color: var(--accent2); color: var(--accent); }
+  .btn.primary { background: var(--accent2); color: var(--ink); border-color: var(--accent2); font-weight: 600; }
+  .btn.primary:hover { background: var(--accent); }
+  .btn.danger { border-color: var(--danger); color: var(--danger); }
+  .btn.danger:hover { background: rgba(224,90,90,.1); }
+  .btn.small { padding: 4px 9px; font-size: 10px; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── LAYOUT ── */
+  .app { display: grid; grid-template-columns: 1fr 340px; height: calc(100vh - 53px); }
+
+  /* ── LEFT: CANVAS AREA ── */
+  .canvas-area {
+    padding: 20px;
+    overflow: auto;
+    background: #0a0a0a;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    align-items: center;
+  }
+
+  /* ── MOBILE BOTTOM SHEET ── */
+  #mobileDrawer {
+    display: none;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--surface);
+    border-top: 2px solid var(--border2);
+    z-index: 300;
+    border-radius: 16px 16px 0 0;
+    max-height: 80vh;
+    overflow: hidden;
+    flex-direction: column;
+    transition: transform .3s ease;
+    transform: translateY(100%);
+  }
+  #mobileDrawer.open { transform: translateY(0); }
+  #mobileDrawer .drawer-handle {
+    width: 40px; height: 4px;
+    background: var(--border2);
+    border-radius: 2px;
+    margin: 10px auto 6px;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  #mobileDrawer .drawer-content {
+    overflow-y: auto;
+    flex: 1;
+    padding-bottom: 20px;
+  }
+  #mobileTabBar {
+    display: none;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    z-index: 400;
+    padding: 6px 0 max(6px, env(safe-area-inset-bottom));
+  }
+  #mobileTabBar .mtab-row {
+    display: flex;
+    justify-content: space-around;
+  }
+  #mobileTabBar button {
+    background: none;
+    border: none;
+    color: var(--text3);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    padding: 4px 8px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+  #mobileTabBar button.active { color: var(--accent); }
+  #mobileTabBar button .mtab-icon { font-size: 18px; }
+  #mobileTopBar {
+    display: none;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 12px;
+    gap: 6px;
+    flex-wrap: wrap;
+    position: sticky; top: 0; z-index: 100;
+  }
+
+  @media (max-width: 700px) {
+    header .subtitle { display: none; }
+    header { padding: 10px 14px; gap: 10px; }
+    header h1 { font-size: 20px; }
+    .header-actions { display: none; }
+
+    .app {
+      display: block;
+      height: auto;
+      min-height: calc(100vh - 48px - 60px);
+    }
+    .sidebar { display: none !important; }
+    #bubblePanel { display: none !important; }
+
+    .canvas-area {
+      padding: 12px 8px;
+      min-height: calc(100vh - 48px - 60px);
+      padding-bottom: 80px;
+    }
+
+    #mobileDrawer { display: flex; }
+    #mobileTabBar { display: block; }
+    #mobileTopBar { display: flex; }
+  }
+
+  .page-output {
+    background: white;
+    position: relative;
+    flex-shrink: 0;
+    box-shadow: 0 4px 32px rgba(0,0,0,.6);
+  }
+
+  .page-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--text3);
+    text-align: center;
+    margin-bottom: 6px;
+  }
+
+  /* ── RIGHT: SIDEBAR ── */
+  .sidebar {
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sidebar-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-bottom: 1px solid var(--border);
+  }
+  .tab-btn {
+    padding: 10px;
+    background: none;
+    border: none;
+    color: var(--text3);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all .15s;
+  }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-btn:hover:not(.active) { color: var(--text); }
+
+  .sidebar-content { flex: 1; overflow-y: auto; padding: 14px; }
+
+  /* ── SECTION ── */
+  .section { margin-bottom: 16px; }
+  .section-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 4px;
+  }
+
+  /* ── FORM ELEMENTS ── */
+  label { display: block; color: var(--text2); margin-bottom: 3px; font-size: 11px; }
+  input[type=text], input[type=number], select, textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    border-radius: 3px;
+    outline: none;
+    transition: border-color .15s;
+  }
+  input[type=text]:focus, input[type=number]:focus, select:focus, textarea:focus {
+    border-color: var(--accent2);
+  }
+  textarea { resize: vertical; min-height: 60px; }
+  select option { background: var(--surface2); }
+
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+  .form-group { margin-bottom: 8px; }
+
+  /* ── DATA TABLE ── */
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+  }
+  table { width: 100%; border-collapse: collapse; font-family: 'IBM Plex Mono', monospace; font-size: 10px; }
+  thead tr { background: var(--surface3); }
+  th { padding: 6px 8px; text-align: left; color: var(--text3); border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td { padding: 5px 8px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--surface2); }
+
+  td input {
+    background: transparent;
+    border: 1px solid transparent;
+    padding: 2px 4px;
+    width: 100%;
+    min-width: 40px;
+  }
+  td input:focus { border-color: var(--accent2); background: var(--surface2); }
+  td select { background: transparent; border: 1px solid transparent; padding: 2px; }
+  td select:focus { background: var(--surface2); border-color: var(--accent2); }
+
+  .del-btn {
+    background: none;
+    border: none;
+    color: var(--text3);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0 4px;
+    line-height: 1;
+  }
+  .del-btn:hover { color: var(--danger); }
+
+  /* ── PAGE LIST ── */
+  .page-entry {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .page-entry:hover { border-color: var(--accent2); }
+  .page-entry.selected { border-color: var(--accent); background: rgba(232,213,163,.05); }
+  .page-entry-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .page-entry-label {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 15px;
+    color: var(--accent);
+    flex: 1;
+  }
+  .page-entry-panels { color: var(--text3); font-size: 10px; font-family: 'IBM Plex Mono', monospace; }
+  .page-entry-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .page-entry-controls label { font-size: 10px; }
+
+  /* ── BADGE ── */
+  .badge {
+    padding: 2px 6px;
+    border-radius: 2px;
+    font-size: 9px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .badge-odd { background: rgba(106,191,123,.15); color: var(--success); border: 1px solid rgba(106,191,123,.3); }
+  .badge-even { background: rgba(100,140,220,.15); color: #7aabf0; border: 1px solid rgba(100,140,220,.3); }
+
+  /* ── IMPORT AREA ── */
+  .drop-zone {
+    border: 2px dashed var(--border2);
+    border-radius: 6px;
+    padding: 20px;
+    text-align: center;
+    color: var(--text3);
+    cursor: pointer;
+    transition: all .2s;
+    margin-bottom: 10px;
+  }
+  .drop-zone:hover { border-color: var(--accent2); color: var(--text2); }
+  .drop-zone.drag-over { border-color: var(--accent); background: rgba(232,213,163,.05); }
+  .drop-zone .dz-icon { font-size: 28px; margin-bottom: 6px; }
+  .drop-zone .dz-text { font-size: 11px; font-family: 'IBM Plex Mono', monospace; }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+  /* ── EMPTY STATE ── */
+  .empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--text3);
+    gap: 10px;
+    padding: 40px;
+    text-align: center;
+  }
+  .empty-state .icon { font-size: 48px; opacity: .3; }
+  .empty-state p { font-size: 12px; line-height: 1.6; max-width: 260px; }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--surface3);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    padding: 10px 16px;
+    border-radius: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    opacity: 0;
+    transition: opacity .3s;
+    pointer-events: none;
+    z-index: 999;
+  }
+  #toast.show { opacity: 1; }
+
+  .range-row { display: flex; align-items: center; gap: 8px; }
+  .range-row input[type=range] { flex: 1; accent-color: var(--accent2); }
+  .range-val { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--accent); min-width: 32px; text-align: right; }
+
+  .color-row { display: flex; gap: 8px; align-items: center; }
+  .color-row input[type=color] { width: 36px; height: 28px; border: 1px solid var(--border); border-radius: 3px; cursor: pointer; padding: 2px; background: var(--surface2); }
+
+  .info-chip {
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--text3);
+    margin-bottom: 10px;
+    line-height: 1.7;
+  }
+  .info-chip strong { color: var(--accent2); }
+
+  .flex-row { display: flex; gap: 6px; align-items: center; }
+  .flex-row label { margin: 0; white-space: nowrap; }
+
+  #pasted-csv {
+    font-size: 10px;
+    min-height: 80px;
+    background: var(--surface2);
+  }
+  .add-row-bar {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+    flex-wrap: wrap;
+  }
+
+  .page-thumb-wrap { display: flex; flex-direction: column; align-items: center; }
+
+  /* ── SPEECH BUBBLE OVERLAY ── */
+  .bubble-overlay {
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+  }
+  .bubble-wrap {
+    position: absolute;
+    pointer-events: all;
+    cursor: move;
+    user-select: none;
+  }
+  .bubble-wrap.locked-move { cursor: default; pointer-events: none; }
+  .bubble-wrap svg.bubble-svg { overflow: visible; display: block; }
+  .bubble-wrap .bubble-text {
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    text-align: center;
+    pointer-events: none;
+    overflow: hidden;
+    padding: 12%;
+    line-height: 1.2;
+    word-break: break-word;
+  }
+  .bubble-wrap.selected > svg.bubble-svg path,
+  .bubble-wrap.selected > svg.bubble-svg ellipse,
+  .bubble-wrap.selected > svg.bubble-svg rect {
+    stroke: #4a9eff !important;
+  }
+  .bubble-wrap .resize-handle {
+    position: absolute; bottom: -6px; right: -6px;
+    width: 12px; height: 12px;
+    background: #4a9eff; border-radius: 2px;
+    cursor: se-resize; pointer-events: all;
+    display: none;
+  }
+  .bubble-wrap.selected .resize-handle { display: block; }
+  .bubble-wrap .rotate-handle {
+    position: absolute; top: -20px; left: 50%; transform: translateX(-50%);
+    width: 12px; height: 12px;
+    background: #f0a; border-radius: 50%;
+    cursor: grab; pointer-events: all;
+    display: none;
+  }
+  .bubble-wrap.selected .rotate-handle { display: block; }
+  .bubble-wrap .tail-handle {
+    position: absolute;
+    width: 10px; height: 10px;
+    background: #ffaa00; border-radius: 50%;
+    cursor: crosshair; pointer-events: all;
+    display: none; transform: translate(-50%,-50%);
+  }
+  .bubble-wrap.selected .tail-handle { display: block; }
+
+  /* ── BUBBLE EDITOR PANEL ── */
+  #bubblePanel {
+    position: fixed; right: 350px; top: 53px;
+    width: 260px; background: var(--surface);
+    border-left: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    z-index: 200; overflow-y: auto;
+    max-height: calc(100vh - 53px);
+    display: none;
+  }
+  #bubblePanel.open { display: block; }
+  .bp-section { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  .bp-title { font-family: 'IBM Plex Mono',monospace; font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; }
+  .bp-row { display:flex; gap:6px; align-items:center; margin-bottom:6px; }
+  .bp-row label { font-size:10px; color:var(--text2); min-width:46px; }
+  .bp-row input, .bp-row select { flex:1; }
+  .font-btn { padding:3px 7px; font-size:11px; border:1px solid var(--border2); background:var(--surface2); color:var(--text); cursor:pointer; border-radius:2px; }
+  .font-btn.active { background:var(--accent2); color:var(--ink); border-color:var(--accent2); }
+  #importFontBtn { width:100%; margin-top:4px; }
+  .lock-row { display:flex; gap:4px; flex-wrap:wrap; }
+  .lock-btn { padding:3px 8px; font-size:10px; border:1px solid var(--border); background:var(--surface2); color:var(--text2); cursor:pointer; border-radius:2px; }
+  .lock-btn.active { border-color:var(--danger); color:var(--danger); }
+
+</style>
+</head>
+<body>
+
+<header>
+  <h1>MANGA PANEL GEN</h1>
+  <span class="subtitle">// 3300×4677 | framing 2800×3940 | safe 2520×3940</span>
+  <div class="header-actions">
+    <button class="btn" onclick="generateAll()">⚡ Generate All Pages</button>
+    <button class="btn primary" onclick="exportAllSVG()">↓ Export SVG</button>
+    <button class="btn" onclick="exportExcel()">↓ Export Excel</button>
+  </div>
+</header>
+
+<!-- MOBILE TOP ACTION BAR -->
+<div id="mobileTopBar">
+  <button class="btn primary" style="flex:1" onclick="generateAll()">⚡ Generate</button>
+  <button class="btn" style="flex:1" onclick="exportAllSVG()">↓ SVG</button>
+  <button class="btn" style="flex:1" onclick="exportExcel()">↓ Excel</button>
+</div>
+
+<!-- MOBILE BOTTOM DRAWER -->
+<div id="mobileDrawer">
+  <div class="drawer-handle" onclick="closeDrawer()"></div>
+  <div class="drawer-content" id="mobileDrawerContent">
+    <!-- content injected by JS -->
+  </div>
+</div>
+
+<!-- MOBILE TAB BAR -->
+<div id="mobileTabBar">
+  <div class="mtab-row">
+    <button onclick="openMobileTab('data')" id="mtab-data" class="active">
+      <span class="mtab-icon">📋</span>Data
+    </button>
+    <button onclick="openMobileTab('pages')" id="mtab-pages">
+      <span class="mtab-icon">📄</span>Pages
+    </button>
+    <button onclick="openMobileTab('bubbles')" id="mtab-bubbles">
+      <span class="mtab-icon">💬</span>Bubbles
+    </button>
+    <button onclick="openMobileTab('generate')" id="mtab-generate">
+      <span class="mtab-icon">⚡</span>Generate
+    </button>
+  </div>
+</div>
+
+<div class="app">
+  <!-- LEFT: canvas -->
+  <div class="canvas-area" id="canvasArea">
+    <div class="empty-state" id="emptyState">
+      <div class="icon">⬜</div>
+      <p>Import panel data or add rows manually, then click <strong>Generate All Pages</strong> to preview your manga layout.</p>
+    </div>
+  </div>
+
+  <!-- RIGHT: sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-tabs">
+      <button class="tab-btn active" onclick="switchTab('data')">📋 Data</button>
+      <button class="tab-btn" onclick="switchTab('pages')">📄 Pages</button>
+    </div>
+
+    <!-- DATA TAB -->
+    <div class="sidebar-content" id="tab-data">
+
+      <div class="section">
+        <div class="section-title">Import Excel / CSV</div>
+        <div class="drop-zone" id="dropZone" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+          <div class="dz-icon">📂</div>
+          <div class="dz-text">Drag & drop .xlsx / .csv here</div>
+          <label style="display:inline-block;margin-top:8px;cursor:pointer;">
+            <span class="btn small" style="pointer-events:none;">📁 Browse File</span>
+            <input type="file" id="fileInput" accept=".xlsx,.csv" style="display:none" onchange="handleFileImport(event)">
+          </label>
+        </div>
+
+        <div style="text-align:center; color:var(--text3); font-size:10px; margin: 6px 0;">— or paste CSV data —</div>
+        <textarea id="pasted-csv" placeholder="Chapter No.,Scene No.,Page No.,Panel No.,Row No.,Panel (L x H in %),Total Max Panel L per row (/100),Total Max Panel H per row (/100)"></textarea>
+        <button class="btn" style="width:100%; margin-top:6px" onclick="parsePastedCSV()">Parse Pasted Data</button>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Panel Data Table</div>
+        <div class="info-chip">
+          <strong>Columns:</strong> CHP · SCN · PG · PNL · ROW · LxH% · MaxL · MaxH
+        </div>
+        <div class="table-wrap">
+          <table id="dataTable">
+            <thead>
+              <tr>
+                <th>CHP</th><th>SCN</th><th>PG</th><th>PNL</th>
+                <th>ROW/CLM</th><th>L×H%</th><th>MaxL</th><th>MaxH</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+        <div class="add-row-bar">
+          <button class="btn small" onclick="addRow()">+ Add Row</button>
+          <button class="btn small danger" onclick="clearAllRows()">Clear All</button>
+          <button class="btn small" onclick="loadSampleData()">Load Sample</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGES TAB -->
+    <div class="sidebar-content" id="tab-pages" style="display:none">
+      <div class="section">
+        <div class="section-title">Global Settings</div>
+        <div class="form-group">
+          <label>Preview Scale</label>
+          <div class="range-row">
+            <input type="range" id="scaleSlider" min="3" max="15" value="6" oninput="updateScale(this.value)">
+            <span class="range-val" id="scaleVal">6%</span>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Panel Fill</label>
+            <div class="color-row">
+              <input type="color" id="panelFill" value="#f0ede6">
+              <span style="font-size:10px;color:var(--text3)">default fill</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Panel Stroke</label>
+            <div class="color-row">
+              <input type="color" id="panelStroke" value="#1a1a1a">
+              <span style="font-size:10px;color:var(--text3)">border</span>
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Stroke Width (px at full res)</label>
+          <input type="number" id="strokeWidth" value="8" min="1" max="30">
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Per-Page Settings</div>
+        <div id="pageList"></div>
+        <div id="noPages" style="color:var(--text3);font-size:11px;font-family:'IBM Plex Mono',monospace;">
+          No pages yet — import data first.
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Speech Bubbles</div>
+        <div style="color:var(--text3);font-size:10px;margin-bottom:6px;">Paste from Excel: Speech Type · Speaker · Dialogue (one row per bubble)</div>
+        <textarea id="bubblePaste" style="width:100%;min-height:70px;font-size:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px;font-family:'IBM Plex Mono',monospace;" placeholder="Circle – Dialogue&#9;Claude&#9;Hello world!&#10;Spiked – Yelling&#9;Velo&#9;WAIT!"></textarea>
+        <div class="bp-row" style="margin-top:4px;">
+          <label style="font-size:10px;color:var(--text2);">For page</label>
+          <select id="bubbleTargetPage" style="flex:1;"></select>
+        </div>
+        <button class="btn" style="width:100%;margin-top:4px;" onclick="importBubbles()">+ Add Bubbles to Page</button>
+        <div style="margin-top:6px;">
+          <button class="btn small" onclick="toggleBubblePanel()">✏️ Edit Bubbles</button>
+          <button class="btn small danger" onclick="clearBubbles()">Clear Bubbles</button>
+        </div>
+        <div style="margin-top:6px;">
+          <label style="font-size:10px;color:var(--text2);display:block;margin-bottom:3px;">Import custom font (.ttf/.otf/.woff)</label>
+          <input type="file" id="fontFileInput" accept=".ttf,.otf,.woff,.woff2" onchange="loadCustomFont(event)" style="font-size:10px;color:var(--text2);width:100%;">
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Actions</div>
+        <button class="btn" style="width:100%;margin-bottom:6px" onclick="generateAll()">⚡ Generate All Pages</button>
+        <button class="btn primary" style="width:100%;margin-bottom:6px" onclick="exportAllSVG()">↓ Export All SVGs</button>
+        <button class="btn" style="width:100%" onclick="exportExcel()">↓ Export Excel Data</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ─────────────────────────────────────────────
+// CONSTANTS – full-res manga dimensions
+// ─────────────────────────────────────────────
+const PAGE_W = 3300, PAGE_H = 4677;
+const FRAME_W = 2800, FRAME_H = 3940; // framing border (centered in page)
+const SAFE_W  = 2520, SAFE_H  = 3940; // safe zone (within framing border)
+const FRAME_X = (PAGE_W - FRAME_W) / 2; // 250
+const FRAME_Y = (PAGE_H - FRAME_H) / 2; // 368.5
+
+// drawing border left/right anchor
+// For ODD pages (left): drawing border anchored LEFT inside framing border
+//   drawing border = 2520 wide, starting at FRAME_X (250), binding gap 280 on right
+// For EVEN pages (right): drawing border anchored RIGHT inside framing border
+//   drawing border = 2520 wide, ending at FRAME_X+FRAME_W (3050), binding gap 280 on left
+const DRAW_W = 2520, DRAW_H = 3940;
+const DRAW_Y = FRAME_Y; // same top as frame
+
+function getDrawX(isOdd) {
+  return isOdd
+    ? FRAME_X                          // left-anchored (odd)
+    : FRAME_X + FRAME_W - DRAW_W;     // right-anchored (even) = 250+2800-2520 = 530
+}
+
+// Safe zone inside drawing border, centred
+const SAFE_MARGIN_X = (DRAW_W - SAFE_W) / 2; // (2520-2520)/2 = 0 actually same width
+// Safe zone same width as drawing border per spec
+// Re-reading: safe zone 2205×3625 inside the framing border centred
+const REAL_SAFE_W = 2205, REAL_SAFE_H = 3625;
+
+function getSafeRect(isOdd) {
+  const drawX = getDrawX(isOdd);
+  const sx = drawX + (DRAW_W - REAL_SAFE_W) / 2;
+  const sy = DRAW_Y + (DRAW_H - REAL_SAFE_H) / 2;
+  return { x: sx, y: sy, w: REAL_SAFE_W, h: REAL_SAFE_H };
+}
+
+// ─────────────────────────────────────────────
+// APP STATE
+// ─────────────────────────────────────────────
+let rows = []; // raw panel data rows
+let pageSettings = {}; // keyed by pageKey "PG X"
+let scale = 0.06;
+let activeTab = 'data';
+
+// ─────────────────────────────────────────────
+// TAB SWITCHING
+// ─────────────────────────────────────────────
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.tab-btn').forEach((b,i) => {
+    b.classList.toggle('active', (i===0&&tab==='data')||(i===1&&tab==='pages'));
+  });
+  document.getElementById('tab-data').style.display = tab === 'data' ? '' : 'none';
+  document.getElementById('tab-pages').style.display = tab === 'pages' ? '' : 'none';
+  if (tab === 'pages') rebuildPageList();
+}
+
+// ─────────────────────────────────────────────
+// SCALE SLIDER
+// ─────────────────────────────────────────────
+function updateScale(v) {
+  scale = v / 100;
+  document.getElementById('scaleVal').textContent = v + '%';
+  generateAll();
+}
+
+// ─────────────────────────────────────────────
+// DATA TABLE
+// ─────────────────────────────────────────────
+function addRow(data={}) {
+  const r = {
+    chp: data.chp||'CHP 1', scn: data.scn||'S1', pg: data.pg||'PG 1',
+    pnl: data.pnl||'PNL 1', row: data.row||'RW 1', lh: data.lh||'30x50',
+    maxL: data.maxL||'100', maxH: data.maxH||'50'
+  };
+  rows.push(r);
+  renderTable();
+  refreshPageSettings();
+}
+
+function deleteRow(idx) {
+  rows.splice(idx,1);
+  renderTable();
+  refreshPageSettings();
+}
+
+function clearAllRows() {
+  if (!confirm('Clear all rows?')) return;
+  rows = [];
+  renderTable();
+  refreshPageSettings();
+  document.getElementById('canvasArea').innerHTML = emptyStateHTML();
+}
+
+function emptyStateHTML() {
+  return `<div class="empty-state" id="emptyState"><div class="icon">⬜</div><p>Import panel data or add rows manually, then click <strong>Generate All Pages</strong>.</p></div>`;
+}
+
+function renderTable() {
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = rows.map((r,i) => `
+    <tr>
+      <td><input value="${r.chp}" onchange="rows[${i}].chp=this.value;refreshPageSettings()"></td>
+      <td><input value="${r.scn}" onchange="rows[${i}].scn=this.value"></td>
+      <td><input value="${r.pg}" onchange="rows[${i}].pg=this.value;refreshPageSettings()"></td>
+      <td><input value="${r.pnl}" onchange="rows[${i}].pnl=this.value"></td>
+      <td><input value="${r.row}" onchange="rows[${i}].row=this.value"></td>
+      <td><input value="${r.lh}" onchange="rows[${i}].lh=this.value"></td>
+      <td><input value="${r.maxL}" onchange="rows[${i}].maxL=this.value"></td>
+      <td><input value="${r.maxH}" onchange="rows[${i}].maxH=this.value"></td>
+      <td><button class="del-btn" onclick="deleteRow(${i})">✕</button></td>
+    </tr>`).join('');
+}
+
+// ─────────────────────────────────────────────
+// PAGE SETTINGS
+// ─────────────────────────────────────────────
+function getPages() {
+  const seen = new Map();
+  rows.forEach(r => {
+    if (!seen.has(r.pg)) seen.set(r.pg, r.chp);
+  });
+  return [...seen.entries()].map(([pg, chp]) => ({ pg, chp }));
+}
+
+function refreshPageSettings() {
+  getPages().forEach(({pg}) => {
+    if (!pageSettings[pg]) {
+      pageSettings[pg] = { mode: 'safe', gutter: 12 };
+    }
+  });
+  if (activeTab === 'pages') rebuildPageList();
+}
+
+function rebuildPageList() {
+  const pages = getPages();
+  const container = document.getElementById('pageList');
+  const noPages = document.getElementById('noPages');
+  noPages.style.display = pages.length ? 'none' : '';
+  container.innerHTML = pages.map(({pg, chp}) => {
+    const pgNum = parseInt((pg.match(/\d+/)||[1])[0]);
+    const isOdd = pgNum % 2 !== 0;
+    const ps = pageSettings[pg];
+    const panelCount = rows.filter(r => r.pg === pg).length;
+    return `
+    <div class="page-entry" id="pe-${pg.replace(/\s/g,'_')}">
+      <div class="page-entry-header">
+        <div class="page-entry-label">${pg}</div>
+        <span class="badge ${isOdd?'badge-odd':'badge-even'}">${isOdd?'ODD':'EVEN'}</span>
+        <span class="page-entry-panels">${panelCount} panels</span>
+      </div>
+      <div class="page-entry-controls">
+        <div class="form-group">
+          <label>Zone Mode</label>
+          <select onchange="pageSettings['${pg}'].mode=this.value" >
+            <option value="safe" ${ps.mode==='safe'?'selected':''}>Safe Zone</option>
+            <option value="frame" ${ps.mode==='frame'?'selected':''}>Full Frame</option>
+            <option value="random" ${ps.mode==='random'?'selected':''}>Random (Mixed)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Flow</label>
+          <select onchange="pageSettings['${pg}'].flow=this.value">
+            <option value="v-first" ${(ps.flow||'v-first')==='v-first'?'selected':''}>V-first (stack↓ then →)</option>
+            <option value="h-first" ${(ps.flow||'v-first')==='h-first'?'selected':''}>H-first (fill→ then ↓)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Gutter (px)</label>
+          <input type="number" value="${ps.gutter}" min="0" max="200"
+            onchange="pageSettings['${pg}'].gutter=+this.value">
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─────────────────────────────────────────────
+// LAYOUT ENGINE
+// ─────────────────────────────────────────────
+function parseLH(str) {
+  const parts = str.toString().toLowerCase().split('x');
+  return { l: parseFloat(parts[0])||0, h: parseFloat(parts[1])||0 };
+}
+
+function deduplicateRows(pageRows) {
+  const seen = new Set();
+  return pageRows.filter(r => {
+    const key = r.pg + '|' + r.pnl + '|' + r.row;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function computePanelRects(pageRows, mode, gutter, flow='v-first') {
+  pageRows = deduplicateRows(pageRows);
+
+  const isOdd = (() => {
+    const pg = pageRows[0]?.pg || 'PG 1';
+    return parseInt((pg.match(/\d+/)||[1])[0]) % 2 !== 0;
+  })();
+
+  const safe = getSafeRect(isOdd);
+  const drawX = getDrawX(isOdd);
+
+  const groupBoundsCache = new Map();
+  function getGroupBounds(groupKey) {
+    if (groupBoundsCache.has(groupKey)) return groupBoundsCache.get(groupKey);
+    let useFrame = false;
+    if (mode === 'frame') useFrame = true;
+    else if (mode === 'random') useFrame = Math.random() > 0.5;
+    const b = useFrame
+      ? { left: drawX,  top: DRAW_Y, width: DRAW_W, height: DRAW_H }
+      : { left: safe.x, top: safe.y, width: safe.w,  height: safe.h };
+    groupBoundsCache.set(groupKey, b);
+    return b;
+  }
+
+  const groups = new Map();
+  pageRows.forEach(r => {
+    if (!groups.has(r.row)) groups.set(r.row, []);
+    groups.get(r.row).push(r);
+  });
+  const keys = [...groups.keys()];
+  const isCLM = pageRows.some(r => r.row.toString().toUpperCase().startsWith('CLM'));
+  const rects = [];
+
+  if (isCLM) {
+    // ── COLUMN MODE ──────────────────────────────────────────────────────
+    // Columns go left→right. Within each column panels stack top→bottom.
+    let curX = null;
+    keys.forEach(clmKey => {
+      const panels = groups.get(clmKey);
+      const bounds = getGroupBounds(clmKey);
+      if (curX === null) curX = bounds.left;
+      const maxLpct = parseFloat(panels[0].maxL) / 100;
+      const colW = bounds.width * maxLpct;
+      let curY = bounds.top;
+      panels.forEach(p => {
+        const { h } = parseLH(p.lh);
+        const ph = bounds.height * (h / 100);
+        rects.push({ pnl: p.pnl, pg: p.pg,
+          x: curX, y: curY,
+          w: Math.max(0, colW - gutter),
+          h: Math.max(0, ph - gutter) });
+        curY += ph;
+      });
+      curX += colW;
+    });
+
+  } else {
+    // ── ROW MODE ─────────────────────────────────────────────────────────
+    //
+    // Think of each RW group as a rectangular region (groupW x groupH).
+    // We place panels into this region using a SKYLINE packer:
+    //
+    //   skyline = array of {x, y} sorted by x, meaning "at position x,
+    //             the next free Y is y". Starts as [{x: originX, y: originY}].
+    //
+    // For each panel (pw x ph):
+    //   1. Find the leftmost position in the skyline where the panel fits
+    //      horizontally (pw wide) and the skyline is at its lowest Y there.
+    //      "Fits" means x + pw <= originX + groupW.
+    //   2. Place the panel at that (x, skylineY).
+    //   3. Update the skyline: raise the segment [x, x+pw] by ph.
+    //
+    // This naturally handles:
+    //   - Side-by-side panels (they go left→right at the same Y)
+    //   - Stacking (short panel leaves gap, next panel fills it)
+    //   - Mixed layouts (PNL1 tall on left, PNL2 short top-right, PNL3/4 below PNL2)
+
+    let groupOriginY = null;
+
+    keys.forEach(rowKey => {
+      const panels = groups.get(rowKey);
+      const bounds = getGroupBounds(rowKey);
+      if (groupOriginY === null) groupOriginY = bounds.top;
+
+      const maxLpct = parseFloat(panels[0].maxL) / 100;
+      const maxHpct = parseFloat(panels[0].maxH) / 100;
+      const groupW  = bounds.width  * maxLpct;
+      const groupH  = bounds.height * maxHpct;
+      const originX = bounds.left;
+      const originY = groupOriginY;
+
+      // Skyline: sorted array of segments {x, y}
+      // Segment i covers [skyline[i].x, skyline[i+1].x) with free Y = skyline[i].y
+      // Last segment implicitly ends at originX + groupW
+      if (flow === 'v-first') {
+        // ── V-FIRST: stack panels vertically in a column, advance X when full ──
+        // Good for layouts where same-width panels stack (e.g. PNL2+3 both 20x25)
+        let curX = originX;
+        const colNextY = {};
+
+        panels.forEach(p => {
+          const { l, h } = parseLH(p.lh);
+          const pw = bounds.width  * (l / 100);
+          const ph = bounds.height * (h / 100);
+
+          const xk = Math.round(curX * 100);
+          if (!(xk in colNextY)) colNextY[xk] = originY;
+          const py = colNextY[xk];
+          const px = curX;
+
+          colNextY[xk] = py + ph;
+
+          // Advance curX only when this column is full
+          if (colNextY[xk] >= originY + groupH - 0.5) {
+            curX += pw;
+          }
+
+          rects.push({ pnl: p.pnl, pg: p.pg,
+            x: px, y: py,
+            w: Math.max(0, pw - gutter),
+            h: Math.max(0, ph - gutter) });
+        });
+
+      } else {
+        // ── H-FIRST: fill row left→right, wrap down when line width fills ──
+        // Good for layouts where a tall panel sits left and shorter panels
+        // fill the remaining space in sub-rows (e.g. PNL1 tall, PNL2 short top-right,
+        // PNL3+4 fill below PNL2)
+        // Uses a per-x nextY tracker; curX only advances when its column is full,
+        // but new columns inherit the Y level of their left neighbour's nextY.
+        let curX = originX;
+        const colNextY = {};
+        const colOrder = [];
+
+        let lastStartY = originY; // Y of the panel that last triggered a curX advance
+
+        panels.forEach(p => {
+          const { l, h } = parseLH(p.lh);
+          const pw = bounds.width  * (l / 100);
+          const ph = bounds.height * (h / 100);
+
+          const xk = Math.round(curX * 100);
+          if (!(xk in colNextY)) {
+            // New column: start at lastStartY if set, else check open cols, else originY
+            const openCols = colOrder.filter(k => colNextY[k] < originY + groupH - 0.5);
+            colNextY[xk] = openCols.length > 0
+              ? colNextY[openCols[openCols.length - 1]]
+              : lastStartY > originY + 0.5 ? lastStartY : originY;
+            colOrder.push(xk);
+          }
+
+          const py = colNextY[xk];
+          const px = curX;
+
+          colNextY[xk] = py + ph;
+
+          if (colNextY[xk] >= originY + groupH - 0.5) {
+            lastStartY = py; // remember where this panel started
+            curX += pw;
+          }
+
+          rects.push({ pnl: p.pnl, pg: p.pg,
+            x: px, y: py,
+            w: Math.max(0, pw - gutter),
+            h: Math.max(0, ph - gutter) });
+        });
+      }
+
+      groupOriginY += groupH;
+    });
+  }
+
+  return rects;
+}
+
+// ─────────────────────────────────────────────
+// SVG GENERATION
+// ─────────────────────────────────────────────
+function buildSVG(pg, pgNum, panelRects, fillColor, strokeColor, strokeW) {
+  const isOdd = pgNum % 2 !== 0;
+  const drawX = getDrawX(isOdd);
+  const safe = getSafeRect(isOdd);
+
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${PAGE_W}" height="${PAGE_H}" viewBox="0 0 ${PAGE_W} ${PAGE_H}">`;
+  svg += `<rect width="${PAGE_W}" height="${PAGE_H}" fill="white"/>`;
+
+  // show framing border (light guide)
+  svg += `<rect x="${FRAME_X}" y="${FRAME_Y}" width="${FRAME_W}" height="${FRAME_H}" fill="none" stroke="#ccc" stroke-width="2" stroke-dasharray="20,10"/>`;
+  // show drawing border
+  svg += `<rect x="${drawX}" y="${DRAW_Y}" width="${DRAW_W}" height="${DRAW_H}" fill="none" stroke="#ddd" stroke-width="2" stroke-dasharray="10,6"/>`;
+  // show safe zone
+  svg += `<rect x="${safe.x}" y="${safe.y}" width="${safe.w}" height="${safe.h}" fill="none" stroke="#e8d5a3" stroke-width="2" stroke-dasharray="6,4" opacity="0.4"/>`;
+
+  panelRects.forEach(r => {
+    svg += `<rect x="${r.x.toFixed(1)}" y="${r.y.toFixed(1)}" width="${r.w.toFixed(1)}" height="${r.h.toFixed(1)}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeW}"/>`;
+    // label
+    const cx = r.x + r.w/2, cy = r.y + r.h/2;
+    svg += `<text x="${cx.toFixed(1)}" y="${cy.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="80" fill="${strokeColor}" opacity="0.3">${r.pnl}</text>`;
+  });
+
+  svg += `</svg>`;
+  return svg;
+}
+
+// ─────────────────────────────────────────────
+// GENERATE & RENDER
+// ─────────────────────────────────────────────
+function generateAll() {
+  const pages = getPages();
+  if (!pages.length) { showToast('No data to generate!'); return; }
+
+  const fillColor = document.getElementById('panelFill').value;
+  const strokeColor = document.getElementById('panelStroke').value;
+  const strokeW = parseInt(document.getElementById('strokeWidth').value)||8;
+
+  const canvasArea = document.getElementById('canvasArea');
+  canvasArea.innerHTML = '';
+
+  pages.forEach(({pg, chp}) => {
+    const pgNum = parseInt((pg.match(/\d+/)||[1])[0]);
+    const ps = pageSettings[pg] || { mode:'safe', gutter:12 };
+    const pageRows = rows.filter(r => r.pg === pg);
+    const panelRects = computePanelRects(pageRows, ps.mode, ps.gutter, ps.flow||'v-first');
+    console.log('PAGE:', pg, '| Raw rows ('+pageRows.length+'):', pageRows.map(r => r.pnl+'@'+r.row+' lh='+r.lh));
+    console.log('PAGE:', pg, '| Rects ('+panelRects.length+'):', panelRects.map(r => r.pnl+' x='+r.x.toFixed(0)+' y='+r.y.toFixed(0)+' w='+r.w.toFixed(0)+' h='+r.h.toFixed(0)));
+
+    const svgStr = buildSVG(pg, pgNum, panelRects, fillColor, strokeColor, strokeW);
+
+    const w = Math.round(PAGE_W * scale);
+    const h = Math.round(PAGE_H * scale);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'page-thumb-wrap';
+    wrap.innerHTML = `<div class="page-label">${chp} · ${pg} · ${pgNum%2!==0?'LEFT (ODD)':'RIGHT (EVEN)'} · ${pageRows.length} panels · mode: ${ps.mode}</div>`;
+
+    const container = document.createElement('div');
+    container.className = 'page-output';
+    container.style.width = w + 'px';
+    container.style.height = h + 'px';
+    container.style.overflow = 'hidden';
+    container.style.position = 'relative';
+    container.dataset.svg = svgStr;
+    container.dataset.pg = pg;
+
+    // Render inline SVG scaled via transform
+    const svgWrap = document.createElement('div');
+    svgWrap.style.position = 'absolute';
+    svgWrap.style.top = '0';
+    svgWrap.style.left = '0';
+    svgWrap.style.transformOrigin = 'top left';
+    svgWrap.style.transform = `scale(${scale})`;
+    svgWrap.style.width = PAGE_W + 'px';
+    svgWrap.style.height = PAGE_H + 'px';
+    svgWrap.innerHTML = svgStr;
+    container.appendChild(svgWrap);
+    wrap.appendChild(container);
+    canvasArea.appendChild(wrap);
+  });
+  showToast(`Generated ${pages.length} page(s)`);
+}
+
+// ─────────────────────────────────────────────
+// EXPORT SVG
+// ─────────────────────────────────────────────
+function exportAllSVG() {
+  const containers = document.querySelectorAll('.page-output[data-svg]');
+  if (!containers.length) { showToast('Generate pages first!'); return; }
+  containers.forEach(c => {
+    const svgStr = c.dataset.svg;
+    const pg = c.dataset.pg.replace(/\s/g,'_');
+    const blob = new Blob([svgStr], {type:'image/svg+xml'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `manga_${pg}.svg`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+  showToast(`Exported ${containers.length} SVG file(s)`);
+}
+
+// ─────────────────────────────────────────────
+// EXPORT EXCEL (CSV-based .xlsx via sheetjs)
+// ─────────────────────────────────────────────
+async function exportExcel() {
+  if (!rows.length) { showToast('No data to export!'); return; }
+  try {
+    const XLSX = await loadSheetJS();
+    const headers = ['Chapter No.','Scene No.','Page No.','Panel No.','Row No.','Panel (L x H in %)','Total Max Panel L per row (/100)','Total Max Panel H per row (/100)'];
+    const data = [headers, ...rows.map(r => [r.chp, r.scn, r.pg, r.pnl, r.row, r.lh, r.maxL, r.maxH])];
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Panels');
+    XLSX.writeFile(wb, 'manga_panels.xlsx');
+    showToast('Excel exported!');
+  } catch(e) {
+    // fallback CSV
+    const headers = 'Chapter No.,Scene No.,Page No.,Panel No.,Row No.,Panel (L x H in %),Total Max Panel L per row (/100),Total Max Panel H per row (/100)';
+    const csv = [headers, ...rows.map(r => [r.chp,r.scn,r.pg,r.pnl,r.row,r.lh,r.maxL,r.maxH].join(','))].join('\n');
+    const blob = new Blob([csv], {type:'text/csv'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'manga_panels.csv'; a.click();
+    URL.revokeObjectURL(url);
+    showToast('Exported as CSV (SheetJS unavailable)');
+  }
+}
+
+function loadSheetJS() {
+  return new Promise((res, rej) => {
+    if (window.XLSX) { res(window.XLSX); return; }
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload = () => res(window.XLSX);
+    s.onerror = () => rej(new Error('SheetJS failed'));
+    document.head.appendChild(s);
+  });
+}
+
+// ─────────────────────────────────────────────
+// IMPORT FILE
+// ─────────────────────────────────────────────
+function handleFileImport(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (file.name.endsWith('.csv')) {
+    const reader = new FileReader();
+    reader.onload = e => parseCSVText(e.target.result);
+    reader.readAsText(file);
+  } else {
+    loadSheetJS().then(XLSX => {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const wb = XLSX.read(e.target.result, {type:'array'});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_csv(ws);
+        parseCSVText(data);
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  }
+  event.target.value = '';
+}
+
+function onDragOver(e) { e.preventDefault(); document.getElementById('dropZone').classList.add('drag-over'); }
+function onDragLeave(e) { document.getElementById('dropZone').classList.remove('drag-over'); }
+function onDrop(e) {
+  e.preventDefault();
+  document.getElementById('dropZone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) {
+    const fakeEvent = { target: { files: [file], value: '' } };
+    handleFileImport(fakeEvent);
+  }
+}
+
+function parsePastedCSV() {
+  const text = document.getElementById('pasted-csv').value.trim();
+  if (!text) { showToast('Nothing to parse!'); return; }
+  parseCSVText(text);
+}
+
+function parseCSVText(text) {
+  // Normalise line endings
+  text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+  // Detect delimiter: tab (Excel copy-paste) or comma
+  const firstLine = text.split('\n')[0];
+  const delimiter = firstLine.includes('\t') ? '\t' : ',';
+
+  const lines = text.trim().split('\n').map(l => l.trim()).filter(Boolean);
+  // Only skip first line if it looks like a header (contains 'chapter no' or 'panel no' or 'page no')
+  // Data rows start with 'CHP 2' etc. so we must NOT skip them
+  const firstLower = lines[0].toLowerCase();
+  const isHeader = firstLower.includes('chapter no') || firstLower.includes('panel no') || firstLower.includes('page no') || firstLower.includes('scene no');
+  const startLine = isHeader ? 1 : 0;
+
+  rows = [];
+  for (let i = startLine; i < lines.length; i++) {
+    const cols = lines[i].split(delimiter).map(c => c.trim().replace(/^"|"$/g, ''));
+    if (cols.length < 6) continue;
+
+    // Accept "100/100" or "100" for MaxL/MaxH — take first number
+    function parseMax(val, fallback) {
+      if (!val) return fallback;
+      const m = val.toString().match(/[\d.]+/);
+      return m ? m[0] : fallback;
+    }
+
+    // Normalise LxH: accept "30x50", "30X50", "30 x 50"
+    const lh = (cols[5]||'').replace(/\s/g,'').replace(/[Xx\*]/,'x');
+
+    rows.push({
+      chp: cols[0]||'', scn: cols[1]||'', pg: cols[2]||'',
+      pnl: cols[3]||'', row: cols[4]||'', lh: lh||'',
+      maxL: parseMax(cols[6], '100'),
+      maxH: parseMax(cols[7], '50')
+    });
+  }
+  renderTable();
+  refreshPageSettings();
+  showToast('Imported ' + rows.length + ' rows');
+  switchTab('pages');
+}
+
+// ─────────────────────────────────────────────
+// SAMPLE DATA (matches the screenshot)
+// ─────────────────────────────────────────────
+function loadSampleData() {
+  const sample = `CHP 2,S1,PG 1,PNL 1,RW 1,30x50,100,50
+CHP 2,S1,PG 1,PNL 2,RW 1,30x50,100,50
+CHP 2,S1,PG 1,PNL 3,RW 1,40x25,100,50
+CHP 2,S1,PG 1,PNL 4,RW 1,40x25,100,50
+CHP 2,S1,PG 1,PNL 5,RW 2,40x50,100,50
+CHP 2,S1,PG 1,PNL 6,RW 2,30x50,100,50
+CHP 2,S1,PG 1,PNL 7,RW 2,30x50,100,50
+CHP 2,S1,PG 2,PNL 1,RW 1,100x40,100,40
+CHP 2,S1,PG 2,PNL 2,RW 2,50x35,100,35
+CHP 2,S1,PG 2,PNL 3,RW 2,50x35,100,35
+CHP 2,S1,PG 2,PNL 4,RW 3,40x25,100,25
+CHP 2,S1,PG 2,PNL 5,RW 3,60x25,100,25`;
+  parseCSVText(sample);
+}
+
+// ─────────────────────────────────────────────
+// TOAST
+// ─────────────────────────────────────────────
+let toastTimer;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+}
+
+// Init
+renderTable();
+</script>
+
+<!-- BUBBLE EDITOR PANEL -->
+<div id="bubblePanel">
+  <div class="bp-section" style="display:flex;align-items:center;justify-content:space-between;">
+    <span style="font-family:'Bebas Neue',sans-serif;font-size:16px;color:var(--accent);">BUBBLE EDITOR</span>
+    <button class="btn small" onclick="toggleBubblePanel()">✕</button>
+  </div>
+  <div class="bp-section" id="bp-nosel" style="color:var(--text3);font-size:11px;">Click a bubble to edit it.</div>
+  <div id="bp-editor" style="display:none;">
+    <div class="bp-section">
+      <div class="bp-title">Type</div>
+      <select id="bp-type" style="width:100%;" onchange="bpUpdate('type',this.value)">
+        <option value="circle">Circle – Dialogue</option>
+        <option value="square">Square – Narration</option>
+        <option value="rectangle">Rectangle – Titles</option>
+        <option value="thought">Cloud – Thoughts</option>
+        <option value="fading">Cloud – Fading Speech</option>
+        <option value="dashed">Dashed – Whisper</option>
+        <option value="bold">Bold Circle – Intense</option>
+        <option value="spiked">Spiked – Yelling</option>
+        <option value="lilypad">Lilypad – Off-panel</option>
+      </select>
+    </div>
+    <div class="bp-section">
+      <div class="bp-title">Speaker</div>
+      <input id="bp-speaker" type="text" style="width:100%" placeholder="Speaker name" oninput="bpUpdate('speaker',this.value)">
+    </div>
+    <div class="bp-section">
+      <div class="bp-title">Text</div>
+      <textarea id="bp-text" style="width:100%;min-height:60px;" oninput="bpUpdate('text',this.value)"></textarea>
+    </div>
+    <div class="bp-section">
+      <div class="bp-title">Font</div>
+      <div class="bp-row">
+        <label>Family</label>
+        <select id="bp-font" onchange="bpUpdate('font',this.value)" style="flex:1">
+          <option value="Bangers">Bangers (Manga)</option>
+          <option value="Permanent Marker">Permanent Marker</option>
+          <option value="Caveat">Caveat (Handwritten)</option>
+          <option value="custom1">Custom 1</option>
+          <option value="custom2">Custom 2</option>
+        </select>
+      </div>
+      <div class="bp-row">
+        <label>Size</label>
+        <input id="bp-fsize" type="number" min="6" max="200" value="16" oninput="bpUpdate('fontSize',+this.value)">
+      </div>
+      <div class="bp-row" style="gap:4px;">
+        <button class="font-btn" id="bp-bold" onclick="bpToggle('bold')"><b>B</b></button>
+        <button class="font-btn" id="bp-italic" onclick="bpToggle('italic')"><i>I</i></button>
+      </div>
+    </div>
+    <div class="bp-section">
+      <div class="bp-title">Position &amp; Size (px at preview scale)</div>
+      <div class="bp-row"><label>X</label><input id="bp-x" type="number" oninput="bpUpdatePos()"></div>
+      <div class="bp-row"><label>Y</label><input id="bp-y" type="number" oninput="bpUpdatePos()"></div>
+      <div class="bp-row"><label>W</label><input id="bp-w" type="number" min="20" oninput="bpUpdatePos()"></div>
+      <div class="bp-row"><label>H</label><input id="bp-h" type="number" min="20" oninput="bpUpdatePos()"></div>
+      <div class="bp-row"><label>Rotate°</label><input id="bp-rot" type="number" value="0" oninput="bpUpdatePos()"></div>
+    </div>
+    <div class="bp-section">
+      <div class="bp-title">Tail</div>
+      <div class="bp-row"><label>Angle°</label><input id="bp-tail-angle" type="number" value="225" min="0" max="360" oninput="bpUpdate('tailAngle',+this.value)"></div>
+      <div class="bp-row"><label>Length</label><input id="bp-tail-len" type="number" value="30" min="5" max="300" oninput="bpUpdate('tailLen',+this.value)"></div>
+    </div>
+    <div class="bp-section">
+      <div class="bp-title">Lock</div>
+      <div class="lock-row">
+        <button class="lock-btn" id="lock-move" onclick="bpLockToggle('move')">🔒 Move</button>
+        <button class="lock-btn" id="lock-resize" onclick="bpLockToggle('resize')">🔒 Resize</button>
+        <button class="lock-btn" id="lock-rotate" onclick="bpLockToggle('rotate')">🔒 Rotate</button>
+      </div>
+    </div>
+    <div class="bp-section">
+      <button class="btn danger" style="width:100%" onclick="deleteSelectedBubble()">Delete Bubble</button>
+    </div>
+  </div>
+</div>
+
+
+<script>
+// ═══════════════════════════════════════════════════
+// SPEECH BUBBLE SYSTEM
+// ═══════════════════════════════════════════════════
+
+const BUBBLE_FONTS = {
+  'Bangers': 'Bangers, cursive',
+  'Permanent Marker': '"Permanent Marker", cursive',
+  'Caveat': 'Caveat, cursive',
+  'custom1': 'CustomFont1, sans-serif',
+  'custom2': 'CustomFont2, sans-serif',
+};
+
+// bubbles[pageKey] = array of bubble data objects
+const bubbles = {};
+let selectedBubble = null;  // { el, data, pgKey }
+let customFontCount = 0;
+
+// ── BUBBLE DATA DEFAULTS ──
+function defaultBubble(type, text, speaker) {
+  return {
+    id: 'b' + Date.now() + Math.random().toString(36).slice(2,6),
+    type, text, speaker: speaker||'',
+    x: 80, y: 80, w: 120, h: 80,
+    rotate: 0,
+    font: 'Bangers', fontSize: 16,
+    bold: false, italic: false,
+    tailAngle: 225, tailLen: 36,
+    lockMove: false, lockResize: false, lockRotate: false,
+  };
+}
+
+// ── PARSE PASTED BUBBLE DATA ──
+function importBubbles() {
+  const raw = document.getElementById('bubblePaste').value.trim();
+  if (!raw) { showToast('Nothing to import!'); return; }
+  const pg = document.getElementById('bubbleTargetPage').value;
+  if (!pg) { showToast('Select a page first'); return; }
+
+  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+  const startI = lines[0].toLowerCase().includes('speech') ? 1 : 0;
+  const added = [];
+
+  for (let i = startI; i < lines.length; i++) {
+    const cols = lines[i].split('\t').map(c => c.trim());
+    if (cols.length < 1) continue;
+    const typeRaw = cols[0] || 'circle';
+    const speaker = cols[1] || '';
+    const text    = cols[2] || cols[1] || '';
+    const type    = parseType(typeRaw);
+    const b = defaultBubble(type, text, speaker);
+    // Offset each bubble so they don't all stack
+    b.x = 80 + added.length * 20;
+    b.y = 80 + added.length * 20;
+    added.push(b);
+  }
+
+  if (!bubbles[pg]) bubbles[pg] = [];
+  bubbles[pg].push(...added);
+  renderBubblesOnPage(pg);
+  showToast(`Added ${added.length} bubble(s) to ${pg}`);
+}
+
+function parseType(raw) {
+  const r = raw.toLowerCase();
+  if (r.includes('spiked') || r.includes('yell')) return 'spiked';
+  if (r.includes('thought') || (r.includes('cloud') && r.includes('dot'))) return 'thought';
+  if (r.includes('fad') || r.includes('weak')) return 'fading';
+  if (r.includes('dashed') || r.includes('whisper')) return 'dashed';
+  if (r.includes('bold') || r.includes('intense') || r.includes('monster')) return 'bold';
+  if (r.includes('lily') || r.includes('off')) return 'lilypad';
+  if (r.includes('square') || r.includes('narrat') || r.includes('inner')) return 'square';
+  if (r.includes('rect') || r.includes('title')) return 'rectangle';
+  return 'circle';
+}
+
+// ── RENDER BUBBLES ON A PAGE ──
+function renderBubblesOnPage(pg) {
+  // Find page container
+  const containers = document.querySelectorAll('.page-output[data-pg]');
+  for (const cont of containers) {
+    if (cont.dataset.pg === pg) {
+      // Remove existing overlay
+      const existing = cont.querySelector('.bubble-overlay');
+      if (existing) existing.remove();
+
+      const overlay = document.createElement('div');
+      overlay.className = 'bubble-overlay';
+      cont.appendChild(overlay);
+
+      (bubbles[pg] || []).forEach(b => {
+        const el = createBubbleEl(b, pg);
+        overlay.appendChild(el);
+      });
+      break;
+    }
+  }
+}
+
+function renderAllBubbles() {
+  for (const pg of Object.keys(bubbles)) {
+    renderBubblesOnPage(pg);
+  }
+}
+
+// ── CREATE BUBBLE DOM ELEMENT ──
+function createBubbleEl(b, pgKey) {
+  const wrap = document.createElement('div');
+  wrap.className = 'bubble-wrap';
+  wrap.dataset.id = b.id;
+  wrap.style.left   = b.x + 'px';
+  wrap.style.top    = b.y + 'px';
+  wrap.style.width  = b.w + 'px';
+  wrap.style.height = b.h + 'px';
+  wrap.style.transform = `rotate(${b.rotate}deg)`;
+
+  // SVG shape
+  const svg = buildBubbleSVG(b);
+  wrap.appendChild(svg);
+
+  // Text layer
+  const textDiv = document.createElement('div');
+  textDiv.className = 'bubble-text';
+  textDiv.style.fontFamily  = BUBBLE_FONTS[b.font] || BUBBLE_FONTS['Bangers'];
+  textDiv.style.fontSize    = b.fontSize + 'px';
+  textDiv.style.fontWeight  = b.bold   ? 'bold'   : 'normal';
+  textDiv.style.fontStyle   = b.italic ? 'italic' : 'normal';
+  textDiv.textContent = b.text;
+  wrap.appendChild(textDiv);
+
+  // Handles
+  const resizeH = document.createElement('div');
+  resizeH.className = 'resize-handle';
+  wrap.appendChild(resizeH);
+
+  const rotateH = document.createElement('div');
+  rotateH.className = 'rotate-handle';
+  wrap.appendChild(rotateH);
+
+  // Tail handle (only for types that need it)
+  if (['circle','thought','fading','dashed','bold','spiked'].includes(b.type)) {
+    const tailH = document.createElement('div');
+    tailH.className = 'tail-handle';
+    positionTailHandle(tailH, b);
+    wrap.appendChild(tailH);
+    setupTailDrag(tailH, b, pgKey, wrap);
+  }
+
+  // Interaction
+  setupDrag(wrap, b, pgKey);
+  setupResize(resizeH, wrap, b, pgKey);
+  setupRotate(rotateH, wrap, b, pgKey);
+
+  wrap.addEventListener('mousedown', (e) => {
+    if (e.target === resizeH || e.target === rotateH) return;
+    selectBubble(wrap, b, pgKey);
+  });
+
+  return wrap;
+}
+
+// ── POSITION TAIL HANDLE ON PERIMETER ──
+function positionTailHandle(handle, b) {
+  const angle = (b.tailAngle * Math.PI) / 180;
+  const rx = b.w / 2, ry = b.h / 2;
+  // Ellipse perimeter point
+  const px = rx + rx * Math.cos(angle);
+  const py = ry + ry * Math.sin(angle);
+  handle.style.left = px + 'px';
+  handle.style.top  = py + 'px';
+}
+
+// ── BUILD SVG SHAPE ──
+function buildBubbleSVG(b) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.classList.add('bubble-svg');
+  svg.setAttribute('width', b.w);
+  svg.setAttribute('height', b.h);
+  svg.setAttribute('viewBox', `0 0 ${b.w} ${b.h}`);
+  svg.style.position = 'absolute';
+  svg.style.top = '0'; svg.style.left = '0';
+  svg.style.overflow = 'visible';
+
+  const cx = b.w/2, cy = b.h/2;
+  const rx = b.w/2 - 4, ry = b.h/2 - 4;
+
+  // Compute tail tip point
+  const tailAngleRad = (b.tailAngle * Math.PI) / 180;
+  const baseX = cx + rx * Math.cos(tailAngleRad);
+  const baseY = cy + ry * Math.sin(tailAngleRad);
+  const tipX  = cx + (rx + b.tailLen) * Math.cos(tailAngleRad);
+  const tipY  = cy + (ry + b.tailLen) * Math.sin(tailAngleRad);
+  const perpAngle = tailAngleRad + Math.PI/2;
+  const halfW = 10;
+  const p1x = baseX + halfW * Math.cos(perpAngle);
+  const p1y = baseY + halfW * Math.sin(perpAngle);
+  const p2x = baseX - halfW * Math.cos(perpAngle);
+  const p2y = baseY - halfW * Math.sin(perpAngle);
+
+  switch (b.type) {
+    case 'circle': {
+      drawEllipse(svg, cx, cy, rx, ry, 2.5, '#000', '#fff');
+      if (b.tailLen > 0) drawTailTriangle(svg, tipX, tipY, p1x, p1y, p2x, p2y, '#000', '#fff');
+      break;
+    }
+    case 'bold': {
+      drawEllipse(svg, cx, cy, rx, ry, 5, '#000', '#fff');
+      if (b.tailLen > 0) drawTailTriangle(svg, tipX, tipY, p1x, p1y, p2x, p2y, '#000', '#fff', 5);
+      break;
+    }
+    case 'square': {
+      drawRect(svg, 4, 4, b.w-8, b.h-8, 2.5, '#000', '#fff');
+      break;
+    }
+    case 'rectangle': {
+      // Double border rectangle (title box)
+      drawRect(svg, 4, 4, b.w-8, b.h-8, 2.5, '#000', '#fff');
+      drawRect(svg, 8, 8, b.w-16, b.h-16, 1.5, '#000', 'none');
+      break;
+    }
+    case 'thought': {
+      drawCloud(svg, cx, cy, rx, ry, '#000', '#fff', false);
+      if (b.tailLen > 0) drawThoughtTail(svg, tipX, tipY, baseX, baseY, b.tailLen, false);
+      break;
+    }
+    case 'fading': {
+      drawCloud(svg, cx, cy, rx, ry, '#000', '#fff', true);
+      if (b.tailLen > 0) drawThoughtTail(svg, tipX, tipY, baseX, baseY, b.tailLen, true);
+      break;
+    }
+    case 'dashed': {
+      drawEllipse(svg, cx, cy, rx, ry, 2.5, '#000', '#fff', '7,5');
+      if (b.tailLen > 0) drawDashedTail(svg, tipX, tipY, p1x, p1y, p2x, p2y);
+      break;
+    }
+    case 'spiked': {
+      drawSpiked(svg, cx, cy, rx, ry);
+      if (b.tailLen > 0) drawTailTriangle(svg, tipX, tipY, p1x, p1y, p2x, p2y, '#000', '#fff');
+      break;
+    }
+    case 'lilypad': {
+      drawLilypad(svg, cx, cy, rx, ry, b.tailAngle, b.tailLen);
+      break;
+    }
+  }
+  return svg;
+}
+
+function drawEllipse(svg, cx,cy,rx,ry, sw, stroke, fill, dash='') {
+  const el = document.createElementNS('http://www.w3.org/2000/svg','ellipse');
+  el.setAttribute('cx',cx); el.setAttribute('cy',cy);
+  el.setAttribute('rx',rx); el.setAttribute('ry',ry);
+  el.setAttribute('stroke',stroke); el.setAttribute('stroke-width',sw);
+  el.setAttribute('fill',fill);
+  if (dash) el.setAttribute('stroke-dasharray',dash);
+  svg.appendChild(el);
+}
+
+function drawRect(svg, x,y,w,h, sw, stroke, fill) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg','rect');
+  el.setAttribute('x',x); el.setAttribute('y',y);
+  el.setAttribute('width',w); el.setAttribute('height',h);
+  el.setAttribute('stroke',stroke); el.setAttribute('stroke-width',sw);
+  el.setAttribute('fill',fill);
+  svg.appendChild(el);
+}
+
+function drawTailTriangle(svg, tipX,tipY, p1x,p1y, p2x,p2y, stroke='#000', fill='#fff', sw=2.5) {
+  const poly = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+  poly.setAttribute('points',`${tipX},${tipY} ${p1x},${p1y} ${p2x},${p2y}`);
+  poly.setAttribute('stroke',stroke); poly.setAttribute('stroke-width',sw);
+  poly.setAttribute('fill',fill);
+  svg.insertBefore(poly, svg.firstChild); // behind ellipse
+}
+
+function drawCloud(svg, cx,cy,rx,ry, stroke,fill, curly) {
+  // Generate a bumpy cloud path around the ellipse
+  const numBumps = Math.round((rx+ry)/14);
+  let path = '';
+  for (let i = 0; i < numBumps; i++) {
+    const a1 = (i / numBumps) * Math.PI * 2;
+    const a2 = ((i+1) / numBumps) * Math.PI * 2;
+    const aMid = (a1+a2)/2;
+    const bumpR = 0.13;
+    const ox = cx + rx * Math.cos(aMid);
+    const oy = cy + ry * Math.sin(aMid);
+    const x1 = cx + rx*(1+bumpR)*Math.cos(a1);
+    const y1 = cy + ry*(1+bumpR)*Math.sin(a1);
+    const x2 = cx + rx*(1+bumpR)*Math.cos(a2);
+    const y2 = cy + ry*(1+bumpR)*Math.sin(a2);
+    if (i===0) path += `M ${x1} ${y1} `;
+    path += `Q ${ox*(1+bumpR*1.5)} ${oy*(1+bumpR*1.5)} ${x2} ${y2} `;
+  }
+  path += 'Z';
+  const el = document.createElementNS('http://www.w3.org/2000/svg','path');
+  el.setAttribute('d', path);
+  el.setAttribute('stroke',stroke); el.setAttribute('stroke-width',2.5);
+  el.setAttribute('fill',fill);
+  svg.appendChild(el);
+}
+
+function drawThoughtTail(svg, tipX,tipY, baseX,baseY, len, curly) {
+  const steps = curly ? 3 : 4;
+  for (let i = 0; i < steps; i++) {
+    const t = (i+1)/(steps+1);
+    const x = baseX + (tipX-baseX)*t;
+    const y = baseY + (tipY-baseY)*t;
+    const r = curly ? (6-i*1.2) : (7-i*1.5);
+    if (curly) {
+      // Curly fading: small spiral-ish circles
+      const el = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      el.setAttribute('cx',x); el.setAttribute('cy',y); el.setAttribute('r',Math.max(2,r));
+      el.setAttribute('stroke','#000'); el.setAttribute('stroke-width',1.5);
+      el.setAttribute('fill','#fff');
+      svg.appendChild(el);
+    } else {
+      const el = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      el.setAttribute('cx',x); el.setAttribute('cy',y); el.setAttribute('r',Math.max(2,r));
+      el.setAttribute('stroke','#000'); el.setAttribute('stroke-width',1.5);
+      el.setAttribute('fill','#fff');
+      svg.appendChild(el);
+    }
+  }
+}
+
+function drawDashedTail(svg, tipX,tipY, p1x,p1y, p2x,p2y) {
+  const poly = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+  poly.setAttribute('points',`${tipX},${tipY} ${p1x},${p1y} ${p2x},${p2y}`);
+  poly.setAttribute('stroke','#000'); poly.setAttribute('stroke-width',2);
+  poly.setAttribute('stroke-dasharray','7,5');
+  poly.setAttribute('fill','#fff');
+  svg.insertBefore(poly, svg.firstChild);
+}
+
+function drawSpiked(svg, cx,cy,rx,ry) {
+  const spikes = 16;
+  let pts = '';
+  for (let i = 0; i < spikes*2; i++) {
+    const a = (i/spikes/2) * Math.PI * 2 - Math.PI/2;
+    const r = i%2===0 ? 1 : 0.7;
+    pts += `${cx + rx*r*Math.cos(a)},${cy + ry*r*Math.sin(a)} `;
+  }
+  const poly = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+  poly.setAttribute('points', pts.trim());
+  poly.setAttribute('stroke','#000'); poly.setAttribute('stroke-width',2);
+  poly.setAttribute('fill','#fff');
+  svg.appendChild(poly);
+}
+
+function drawLilypad(svg, cx,cy,rx,ry, tailAngle, tailLen) {
+  // Lilypad: ellipse with an inward notch at tail angle
+  const a = (tailAngle * Math.PI)/180;
+  // Entry point on perimeter
+  const ex = cx + rx*Math.cos(a), ey = cy + ry*Math.sin(a);
+  // Draw ellipse via arc path with a dent
+  const notchDepth = Math.min(rx,ry) * 0.4;
+  const notchW = 0.25; // radians
+  const a1 = a - notchW, a2 = a + notchW;
+  const x1 = cx + rx*Math.cos(a1), y1 = cy + ry*Math.sin(a1);
+  const x2 = cx + rx*Math.cos(a2), y2 = cy + ry*Math.sin(a2);
+  const ix = cx + (rx-notchDepth)*Math.cos(a), iy = cy + (ry-notchDepth)*Math.sin(a);
+
+  const bigArc = 1;
+  const path = `M ${x1} ${y1} A ${rx} ${ry} 0 ${bigArc} 1 ${x2} ${y2} Q ${ix} ${iy} ${x1} ${y1} Z`;
+  // Full ellipse behind
+  drawEllipse(svg, cx,cy,rx,ry,2.5,'#000','#fff');
+  // Notch on top
+  const notch = document.createElementNS('http://www.w3.org/2000/svg','path');
+  notch.setAttribute('d', `M ${x1} ${y1} Q ${ix} ${iy} ${x2} ${y2}`);
+  notch.setAttribute('stroke','#000'); notch.setAttribute('stroke-width',2.5);
+  notch.setAttribute('fill','none');
+  svg.appendChild(notch);
+}
+
+// ── INTERACTION: DRAG ──
+function setupDrag(wrap, b, pgKey) {
+  let dragging=false, ox=0, oy=0;
+  wrap.addEventListener('mousedown', e => {
+    if (b.lockMove) return;
+    if (e.target.classList.contains('resize-handle') || e.target.classList.contains('rotate-handle') || e.target.classList.contains('tail-handle')) return;
+    dragging=true;
+    ox = e.clientX - b.x;
+    oy = e.clientY - b.y;
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    b.x = e.clientX - ox;
+    b.y = e.clientY - oy;
+    wrap.style.left = b.x+'px';
+    wrap.style.top  = b.y+'px';
+    if (selectedBubble && selectedBubble.data.id === b.id) syncBPFields(b);
+  });
+  document.addEventListener('mouseup', () => { dragging=false; });
+}
+
+// ── INTERACTION: RESIZE ──
+function setupResize(handle, wrap, b, pgKey) {
+  let resizing=false, sx=0, sy=0, sw=0, sh=0;
+  handle.addEventListener('mousedown', e => {
+    if (b.lockResize) return;
+    resizing=true; sx=e.clientX; sy=e.clientY; sw=b.w; sh=b.h;
+    e.preventDefault(); e.stopPropagation();
+  });
+  document.addEventListener('mousemove', e => {
+    if (!resizing) return;
+    b.w = Math.max(40, sw + (e.clientX-sx));
+    b.h = Math.max(30, sh + (e.clientY-sy));
+    wrap.style.width  = b.w+'px';
+    wrap.style.height = b.h+'px';
+    rebuildBubbleSVG(wrap, b);
+    positionTailHandleOnEl(wrap, b);
+    if (selectedBubble && selectedBubble.data.id===b.id) syncBPFields(b);
+  });
+  document.addEventListener('mouseup', () => { resizing=false; });
+}
+
+// ── INTERACTION: ROTATE ──
+function setupRotate(handle, wrap, b, pgKey) {
+  let rotating=false, cx=0, cy=0;
+  handle.addEventListener('mousedown', e => {
+    if (b.lockRotate) return;
+    rotating=true;
+    const r = wrap.getBoundingClientRect();
+    cx = r.left + r.width/2; cy = r.top + r.height/2;
+    e.preventDefault(); e.stopPropagation();
+  });
+  document.addEventListener('mousemove', e => {
+    if (!rotating) return;
+    const angle = Math.atan2(e.clientY-cy, e.clientX-cx) * 180/Math.PI + 90;
+    b.rotate = Math.round(angle);
+    wrap.style.transform = `rotate(${b.rotate}deg)`;
+    if (selectedBubble && selectedBubble.data.id===b.id) syncBPFields(b);
+  });
+  document.addEventListener('mouseup', () => { rotating=false; });
+}
+
+// ── INTERACTION: TAIL DRAG ──
+function setupTailDrag(handle, b, pgKey, wrap) {
+  let dragging=false;
+  handle.addEventListener('mousedown', e => {
+    dragging=true; e.preventDefault(); e.stopPropagation();
+  });
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const wr = wrap.getBoundingClientRect();
+    const localX = e.clientX - wr.left - b.w/2;
+    const localY = e.clientY - wr.top  - b.h/2;
+    b.tailAngle = Math.atan2(localY, localX) * 180/Math.PI;
+    if (b.tailAngle < 0) b.tailAngle += 360;
+    positionTailHandleOnEl(wrap, b);
+    rebuildBubbleSVG(wrap, b);
+    if (selectedBubble && selectedBubble.data.id===b.id) {
+      document.getElementById('bp-tail-angle').value = Math.round(b.tailAngle);
+    }
+  });
+  document.addEventListener('mouseup', () => { dragging=false; });
+}
+
+function positionTailHandleOnEl(wrap, b) {
+  const tailH = wrap.querySelector('.tail-handle');
+  if (!tailH) return;
+  positionTailHandle(tailH, b);
+}
+
+function rebuildBubbleSVG(wrap, b) {
+  const old = wrap.querySelector('.bubble-svg');
+  if (old) old.remove();
+  const newSvg = buildBubbleSVG(b);
+  wrap.insertBefore(newSvg, wrap.firstChild);
+}
+
+// ── SELECT BUBBLE ──
+function selectBubble(el, data, pgKey) {
+  // Deselect previous
+  document.querySelectorAll('.bubble-wrap.selected').forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedBubble = { el, data, pgKey };
+  document.getElementById('bp-nosel').style.display = 'none';
+  document.getElementById('bp-editor').style.display = 'block';
+  syncBPFields(data);
+  document.getElementById('bubblePanel').classList.add('open');
+}
+
+function syncBPFields(b) {
+  document.getElementById('bp-type').value    = b.type;
+  document.getElementById('bp-speaker').value = b.speaker;
+  document.getElementById('bp-text').value    = b.text;
+  document.getElementById('bp-font').value    = b.font;
+  document.getElementById('bp-fsize').value   = b.fontSize;
+  document.getElementById('bp-bold').classList.toggle('active', b.bold);
+  document.getElementById('bp-italic').classList.toggle('active', b.italic);
+  document.getElementById('bp-x').value       = Math.round(b.x);
+  document.getElementById('bp-y').value       = Math.round(b.y);
+  document.getElementById('bp-w').value       = Math.round(b.w);
+  document.getElementById('bp-h').value       = Math.round(b.h);
+  document.getElementById('bp-rot').value     = Math.round(b.rotate);
+  document.getElementById('bp-tail-angle').value = Math.round(b.tailAngle);
+  document.getElementById('bp-tail-len').value   = Math.round(b.tailLen);
+  document.getElementById('lock-move').classList.toggle('active', b.lockMove);
+  document.getElementById('lock-resize').classList.toggle('active', b.lockResize);
+  document.getElementById('lock-rotate').classList.toggle('active', b.lockRotate);
+}
+
+// ── PANEL UPDATE FUNCTIONS ──
+function bpUpdate(field, val) {
+  if (!selectedBubble) return;
+  const b = selectedBubble.data;
+  b[field] = val;
+  const wrap = selectedBubble.el;
+  // Re-render text
+  const td = wrap.querySelector('.bubble-text');
+  if (td) {
+    td.textContent    = b.text;
+    td.style.fontFamily = BUBBLE_FONTS[b.font] || BUBBLE_FONTS['Bangers'];
+    td.style.fontSize   = b.fontSize+'px';
+    td.style.fontWeight = b.bold ? 'bold' : 'normal';
+    td.style.fontStyle  = b.italic ? 'italic' : 'normal';
+  }
+  rebuildBubbleSVG(wrap, b);
+  positionTailHandleOnEl(wrap, b);
+}
+
+function bpUpdatePos() {
+  if (!selectedBubble) return;
+  const b = selectedBubble.data;
+  b.x = +document.getElementById('bp-x').value;
+  b.y = +document.getElementById('bp-y').value;
+  b.w = +document.getElementById('bp-w').value;
+  b.h = +document.getElementById('bp-h').value;
+  b.rotate = +document.getElementById('bp-rot').value;
+  b.tailAngle = +document.getElementById('bp-tail-angle').value;
+  b.tailLen   = +document.getElementById('bp-tail-len').value;
+  const wrap = selectedBubble.el;
+  wrap.style.left      = b.x+'px';
+  wrap.style.top       = b.y+'px';
+  wrap.style.width     = b.w+'px';
+  wrap.style.height    = b.h+'px';
+  wrap.style.transform = `rotate(${b.rotate}deg)`;
+  rebuildBubbleSVG(wrap, b);
+  positionTailHandleOnEl(wrap, b);
+}
+
+function bpToggle(field) {
+  if (!selectedBubble) return;
+  selectedBubble.data[field] = !selectedBubble.data[field];
+  bpUpdate(field, selectedBubble.data[field]);
+  document.getElementById('bp-'+field).classList.toggle('active', selectedBubble.data[field]);
+}
+
+function bpLockToggle(field) {
+  if (!selectedBubble) return;
+  const key = 'lock'+field.charAt(0).toUpperCase()+field.slice(1);
+  selectedBubble.data[key] = !selectedBubble.data[key];
+  document.getElementById('lock-'+field).classList.toggle('active', selectedBubble.data[key]);
+}
+
+function deleteSelectedBubble() {
+  if (!selectedBubble) return;
+  const { el, data, pgKey } = selectedBubble;
+  bubbles[pgKey] = (bubbles[pgKey]||[]).filter(b => b.id !== data.id);
+  el.remove();
+  selectedBubble = null;
+  document.getElementById('bp-nosel').style.display = '';
+  document.getElementById('bp-editor').style.display = 'none';
+}
+
+function clearBubbles() {
+  const pg = document.getElementById('bubbleTargetPage').value;
+  if (!pg) return;
+  bubbles[pg] = [];
+  renderBubblesOnPage(pg);
+  showToast('Bubbles cleared for ' + pg);
+}
+
+function toggleBubblePanel() {
+  document.getElementById('bubblePanel').classList.toggle('open');
+}
+
+// ── CUSTOM FONT LOADING ──
+function loadCustomFont(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  customFontCount++;
+  const key = 'custom'+customFontCount;
+  const url = URL.createObjectURL(file);
+  const style = document.createElement('style');
+  style.textContent = `@font-face { font-family: 'CustomFont${customFontCount}'; src: url('${url}'); }`;
+  document.head.appendChild(style);
+  BUBBLE_FONTS[key] = `CustomFont${customFontCount}, sans-serif`;
+  // Add to select
+  const sel = document.getElementById('bp-font');
+  const opt = document.createElement('option');
+  opt.value = key;
+  opt.textContent = file.name.replace(/\.[^.]+$/,'') + ' (custom)';
+  // Replace placeholder
+  for (const o of sel.options) {
+    if (o.value === 'custom1' || o.value === 'custom2') { o.value = key; o.textContent = opt.textContent; break; }
+  }
+  showToast('Font loaded: ' + file.name);
+}
+
+// ── POPULATE BUBBLE PAGE SELECT when pages tab is opened ──
+const origSwitchTab = switchTab;
+// Patch switchTab to refresh bubble page select
+window.switchTab = function(tab) {
+  origSwitchTab(tab);
+  if (tab === 'pages') {
+    setTimeout(refreshBubblePageSelect, 100);
+  }
+};
+
+function refreshBubblePageSelect() {
+  const sel = document.getElementById('bubbleTargetPage');
+  if (!sel) return;
+  const pages = getPages();
+  sel.innerHTML = pages.map(({pg}) => `<option value="${pg}">${pg}</option>`).join('');
+}
+
+// Also re-render bubbles after generateAll
+const origGenerateAll = generateAll;
+window.generateAll = function() {
+  origGenerateAll();
+  setTimeout(renderAllBubbles, 100);
+  refreshBubblePageSelect();
+};
+
+// Deselect bubble when clicking outside
+document.addEventListener('mousedown', e => {
+  if (!e.target.closest('.bubble-wrap') && !e.target.closest('#bubblePanel')) {
+    document.querySelectorAll('.bubble-wrap.selected').forEach(el => el.classList.remove('selected'));
+    if (selectedBubble) {
+      selectedBubble = null;
+      document.getElementById('bp-nosel').style.display = '';
+      document.getElementById('bp-editor').style.display = 'none';
+    }
+  }
+});
+</script>
+
+
+<script>
+// ═══════════════════════════════════════════════════
+// MOBILE UI
+// ═══════════════════════════════════════════════════
+
+const isMobile = () => window.innerWidth <= 700;
+
+let currentMobileTab = 'data';
+
+// Content templates for each drawer tab
+function getMobileTabContent(tab) {
+  switch(tab) {
+    case 'data': return document.getElementById('tab-data').innerHTML;
+    case 'pages': return document.getElementById('tab-pages').innerHTML;
+    case 'bubbles': return `
+      <div style="padding:12px;">
+        <div class="section-title" style="margin-bottom:8px;">SPEECH BUBBLES</div>
+        <div style="color:var(--text3);font-size:10px;margin-bottom:6px;">Paste: Speech Type · Speaker · Dialogue</div>
+        <textarea id="m-bubblePaste" style="width:100%;min-height:80px;font-size:11px;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:3px;" placeholder="Circle – Dialogue&#9;Claude&#9;Hello!"></textarea>
+        <div style="display:flex;gap:6px;align-items:center;margin-top:6px;">
+          <label style="font-size:10px;color:var(--text2);white-space:nowrap">For page</label>
+          <select id="m-bubbleTargetPage" style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px;">
+            ${getPages().map(({pg}) => `<option value="${pg}">${pg}</option>`).join('')}
+          </select>
+        </div>
+        <button class="btn" style="width:100%;margin-top:6px" onclick="mobileImportBubbles()">+ Add Bubbles to Page</button>
+        <div style="margin-top:8px;display:flex;gap:6px;">
+          <button class="btn small danger" style="flex:1" onclick="mobileClearBubbles()">Clear Bubbles</button>
+        </div>
+        <div style="margin-top:10px;">
+          <label style="font-size:10px;color:var(--text2);display:block;margin-bottom:4px;">Import font (.ttf/.otf/.woff)</label>
+          <label style="display:block;cursor:pointer;">
+            <span class="btn small" style="pointer-events:none;width:100%;display:block;text-align:center;">📁 Browse Font File</span>
+            <input type="file" accept=".ttf,.otf,.woff,.woff2" style="display:none" onchange="loadCustomFont(event)">
+          </label>
+        </div>
+      </div>`;
+    case 'generate': return `
+      <div style="padding:12px;display:flex;flex-direction:column;gap:8px;">
+        <div class="section-title" style="margin-bottom:4px;">ACTIONS</div>
+        <button class="btn primary" style="width:100%;padding:12px" onclick="generateAll();closeDrawer()">⚡ Generate All Pages</button>
+        <button class="btn" style="width:100%;padding:12px" onclick="exportAllSVG()">↓ Export All SVGs</button>
+        <button class="btn" style="width:100%;padding:12px" onclick="exportExcel()">↓ Export Excel</button>
+        <div class="section-title" style="margin-top:8px;margin-bottom:4px;">PREVIEW SCALE</div>
+        <div class="range-row">
+          <input type="range" id="m-scaleSlider" min="3" max="15" value="6" oninput="updateScale(this.value);document.getElementById('m-scaleVal').textContent=this.value+'%'">
+          <span class="range-val" id="m-scaleVal">6%</span>
+        </div>
+      </div>`;
+    default: return '';
+  }
+}
+
+function openMobileTab(tab) {
+  if (!isMobile()) return;
+  currentMobileTab = tab;
+
+  // Update tab bar active state
+  document.querySelectorAll('#mobileTabBar button').forEach(b => b.classList.remove('active'));
+  const activeBtn = document.getElementById('mtab-' + tab);
+  if (activeBtn) activeBtn.classList.add('active');
+
+  // Inject content into drawer
+  const dc = document.getElementById('mobileDrawerContent');
+  dc.innerHTML = getMobileTabContent(tab);
+
+  // Re-bind events for cloned elements
+  if (tab === 'data') {
+    const fileInput = dc.querySelector('#fileInput');
+    if (fileInput) fileInput.addEventListener('change', handleFileImport);
+    const csvBtn = dc.querySelector('button[onclick="parsePastedCSV()"]');
+    if (csvBtn) csvBtn.onclick = () => {
+      const ta = dc.querySelector('#pasted-csv');
+      if (ta) { document.getElementById('pasted-csv').value = ta.value; }
+      parsePastedCSV();
+    };
+    const addBtn = dc.querySelector('button[onclick="addRow()"]');
+    if (addBtn) addBtn.onclick = addRow;
+    const clearBtn = dc.querySelector('button[onclick="clearAllRows()"]');
+    if (clearBtn) clearBtn.onclick = clearAllRows;
+    const sampleBtn = dc.querySelector('button[onclick="loadSampleData()"]');
+    if (sampleBtn) sampleBtn.onclick = loadSampleData;
+  }
+
+  openDrawer();
+}
+
+function openDrawer() {
+  const d = document.getElementById('mobileDrawer');
+  d.classList.add('open');
+}
+
+function closeDrawer() {
+  document.getElementById('mobileDrawer').classList.remove('open');
+}
+
+function mobileImportBubbles() {
+  const ta = document.getElementById('m-bubblePaste');
+  const sel = document.getElementById('m-bubbleTargetPage');
+  if (!ta || !sel) return;
+  document.getElementById('bubblePaste').value = ta.value;
+  document.getElementById('bubbleTargetPage').value = sel.value;
+  importBubbles();
+}
+
+function mobileClearBubbles() {
+  const sel = document.getElementById('m-bubbleTargetPage');
+  if (!sel) return;
+  document.getElementById('bubbleTargetPage').value = sel.value;
+  clearBubbles();
+}
+
+// Touch support for bubble dragging
+function addTouchSupport(wrap, b, pgKey) {
+  let startX, startY, startBX, startBY;
+
+  wrap.addEventListener('touchstart', e => {
+    if (b.lockMove) return;
+    const t = e.touches[0];
+    startX = t.clientX; startY = t.clientY;
+    startBX = b.x; startBY = b.y;
+    e.preventDefault();
+  }, { passive: false });
+
+  wrap.addEventListener('touchmove', e => {
+    const t = e.touches[0];
+    b.x = startBX + (t.clientX - startX);
+    b.y = startBY + (t.clientY - startY);
+    wrap.style.left = b.x + 'px';
+    wrap.style.top  = b.y + 'px';
+    e.preventDefault();
+  }, { passive: false });
+
+  wrap.addEventListener('touchend', () => {
+    if (selectedBubble && selectedBubble.data.id === b.id) syncBPFields(b);
+  });
+}
+
+// Patch createBubbleEl to also add touch support
+const origCreateBubbleEl = createBubbleEl;
+window.createBubbleEl = function(b, pgKey) {
+  const el = origCreateBubbleEl(b, pgKey);
+  addTouchSupport(el, b, pgKey);
+  return el;
+};
+
+// Swipe down to close drawer
+(function() {
+  const drawer = document.getElementById('mobileDrawer');
+  let startY = 0;
+  drawer.addEventListener('touchstart', e => { startY = e.touches[0].clientY; }, { passive: true });
+  drawer.addEventListener('touchend', e => {
+    const dy = e.changedTouches[0].clientY - startY;
+    if (dy > 60) closeDrawer();
+  }, { passive: true });
+})();
+
+// Close drawer on canvas tap
+document.getElementById('canvasArea').addEventListener('click', e => {
+  if (isMobile() && !e.target.closest('.bubble-wrap')) {
+    closeDrawer();
+  }
+});
+
+// Open data tab by default on mobile load
+window.addEventListener('DOMContentLoaded', () => {
+  if (isMobile()) {
+    openMobileTab('data');
+  }
+});
+</script>
+
+</body>
+</html>
