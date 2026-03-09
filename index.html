@@ -2460,7 +2460,16 @@ window.addEventListener('DOMContentLoaded',()=>{
       <button class="btn primary" style="flex:1" id="saveModalConfirm" onclick="confirmSaveLoad()">Confirm</button>
       <button class="btn" style="flex:1" onclick="closeSaveModal()">Cancel</button>
     </div>
-    <button style="background:none;border:none;color:var(--danger);font-size:10px;cursor:pointer;margin-top:8px;padding:0;"
+    <hr style="border-color:var(--border);margin:12px 0 10px;">
+    <p style="font-size:11px;color:var(--text3);margin-bottom:8px;">Or work with a local JSON file:</p>
+    <div style="display:flex;gap:8px;">
+      <button class="btn" style="flex:1" onclick="downloadJSON()">⬇ Download JSON</button>
+      <label style="flex:1;cursor:pointer;">
+        <span class="btn" style="pointer-events:none;width:100%;display:block;text-align:center;">⬆ Load JSON</span>
+        <input type="file" accept=".json" style="display:none" onchange="uploadJSON(event)">
+      </label>
+    </div>
+    <button style="background:none;border:none;color:var(--danger);font-size:10px;cursor:pointer;margin-top:10px;padding:0;"
       onclick="localStorage.removeItem('gh_token');document.getElementById('ghTokenInput').value='';showSaveStatus('Token cleared');">
       🗑 Forget saved token
     </button>
@@ -2586,16 +2595,7 @@ async function doLoad(token) {
     const data = JSON.parse(decodeURIComponent(escape(atob(j.content))));
 
     // Restore state
-    if (data.rows)         { rows = data.rows; renderTable(); }
-    if (data.pageSettings) { Object.assign(pageSettings, data.pageSettings); refreshPageSettings(); }
-    if (data.bubbles)      { Object.assign(bubbles, data.bubbles); }
-    if (data.globalSettings) {
-      const gs = data.globalSettings;
-      if (gs.scale)       { document.getElementById('scaleSlider').value = gs.scale; updateScale(gs.scale); }
-      if (gs.panelFill)   { document.getElementById('panelFill').value   = gs.panelFill; }
-      if (gs.panelStroke) { document.getElementById('panelStroke').value = gs.panelStroke; }
-      if (gs.strokeWidth) { document.getElementById('strokeWidth').value = gs.strokeWidth; }
-    }
+    restoreSaveData(data);
 
     showSaveStatus('✅ Loaded! Regenerating…', 'var(--success)');
     setTimeout(() => {
@@ -2605,6 +2605,51 @@ async function doLoad(token) {
     }, 800);
   } catch(e) {
     showSaveStatus('❌ ' + e.message, 'var(--danger)');
+  }
+}
+
+// ── LOCAL JSON DOWNLOAD / UPLOAD ──
+function downloadJSON() {
+  const data = JSON.stringify(buildSaveData(), null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const date = new Date().toISOString().slice(0,10);
+  a.href = url;
+  a.download = `manga-save-${date}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showSaveStatus('✅ JSON downloaded!', 'var(--success)');
+}
+
+function uploadJSON(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      restoreSaveData(data);
+      showSaveStatus('✅ Loaded from file!', 'var(--success)');
+      setTimeout(() => { generateAll(); closeSaveModal(); showToast('Session loaded from JSON ✅'); }, 800);
+    } catch(err) {
+      showSaveStatus('❌ Invalid JSON file', 'var(--danger)');
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+function restoreSaveData(data) {
+  if (data.rows)         { rows = data.rows; renderTable(); }
+  if (data.pageSettings) { Object.assign(pageSettings, data.pageSettings); refreshPageSettings(); }
+  if (data.bubbles)      { Object.assign(bubbles, data.bubbles); }
+  if (data.globalSettings) {
+    const gs = data.globalSettings;
+    if (gs.scale)       { document.getElementById('scaleSlider').value = gs.scale; updateScale(gs.scale); }
+    if (gs.panelFill)   { document.getElementById('panelFill').value   = gs.panelFill; }
+    if (gs.panelStroke) { document.getElementById('panelStroke').value = gs.panelStroke; }
+    if (gs.strokeWidth) { document.getElementById('strokeWidth').value = gs.strokeWidth; }
   }
 }
 
