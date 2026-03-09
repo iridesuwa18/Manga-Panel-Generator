@@ -2020,12 +2020,29 @@ function selectLayerById(pg, id) {
 function layerMove(pg, id, dir) {
   const bbs = bubbles[pg]||[];
   const i = bbs.findIndex(b=>b.id===id);
-  const j = i - dir; // reverse: higher index = lower layer visually
+  const j = i - dir;
   if (j<0||j>=bbs.length) return;
   [bbs[i],bbs[j]]=[bbs[j],bbs[i]];
   bbs.forEach((b,idx)=>{ b.zIndex=idx+1; });
   renderBubblesOnPage(pg);
   refreshLayersPanel(pg);
+}
+
+function getMobileLayers(pg) {
+  const bbs = bubbles[pg]||[];
+  if (!bbs.length) return '<div style="color:var(--text3);font-size:11px;padding:4px 0;">No bubbles yet.</div>';
+  return [...bbs].reverse().map((b) => {
+    const isSel = selectedBubble && selectedBubble.data.id === b.id;
+    return `<div class="layer-row ${isSel?'active':''}" style="border-radius:3px;margin-bottom:2px;"
+      onclick="selectLayerById('${pg}','${b.id}');setTimeout(()=>syncMobileBPFields(selectedBubble.data),30)">
+      <span class="layer-icon">${layerIcon(b.type)}</span>
+      <span class="layer-label">${b.speaker?b.speaker+': ':''}${b.text.slice(0,20)}${b.text.length>20?'…':''}</span>
+      <div class="layer-btns">
+        <button onclick="event.stopPropagation();layerMove('${pg}','${b.id}',1);refreshMobileLayers('${pg}')">↑</button>
+        <button onclick="event.stopPropagation();layerMove('${pg}','${b.id}',-1);refreshMobileLayers('${pg}')">↓</button>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 // ── CUSTOM FONT ──
