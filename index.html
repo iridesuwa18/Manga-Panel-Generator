@@ -175,6 +175,7 @@
     }
     .sidebar { display: none !important; }
     #bubblePanel { display: none !important; }
+    #mobileBubbleEditor { display: block; }
 
     .canvas-area {
       padding: 12px 8px;
@@ -1879,7 +1880,6 @@ function rebuildBubbleSVG(wrap, b) {
 
 // ── SELECT BUBBLE ──
 function selectBubble(el, data, pgKey) {
-  // Deselect previous
   document.querySelectorAll('.bubble-wrap.selected').forEach(e => e.classList.remove('selected'));
   el.classList.add('selected');
   selectedBubble = { el, data, pgKey };
@@ -1887,6 +1887,11 @@ function selectBubble(el, data, pgKey) {
   document.getElementById('bp-editor').style.display = 'block';
   syncBPFields(data);
   document.getElementById('bubblePanel').classList.add('open');
+  // Mobile: open bubbles drawer and sync fields there too
+  if (isMobile()) {
+    openMobileTab('bubbles');
+    setTimeout(() => syncMobileBPFields(data), 80);
+  }
 }
 
 function syncBPFields(b) {
@@ -2062,20 +2067,65 @@ function getMobileTabContent(tab) {
     case 'pages': return document.getElementById('tab-pages').innerHTML;
     case 'bubbles': return `
       <div style="padding:12px;">
-        <div class="section-title" style="margin-bottom:8px;">SPEECH BUBBLES</div>
+        <div class="section-title" style="margin-bottom:8px;">IMPORT BUBBLES</div>
         <div style="color:var(--text3);font-size:10px;margin-bottom:6px;">Paste: Speech Type · Speaker · Dialogue</div>
         <textarea id="m-bubblePaste" style="width:100%;min-height:80px;font-size:11px;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:3px;" placeholder="Circle – Dialogue&#9;Claude&#9;Hello!"></textarea>
         <div style="display:flex;gap:6px;align-items:center;margin-top:6px;">
           <label style="font-size:10px;color:var(--text2);white-space:nowrap">For page</label>
           <select id="m-bubbleTargetPage" style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px;">
-            ${getPages().map(({pg}) => `<option value="${pg}">${pg}</option>`).join('')}
+            ${getPages().map(({pg}) => '<option value="'+pg+'">'+pg+'</option>').join('')}
           </select>
         </div>
         <button class="btn" style="width:100%;margin-top:6px" onclick="mobileImportBubbles()">+ Add Bubbles to Page</button>
         <div style="margin-top:8px;display:flex;gap:6px;">
           <button class="btn small danger" style="flex:1" onclick="mobileClearBubbles()">Clear Bubbles</button>
         </div>
-        <div style="margin-top:10px;">
+        <hr style="border-color:var(--border);margin:12px 0;">
+        <div class="section-title" style="margin-bottom:8px;">EDIT SELECTED BUBBLE</div>
+        <div id="m-bp-nosel" style="color:var(--text3);font-size:11px;margin-bottom:8px;">Tap a bubble on the canvas to edit it.</div>
+        <div id="m-bp-editor" style="display:none;">
+          <div class="bp-row"><label>Type</label>
+            <select id="m-bp-type" onchange="bpUpdate('type',this.value);bpUpdateFromMobile()" style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px;">
+              <option value="circle">Circle – Dialogue</option>
+              <option value="square">Square – Narration</option>
+              <option value="rectangle">Rectangle – Titles</option>
+              <option value="thought">Cloud – Thoughts</option>
+              <option value="fading">Cloud – Fading</option>
+              <option value="dashed">Dashed – Whisper</option>
+              <option value="bold">Bold Circle – Intense</option>
+              <option value="spiked">Spiked – Yelling</option>
+              <option value="lilypad">Lilypad – Off-panel</option>
+            </select>
+          </div>
+          <div class="bp-row"><label>Speaker</label><input id="m-bp-speaker" type="text" style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px;" oninput="bpUpdate('speaker',this.value)"></div>
+          <div class="bp-row"><label>Text</label><textarea id="m-bp-text" style="flex:1;min-height:50px;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px;" oninput="bpUpdate('text',this.value)"></textarea></div>
+          <div class="bp-row"><label>Font</label>
+            <select id="m-bp-font" onchange="bpUpdate('font',this.value)" style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px;">
+              <option value="Bangers">Bangers (Manga)</option>
+              <option value="Permanent Marker">Permanent Marker</option>
+              <option value="Caveat">Caveat</option>
+              <option value="custom1">Custom 1</option>
+              <option value="custom2">Custom 2</option>
+            </select>
+          </div>
+          <div class="bp-row"><label>Size</label><input id="m-bp-fsize" type="number" min="6" max="200" style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px;" oninput="bpUpdate('fontSize',+this.value)"></div>
+          <div class="bp-row" style="gap:6px;">
+            <button class="font-btn" id="m-bp-bold" onclick="bpToggle('bold');syncMobileBPFields(selectedBubble.data)"><b>B</b></button>
+            <button class="font-btn" id="m-bp-italic" onclick="bpToggle('italic');syncMobileBPFields(selectedBubble.data)"><i>I</i></button>
+          </div>
+          <div class="section-title" style="margin:8px 0 4px;">Position &amp; Size</div>
+          <div class="bp-row"><label>X</label><input id="m-bp-x" type="number" style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px;" oninput="bpUpdatePos();syncFromMobilePos()"></div>
+          <div class="bp-row"><label>Y</label><input id="m-bp-y" type="number" style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px;" oninput="bpUpdatePos();syncFromMobilePos()"></div>
+          <div class="bp-row"><label>W</label><input id="m-bp-w" type="number" min="20" style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px;" oninput="bpUpdatePos();syncFromMobilePos()"></div>
+          <div class="bp-row"><label>H</label><input id="m-bp-h" type="number" min="20" style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px;" oninput="bpUpdatePos();syncFromMobilePos()"></div>
+          <div class="bp-row"><label>Rotate°</label><input id="m-bp-rot" type="number" value="0" style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px;" oninput="bpUpdatePos();syncFromMobilePos()"></div>
+          <div class="section-title" style="margin:8px 0 4px;">Tail</div>
+          <div class="bp-row"><label>Angle°</label><input id="m-bp-tail-angle" type="number" min="0" max="360" style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px;" oninput="bpUpdate('tailAngle',+this.value)"></div>
+          <div class="bp-row"><label>Length</label><input id="m-bp-tail-len" type="number" min="5" max="300" style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px;" oninput="bpUpdate('tailLen',+this.value)"></div>
+          <button class="btn danger" style="width:100%;margin-top:8px" onclick="deleteSelectedBubble();syncMobileNoSel()">Delete Bubble</button>
+        </div>
+        <hr style="border-color:var(--border);margin:12px 0;">
+        <div style="margin-top:4px;">
           <label style="font-size:10px;color:var(--text2);display:block;margin-bottom:4px;">Import font (.ttf/.otf/.woff)</label>
           <label style="display:block;cursor:pointer;">
             <span class="btn small" style="pointer-events:none;width:100%;display:block;text-align:center;">📁 Browse Font File</span>
@@ -2216,6 +2266,55 @@ window.addEventListener('DOMContentLoaded', () => {
     openMobileTab('data');
   }
 });
+
+// ── Sync mobile bubble editor fields ──
+function syncMobileBPFields(b) {
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+  const tog = (id, val) => { const el = document.getElementById(id); if (el) el.classList.toggle('active', val); };
+  set('m-bp-type', b.type);
+  set('m-bp-speaker', b.speaker);
+  set('m-bp-text', b.text);
+  set('m-bp-font', b.font);
+  set('m-bp-fsize', b.fontSize);
+  set('m-bp-x', Math.round(b.x));
+  set('m-bp-y', Math.round(b.y));
+  set('m-bp-w', Math.round(b.w));
+  set('m-bp-h', Math.round(b.h));
+  set('m-bp-rot', Math.round(b.rotate));
+  set('m-bp-tail-angle', Math.round(b.tailAngle));
+  set('m-bp-tail-len', Math.round(b.tailLen));
+  tog('m-bp-bold', b.bold);
+  tog('m-bp-italic', b.italic);
+  // Show editor, hide placeholder
+  const nosel = document.getElementById('m-bp-nosel');
+  const editor = document.getElementById('m-bp-editor');
+  if (nosel) nosel.style.display = 'none';
+  if (editor) editor.style.display = 'block';
+}
+
+function syncMobileNoSel() {
+  const nosel = document.getElementById('m-bp-nosel');
+  const editor = document.getElementById('m-bp-editor');
+  if (nosel) nosel.style.display = '';
+  if (editor) editor.style.display = 'none';
+}
+
+// Mobile pos inputs write into the desktop fields then call bpUpdatePos
+function syncFromMobilePos() {
+  const map = [['m-bp-x','bp-x'],['m-bp-y','bp-y'],['m-bp-w','bp-w'],['m-bp-h','bp-h'],['m-bp-rot','bp-rot']];
+  map.forEach(([mid, did]) => {
+    const ms = document.getElementById(mid);
+    const ds = document.getElementById(did);
+    if (ms && ds) ds.value = ms.value;
+  });
+}
+
+// bpUpdateFromMobile — mirror mobile type/font selects into desktop ones then call bpUpdate
+function bpUpdateFromMobile() {
+  const mtype = document.getElementById('m-bp-type');
+  const dtype = document.getElementById('bp-type');
+  if (mtype && dtype) { dtype.value = mtype.value; bpUpdate('type', mtype.value); }
+}
 </script>
 
 </body>
