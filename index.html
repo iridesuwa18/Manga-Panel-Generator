@@ -553,6 +553,26 @@
     #layersPanel { display:none !important; }
   }
 
+
+  /* ── SAVE/LOAD ── */
+  #saveModal {
+    display:none; position:fixed; inset:0;
+    background:rgba(0,0,0,.7); z-index:600;
+    align-items:center; justify-content:center;
+  }
+  #saveModal.open { display:flex; }
+  #saveModalBox {
+    background:var(--surface); border:1px solid var(--border2);
+    border-radius:6px; padding:20px; width:320px; max-width:92vw;
+  }
+  #saveModalBox h2 { font-family:'Bebas Neue',sans-serif; font-size:20px; color:var(--accent); margin-bottom:12px; }
+  #saveModalBox input {
+    width:100%; background:var(--surface2); border:1px solid var(--border);
+    color:var(--text); padding:7px 10px; font-size:12px;
+    border-radius:3px; margin-bottom:8px; font-family:'IBM Plex Mono',monospace;
+  }
+  #saveStatus { font-size:11px; color:var(--text3); min-height:16px; margin-bottom:8px; }
+
 </style>
 </head>
 <body>
@@ -561,6 +581,8 @@
   <h1>MANGA PANEL GEN</h1>
   <span class="subtitle">// 3300×4677 | framing 2800×3940 | safe 2520×3940</span>
   <div class="header-actions">
+    <button class="btn" onclick="saveToGitHub()">☁️ Save</button>
+    <button class="btn" onclick="loadFromGitHub()">📂 Load</button>
     <button class="btn" onclick="generateAll()">⚡ Generate All Pages</button>
     <button class="btn primary" onclick="exportAllSVG()">↓ Export SVG</button>
     <button class="btn" onclick="exportExcel()">↓ Export Excel</button>
@@ -569,9 +591,10 @@
 
 <!-- MOBILE TOP ACTION BAR -->
 <div id="mobileTopBar">
-  <button class="btn primary" style="flex:1" onclick="generateAll()">⚡ Generate</button>
+  <button class="btn" style="flex:1" onclick="saveToGitHub()">☁️ Save</button>
+  <button class="btn" style="flex:1" onclick="loadFromGitHub()">📂 Load</button>
+  <button class="btn primary" style="flex:1" onclick="generateAll()">⚡ Gen</button>
   <button class="btn" style="flex:1" onclick="exportAllSVG()">↓ SVG</button>
-  <button class="btn" style="flex:1" onclick="exportExcel()">↓ Excel</button>
 </div>
 
 <!-- MOBILE FIXED BOTTOM PANEL -->
@@ -2416,6 +2439,178 @@ window.selectBubble=function(el,data,pgKey){
 // Open data tab on load
 window.addEventListener('DOMContentLoaded',()=>{
   if(isMobile()) openMobileTab('data');
+});
+</script>
+
+
+<!-- SAVE/LOAD MODAL -->
+<div id="saveModal">
+  <div id="saveModalBox">
+    <h2 id="saveModalTitle">SAVE TO GITHUB</h2>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:10px;">
+      Enter your GitHub Personal Access Token (repo scope).<br>
+      It's stored only in this browser, never sent anywhere else.
+    </p>
+    <input type="password" id="ghTokenInput" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+    <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);margin-bottom:10px;cursor:pointer;">
+      <input type="checkbox" id="rememberToken" checked> Remember token in this browser
+    </label>
+    <div id="saveStatus"></div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn primary" style="flex:1" id="saveModalConfirm" onclick="confirmSaveLoad()">Confirm</button>
+      <button class="btn" style="flex:1" onclick="closeSaveModal()">Cancel</button>
+    </div>
+    <button style="background:none;border:none;color:var(--danger);font-size:10px;cursor:pointer;margin-top:8px;padding:0;"
+      onclick="localStorage.removeItem('gh_token');document.getElementById('ghTokenInput').value='';showSaveStatus('Token cleared');">
+      🗑 Forget saved token
+    </button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// GITHUB SAVE / LOAD
+// ═══════════════════════════════════════════════════
+
+const GH_USER   = 'iridesuwa18';
+const GH_REPO   = 'Manga-Panel-Generator';
+const GH_FILE   = 'manga-save.json';
+const GH_BRANCH = 'main';
+const GH_API    = `https://api.github.com/repos/${GH_USER}/${GH_REPO}/contents/${GH_FILE}`;
+
+let _saveMode = 'save'; // 'save' or 'load'
+
+function getToken() {
+  return localStorage.getItem('gh_token') || '';
+}
+
+function openSaveModal(mode) {
+  _saveMode = mode;
+  document.getElementById('saveModalTitle').textContent = mode === 'save' ? 'SAVE TO GITHUB' : 'LOAD FROM GITHUB';
+  document.getElementById('saveModalConfirm').textContent = mode === 'save' ? '☁️ Save' : '📂 Load';
+  document.getElementById('saveStatus').textContent = '';
+  const saved = getToken();
+  document.getElementById('ghTokenInput').value = saved;
+  document.getElementById('saveModal').classList.add('open');
+}
+
+function closeSaveModal() {
+  document.getElementById('saveModal').classList.remove('open');
+}
+
+function showSaveStatus(msg, color) {
+  const el = document.getElementById('saveStatus');
+  el.textContent = msg;
+  el.style.color = color || 'var(--text3)';
+}
+
+function saveToGitHub()  { openSaveModal('save'); }
+function loadFromGitHub() { openSaveModal('load'); }
+
+async function confirmSaveLoad() {
+  const token = document.getElementById('ghTokenInput').value.trim();
+  if (!token) { showSaveStatus('Please enter your token.', 'var(--danger)'); return; }
+  if (document.getElementById('rememberToken').checked) {
+    localStorage.setItem('gh_token', token);
+  }
+  if (_saveMode === 'save') await doSave(token);
+  else await doLoad(token);
+}
+
+function buildSaveData() {
+  return {
+    version: 1,
+    savedAt: new Date().toISOString(),
+    rows,
+    pageSettings,
+    bubbles,
+    globalSettings: {
+      scale: document.getElementById('scaleSlider')?.value,
+      panelFill: document.getElementById('panelFill')?.value,
+      panelStroke: document.getElementById('panelStroke')?.value,
+      strokeWidth: document.getElementById('strokeWidth')?.value,
+    }
+  };
+}
+
+async function doSave(token) {
+  showSaveStatus('Saving…');
+  try {
+    // Get current SHA if file exists (needed for update)
+    let sha = null;
+    try {
+      const check = await fetch(GH_API, {
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' }
+      });
+      if (check.ok) { const j = await check.json(); sha = j.sha; }
+    } catch(_) {}
+
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(buildSaveData(), null, 2))));
+    const body = { message: `Save: ${new Date().toLocaleString()}`, content, branch: GH_BRANCH };
+    if (sha) body.sha = sha;
+
+    const res = await fetch(GH_API, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/vnd.github+json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (res.ok) {
+      showSaveStatus('✅ Saved to GitHub!', 'var(--success)');
+      setTimeout(closeSaveModal, 1200);
+    } else {
+      const err = await res.json();
+      showSaveStatus('❌ ' + (err.message || res.status), 'var(--danger)');
+    }
+  } catch(e) {
+    showSaveStatus('❌ ' + e.message, 'var(--danger)');
+  }
+}
+
+async function doLoad(token) {
+  showSaveStatus('Loading…');
+  try {
+    const res = await fetch(GH_API + '?ref=' + GH_BRANCH, {
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' }
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      showSaveStatus('❌ ' + (err.message || 'File not found'), 'var(--danger)');
+      return;
+    }
+    const j = await res.json();
+    const data = JSON.parse(decodeURIComponent(escape(atob(j.content))));
+
+    // Restore state
+    if (data.rows)         { rows = data.rows; renderTable(); }
+    if (data.pageSettings) { Object.assign(pageSettings, data.pageSettings); refreshPageSettings(); }
+    if (data.bubbles)      { Object.assign(bubbles, data.bubbles); }
+    if (data.globalSettings) {
+      const gs = data.globalSettings;
+      if (gs.scale)       { document.getElementById('scaleSlider').value = gs.scale; updateScale(gs.scale); }
+      if (gs.panelFill)   { document.getElementById('panelFill').value   = gs.panelFill; }
+      if (gs.panelStroke) { document.getElementById('panelStroke').value = gs.panelStroke; }
+      if (gs.strokeWidth) { document.getElementById('strokeWidth').value = gs.strokeWidth; }
+    }
+
+    showSaveStatus('✅ Loaded! Regenerating…', 'var(--success)');
+    setTimeout(() => {
+      generateAll();
+      closeSaveModal();
+      showToast('Session loaded from GitHub ✅');
+    }, 800);
+  } catch(e) {
+    showSaveStatus('❌ ' + e.message, 'var(--danger)');
+  }
+}
+
+// Close modal on backdrop click
+document.getElementById('saveModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('saveModal')) closeSaveModal();
 });
 </script>
 
