@@ -685,7 +685,7 @@
         <div class="form-group">
           <label>Preview Scale</label>
           <div class="range-row">
-            <input type="range" id="scaleSlider" min="3" max="15" value="6" oninput="updateScale(this.value)">
+            <input type="range" id="scaleSlider" min="3" max="50" value="6" oninput="updateScale(this.value)">
             <span class="range-val" id="scaleVal">6%</span>
           </div>
         </div>
@@ -816,7 +816,14 @@ function switchTab(tab) {
 // ─────────────────────────────────────────────
 function updateScale(v) {
   scale = v / 100;
-  document.getElementById('scaleVal').textContent = v + '%';
+  // Sync all scale display elements
+  ['scaleVal','m-scaleVal'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.textContent = v + '%';
+  });
+  // Sync all scale sliders
+  ['scaleSlider','m-scaleSlider'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.value = v;
+  });
   generateAll();
 }
 
@@ -2289,6 +2296,12 @@ function openMobileTab(tab) {
   // Rebind file inputs (cloned HTML loses listeners)
   const fi = content.querySelector('input[type="file"][accept=".xlsx,.csv"]');
   if (fi) fi.addEventListener('change', handleFileImport);
+  // Sync scale slider to current value
+  const ms = document.getElementById('m-scaleSlider');
+  const mv = document.getElementById('m-scaleVal');
+  const ds = document.getElementById('scaleSlider');
+  if (ms && ds) { ms.value = ds.value; }
+  if (mv && ds) { mv.textContent = ds.value + '%'; }
 }
 
 function getMobileTabContent(tab) {
@@ -2318,7 +2331,7 @@ function getMobileTabContent(tab) {
         <div class="section-title" style="margin-bottom:6px;">GLOBAL</div>
         <div class="bp-row">
           <label>Scale</label>
-          <input type="range" id="m-scaleSlider" min="3" max="15" value="6"
+          <input type="range" id="m-scaleSlider" min="3" max="50" value="6"
             oninput="updateScale(this.value);document.getElementById('m-scaleVal').textContent=this.value+'%'"
             style="flex:1;">
           <span id="m-scaleVal" style="font-size:10px;color:var(--text2);min-width:28px;">6%</span>
