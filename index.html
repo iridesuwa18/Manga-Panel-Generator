@@ -440,31 +440,67 @@
     line-height: 1.2;
     word-break: break-word;
   }
-  .bubble-wrap.selected > svg.bubble-svg path,
-  .bubble-wrap.selected > svg.bubble-svg ellipse,
-  .bubble-wrap.selected > svg.bubble-svg rect {
-    stroke: #4a9eff !important;
-  }
-  .bubble-wrap .resize-handle {
-    position: absolute; bottom: -6px; right: -6px;
-    width: 12px; height: 12px;
-    background: #4a9eff; border-radius: 2px;
-    cursor: se-resize; pointer-events: all;
+  /* ── SELECTION BOX (Photoshop style, scale-aware) ── */
+  .bubble-wrap .sel-box {
     display: none;
+    position: absolute;
+    inset: 0;
+    border: calc(3px / var(--pg-scale, 0.06)) dashed #4a9eff;
+    border-radius: calc(4px / var(--pg-scale, 0.06));
+    pointer-events: none;
+    box-sizing: border-box;
   }
-  .bubble-wrap.selected .resize-handle { display: block; }
+  .bubble-wrap.selected .sel-box { display: block; }
+  .bubble-wrap .sel-handle {
+    position: absolute;
+    width:  calc(18px / var(--pg-scale, 0.06));
+    height: calc(18px / var(--pg-scale, 0.06));
+    background: #fff;
+    border: calc(2.5px / var(--pg-scale, 0.06)) solid #4a9eff;
+    border-radius: calc(3px / var(--pg-scale, 0.06));
+    pointer-events: all;
+    display: none;
+    box-sizing: border-box;
+  }
+  .bubble-wrap.selected .sel-handle { display: block; }
+  .sel-handle.nw { top:0;    left:0;   transform:translate(-50%,-50%); cursor:nw-resize; }
+  .sel-handle.n  { top:0;    left:50%; transform:translate(-50%,-50%); cursor:n-resize;  }
+  .sel-handle.ne { top:0;    right:0;  transform:translate(50%,-50%);  cursor:ne-resize; }
+  .sel-handle.e  { top:50%;  right:0;  transform:translate(50%,-50%);  cursor:e-resize;  }
+  .sel-handle.se { bottom:0; right:0;  transform:translate(50%,50%);   cursor:se-resize; }
+  .sel-handle.s  { bottom:0; left:50%; transform:translate(-50%,50%);  cursor:s-resize;  }
+  .sel-handle.sw { bottom:0; left:0;   transform:translate(-50%,50%);  cursor:sw-resize; }
+  .sel-handle.w  { top:50%;  left:0;   transform:translate(-50%,-50%); cursor:w-resize;  }
   .bubble-wrap .rotate-handle {
-    position: absolute; top: -20px; left: 50%; transform: translateX(-50%);
-    width: 12px; height: 12px;
-    background: #f0a; border-radius: 50%;
-    cursor: grab; pointer-events: all;
-    display: none;
+    position: absolute;
+    top: 0; left: 50%;
+    transform: translate(-50%, calc(-60px / var(--pg-scale, 0.06)));
+    width:  calc(28px / var(--pg-scale, 0.06));
+    height: calc(28px / var(--pg-scale, 0.06));
+    background: #ff00aa;
+    border: calc(2.5px / var(--pg-scale, 0.06)) solid #fff;
+    border-radius: 50%;
+    cursor: grab; pointer-events: all; display: none;
   }
   .bubble-wrap.selected .rotate-handle { display: block; }
+  .bubble-wrap .rotate-stem {
+    display: none;
+    position: absolute;
+    top: 0; left: 50%;
+    width: calc(2px / var(--pg-scale, 0.06));
+    height: calc(50px / var(--pg-scale, 0.06));
+    background: #4a9eff;
+    transform: translate(-50%, calc(-50px / var(--pg-scale, 0.06)));
+    pointer-events: none;
+  }
+  .bubble-wrap.selected .rotate-stem { display: block; }
   .bubble-wrap .tail-handle {
     position: absolute;
-    width: 10px; height: 10px;
-    background: #ffaa00; border-radius: 50%;
+    width:  calc(24px / var(--pg-scale, 0.06));
+    height: calc(24px / var(--pg-scale, 0.06));
+    background: #ffaa00;
+    border: calc(2.5px / var(--pg-scale, 0.06)) solid #fff;
+    border-radius: 50%;
     cursor: crosshair; pointer-events: all;
     display: none; transform: translate(-50%,-50%);
   }
@@ -526,28 +562,10 @@
   }
   .layer-btns button:hover { color:var(--accent); border-color:var(--accent2); }
 
-  /* Bubble handle visibility */
-  .bubble-wrap .resize-handle {
-    position:absolute; bottom:-6px; right:-6px;
-    width:14px; height:14px;
-    background:#4a9eff; border-radius:2px;
-    cursor:se-resize; pointer-events:all;
-    display:none; touch-action:none;
-  }
-  .bubble-wrap .rotate-handle {
-    position:absolute; top:-22px; left:50%; transform:translateX(-50%);
-    width:14px; height:14px;
-    background:#f0a; border-radius:50%;
-    cursor:grab; pointer-events:all;
-    display:none; touch-action:none;
-  }
-  .bubble-wrap .tail-handle {
-    position:absolute; width:12px; height:12px;
-    background:#ffaa00; border-radius:50%;
-    cursor:crosshair; pointer-events:all;
-    display:none; transform:translate(-50%,-50%);
-    touch-action:none;
-  }
+  /* Bubble handle touch-action */
+  .bubble-wrap .sel-handle,
+  .bubble-wrap .rotate-handle,
+  .bubble-wrap .tail-handle { touch-action: none; }
 
   @media (max-width:700px) {
     #layersPanel { display:none !important; }
@@ -851,13 +869,15 @@ function switchTab(tab) {
 // ─────────────────────────────────────────────
 function updateScale(v) {
   scale = v / 100;
-  // Sync all scale display elements
   ['scaleVal','m-scaleVal'].forEach(id => {
     const el = document.getElementById(id); if(el) el.textContent = v + '%';
   });
-  // Sync all scale sliders
   ['scaleSlider','m-scaleSlider'].forEach(id => {
     const el = document.getElementById(id); if(el) el.value = v;
+  });
+  // Update --pg-scale on all existing overlays so handle sizes update live
+  document.querySelectorAll('.bubble-overlay').forEach(ov => {
+    ov.style.setProperty('--pg-scale', scale);
   });
   generateAll();
 }
@@ -1666,7 +1686,7 @@ function renderBubblesOnPage(pg) {
     const svgWrap = cont.querySelector('div[style*="transform-origin"]');
     overlay = document.createElement('div');
     overlay.className = 'bubble-overlay';
-    overlay.style.cssText = `position:absolute;top:0;left:0;width:${PAGE_W}px;height:${PAGE_H}px;pointer-events:none;`;
+    overlay.style.cssText = `position:absolute;top:0;left:0;width:${PAGE_W}px;height:${PAGE_H}px;pointer-events:none;--pg-scale:${scale};`;
     if (svgWrap) svgWrap.appendChild(overlay);
     else cont.appendChild(overlay);
     (bubbles[pg]||[]).forEach((b,i) => {
@@ -1701,11 +1721,26 @@ function createBubbleEl(b, pgKey) {
   updateTextStyle(textDiv, b);
   wrap.appendChild(textDiv);
 
-  ['resize-handle','rotate-handle'].forEach(cls => {
+  // Dashed selection box
+  const selBox = document.createElement('div');
+  selBox.className = 'sel-box';
+  wrap.appendChild(selBox);
+
+  // 8 resize handles
+  ['nw','n','ne','e','se','s','sw','w'].forEach(dir => {
     const h = document.createElement('div');
-    h.className = cls;
+    h.className = 'sel-handle ' + dir;
+    h.dataset.dir = dir;
     wrap.appendChild(h);
   });
+
+  // Rotate stem + handle
+  const stem = document.createElement('div');
+  stem.className = 'rotate-stem';
+  wrap.appendChild(stem);
+  const rotH = document.createElement('div');
+  rotH.className = 'rotate-handle';
+  wrap.appendChild(rotH);
 
   if (['circle','thought','fading','dashed','bold','spiked','lilypad'].includes(b.type)) {
     const tailH = document.createElement('div');
@@ -1715,10 +1750,9 @@ function createBubbleEl(b, pgKey) {
     setupTailDrag(tailH, b, pgKey, wrap);
   }
 
-  // Always-on interaction (no need to be selected)
   setupDrag(wrap, b, pgKey);
-  setupResize(wrap.querySelector('.resize-handle'), wrap, b, pgKey);
-  setupRotate(wrap.querySelector('.rotate-handle'), wrap, b, pgKey);
+  wrap.querySelectorAll('.sel-handle').forEach(h => setupResize(h, wrap, b, pgKey));
+  setupRotate(rotH, wrap, b, pgKey);
 
   wrap.addEventListener('pointerdown', e => {
     if (e.target.classList.contains('resize-handle') || e.target.classList.contains('rotate-handle') || e.target.classList.contains('tail-handle')) return;
@@ -2041,15 +2075,25 @@ function setupDrag(wrap,b,pgKey) {
 // ── RESIZE ──
 function setupResize(handle,wrap,b,pgKey) {
   if(!handle) return;
-  let sx=0,sy=0,sw=0,sh=0;
+  let sx=0,sy=0,ox=0,oy=0,ow=0,oh=0;
   handle.addEventListener('pointerdown',e=>{
     if(b.lockResize) return;
     e.preventDefault(); e.stopPropagation();
     handle.setPointerCapture(e.pointerId);
-    sx=e.clientX;sy=e.clientY;sw=b.w;sh=b.h;
+    sx=e.clientX; sy=e.clientY;
+    ox=b.x; oy=b.y; ow=b.w; oh=b.h;
+    const dir=handle.dataset.dir||'se';
     const onMove=ev=>{
-      b.w=Math.max(100,sw+(ev.clientX-sx)/scale);
-      b.h=Math.max(80,sh+(ev.clientY-sy)/scale);
+      const dx=(ev.clientX-sx)/scale;
+      const dy=(ev.clientY-sy)/scale;
+      // Determine new x/y/w/h based on handle direction
+      let nx=ox,ny=oy,nw=ow,nh=oh;
+      if(dir.includes('e')) nw=Math.max(100,ow+dx);
+      if(dir.includes('s')) nh=Math.max(80,oh+dy);
+      if(dir.includes('w')){ nw=Math.max(100,ow-dx); nx=ox+ow-nw; }
+      if(dir.includes('n')){ nh=Math.max(80,oh-dy);  ny=oy+oh-nh; }
+      b.x=nx; b.y=ny; b.w=nw; b.h=nh;
+      wrap.style.left=b.x+'px'; wrap.style.top=b.y+'px';
       wrap.style.width=b.w+'px'; wrap.style.height=b.h+'px';
       rebuildSVG(wrap,b);
       const td=wrap.querySelector('.bubble-text');
@@ -2103,10 +2147,8 @@ function positionTailHandleInWrap(wrap,b) {
 function selectBubble(el,data,pgKey) {
   document.querySelectorAll('.bubble-wrap.selected').forEach(e=>{
     e.classList.remove('selected');
-    e.querySelectorAll('.resize-handle,.rotate-handle,.tail-handle').forEach(h=>h.style.display='none');
   });
   el.classList.add('selected');
-  el.querySelectorAll('.resize-handle,.rotate-handle,.tail-handle').forEach(h=>h.style.display='block');
   selectedBubble={el,data,pgKey};
   syncAllBPFields(data);
   refreshLayersPanel(pgKey);  // refresh layers list but don't open/jump to it
