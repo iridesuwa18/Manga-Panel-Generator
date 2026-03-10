@@ -554,6 +554,41 @@
   }
 
 
+  /* ── MOBILE LAYERS SLIDE-OUT ── */
+  #mobileLayersDrawer {
+    display: none;
+    position: fixed;
+    top: 0; right: -100%;
+    width: min(280px, 85vw);
+    height: 100%;
+    background: var(--surface);
+    border-left: 2px solid var(--border2);
+    z-index: 500;
+    flex-direction: column;
+    transition: right .22s ease;
+    overflow: hidden;
+  }
+  #mobileLayersDrawer.open { right: 0; }
+  #mobileLayersDrawerBg {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.45);
+    z-index: 499;
+  }
+  #mobileLayersDrawerBg.open { display: block; }
+  #mobileLayersDrawer .mld-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 14px 8px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  #mobileLayersDrawer .mld-content {
+    overflow-y: auto; flex: 1; padding: 10px;
+  }
+  @media (max-width: 700px) {
+    #mobileLayersDrawer { display: flex; }
+  }
+
   /* ── SAVE/LOAD ── */
   #saveModal {
     display:none; position:fixed; inset:0;
@@ -795,7 +830,7 @@ function getSafeRect(isOdd) {
 // ─────────────────────────────────────────────
 let rows = []; // raw panel data rows
 let pageSettings = {}; // keyed by pageKey "PG X"
-let scale = 0.06;
+let scale = (window.innerWidth <= 700) ? 0.12 : 0.06;
 let activeTab = 'data';
 
 // ─────────────────────────────────────────────
@@ -1525,7 +1560,7 @@ function defaultBubble(type, text, speaker, index) {
     fontSize: isRect ? 100 : 70,
     bold: isYell,
     italic: false,
-    tailAngle: 225, tailLen: 28,
+    tailAngle: 225, tailLen: 280,
     dotCount: 4,
     spikeCount: 16,
     dashCount: 7,
@@ -2062,13 +2097,15 @@ function selectBubble(el,data,pgKey) {
   el.querySelectorAll('.resize-handle,.rotate-handle,.tail-handle').forEach(h=>h.style.display='block');
   selectedBubble={el,data,pgKey};
   syncAllBPFields(data);
-  refreshLayersPanel(pgKey);
-  // Desktop editor panel
+  refreshLayersPanel(pgKey);  // refresh layers list but don't open/jump to it
+  // Desktop: open bubble editor panel but do NOT open layers panel
   document.getElementById('bp-nosel').style.display='none';
   document.getElementById('bp-editor').style.display='block';
   document.getElementById('bubblePanel').classList.add('open');
-  // Mobile: open bubbles tab
-  if(isMobile()) { openMobileTab('bubbles'); setTimeout(()=>syncMobileBPFields(data),80); }
+  // Mobile: sync fields but only switch tab if already on bubbles tab
+  if(isMobile()) {
+    setTimeout(()=>syncMobileBPFields(data),80);
+  }
 }
 
 // Sync both desktop + mobile editor fields at once
@@ -2355,10 +2392,10 @@ function getMobileTabContent(tab) {
         <div class="section-title" style="margin-bottom:6px;">GLOBAL</div>
         <div class="bp-row">
           <label>Scale</label>
-          <input type="range" id="m-scaleSlider" min="3" max="50" value="6"
-            oninput="updateScale(this.value);document.getElementById('m-scaleVal').textContent=this.value+'%'"
+          <input type="range" id="m-scaleSlider" min="3" max="50" value="12"
+            oninput="updateScale(this.value)"
             style="flex:1;">
-          <span id="m-scaleVal" style="font-size:10px;color:var(--text2);min-width:28px;">6%</span>
+          <span id="m-scaleVal" style="font-size:10px;color:var(--text2);min-width:28px;">12%</span>
         </div>
         <div class="bp-row">
           <label>Fill</label>
@@ -2397,22 +2434,17 @@ function getMobileTabContent(tab) {
     case 'bubbles': {
       const _pg = getPages()[0]?.pg || '';
       return `<div style="padding:10px;">
-        <div class="section-title" style="margin-bottom:4px;">IMPORT</div>
-        <textarea id="m-bubblePaste" style="width:100%;min-height:50px;font-size:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px;" placeholder="Circle – Dialogue&#9;Claude&#9;Hello!"></textarea>
-        <div style="display:flex;gap:6px;align-items:center;margin-top:4px;">
-          <label style="font-size:10px;color:var(--text2);white-space:nowrap">Page</label>
-          <select id="m-bubbleTargetPage" style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;">
-            ${getPages().map(({pg}) => `<option value="${pg}">${pg}</option>`).join('')}
-          </select>
-          <button class="btn small" onclick="mobileImportBubbles()">+ Add</button>
-          <button class="btn small danger" onclick="mobileClearBubbles()">Clear</button>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <div class="section-title" style="margin:0;">EDIT BUBBLE</div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <label style="font-size:10px;color:var(--text2);">Page</label>
+            <select id="m-bubbleTargetPage" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;">
+              ${getPages().map(({pg}) => `<option value="${pg}">${pg}</option>`).join('')}
+            </select>
+            <button class="btn small" onclick="openMobileLayers()" style="white-space:nowrap;">🗂 Layers</button>
+          </div>
         </div>
-        <hr style="border-color:var(--border);margin:6px 0;">
-        <div class="section-title" style="margin-bottom:4px;">LAYERS</div>
-        <div id="m-layers-list">${getMobileLayers(_pg)}</div>
-        <hr style="border-color:var(--border);margin:6px 0;">
-        <div class="section-title" style="margin-bottom:4px;">EDIT SELECTED</div>
-        <div id="m-bp-nosel" style="color:var(--text3);font-size:11px;">Tap a layer above to edit.</div>
+        <div id="m-bp-nosel" style="color:var(--text3);font-size:11px;">Tap a bubble or open Layers to select.</div>
         <div id="m-bp-editor" style="display:none;">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:4px;">
             <div>
@@ -2488,6 +2520,13 @@ function getMobileTabContent(tab) {
           </div>
         </div>
         <hr style="border-color:var(--border);margin:6px 0;">
+        <div class="section-title" style="margin-bottom:4px;">IMPORT BUBBLES</div>
+        <textarea id="m-bubblePaste" style="width:100%;min-height:40px;font-size:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px;" placeholder="Circle&#9;Speaker&#9;Text"></textarea>
+        <div style="display:flex;gap:6px;margin-top:4px;">
+          <button class="btn small" style="flex:1" onclick="mobileImportBubbles()">+ Add</button>
+          <button class="btn small danger" style="flex:1" onclick="mobileClearBubbles()">Clear</button>
+        </div>
+        <hr style="border-color:var(--border);margin:6px 0;">
         <label style="cursor:pointer;display:block;">
           <span class="btn small" style="pointer-events:none;width:100%;display:block;text-align:center;">📁 Import Font</span>
           <input type="file" accept=".ttf,.otf,.woff,.woff2" style="display:none" onchange="loadCustomFont(event)">
@@ -2559,6 +2598,43 @@ function syncMobileNoSel() {
   if(editor) editor.style.display='none';
 }
 
+function openMobileLayers() {
+  // Populate page select
+  const pgs = getPages();
+  const sel = document.getElementById('mld-page');
+  if(sel) {
+    const cur = document.getElementById('m-bubbleTargetPage')?.value || pgs[0]?.pg || '';
+    sel.innerHTML = pgs.map(({pg})=>`<option value="${pg}"${pg===cur?' selected':''}>${pg}</option>`).join('');
+  }
+  refreshMobileLayersDrawer(sel?.value || pgs[0]?.pg || '');
+  document.getElementById('mobileLayersDrawer').classList.add('open');
+  document.getElementById('mobileLayersDrawerBg').classList.add('open');
+}
+
+function closeMobileLayers() {
+  document.getElementById('mobileLayersDrawer').classList.remove('open');
+  document.getElementById('mobileLayersDrawerBg').classList.remove('open');
+}
+
+function refreshMobileLayersDrawer(pg) {
+  const list = document.getElementById('mld-layers-list');
+  if(!list) return;
+  const bbs = bubbles[pg]||[];
+  if(!bbs.length){ list.innerHTML='<div style="color:var(--text3);font-size:11px;">No bubbles yet.</div>'; return; }
+  list.innerHTML = [...bbs].reverse().map(b => {
+    const isSel = selectedBubble && selectedBubble.data.id === b.id;
+    return `<div class="layer-row ${isSel?'active':''}" data-id="${b.id}" style="border-radius:3px;margin-bottom:2px;"
+      onclick="selectLayerById('${pg}','${b.id}');closeMobileLayers();openMobileTab('bubbles');setTimeout(()=>syncMobileBPFields(selectedBubble?.data||b),60)">
+      <span class="layer-icon">${layerIcon(b.type)}</span>
+      <span class="layer-label">${b.speaker?b.speaker+': ':''}${b.text.slice(0,22)}${b.text.length>22?'…':''}</span>
+      <div class="layer-btns">
+        <button onclick="event.stopPropagation();layerMove('${pg}','${b.id}',1);refreshMobileLayersDrawer('${pg}')">↑</button>
+        <button onclick="event.stopPropagation();layerMove('${pg}','${b.id}',-1);refreshMobileLayersDrawer('${pg}')">↓</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
 function syncMobileLocks() {
   if(!selectedBubble) return;
   const b=selectedBubble.data;
@@ -2585,6 +2661,10 @@ function syncFromMobilePos() {
 function refreshMobileLayers(pg) {
   const el=document.getElementById('m-layers-list');
   if(el) el.innerHTML=getMobileLayers(pg||document.getElementById('m-bubbleTargetPage')?.value||'');
+  // Also refresh drawer if open
+  if(document.getElementById('mobileLayersDrawer')?.classList.contains('open')) {
+    refreshMobileLayersDrawer(pg||document.getElementById('mld-page')?.value||'');
+  }
 }
 
 function toggleLayersPanel() {
@@ -2631,10 +2711,32 @@ window.selectBubble=function(el,data,pgKey){
 
 // Open data tab on load
 window.addEventListener('DOMContentLoaded',()=>{
-  if(isMobile()) openMobileTab('data');
+  if(isMobile()) {
+    updateScale(12);
+    openMobileTab('data');
+  }
 });
 </script>
 
+
+<!-- MOBILE LAYERS SLIDE-OUT -->
+<div id="mobileLayersDrawerBg" onclick="closeMobileLayers()"></div>
+<div id="mobileLayersDrawer">
+  <div class="mld-header">
+    <span style="font-family:'Bebas Neue',sans-serif;font-size:16px;color:var(--accent);">LAYERS</span>
+    <button class="btn small" onclick="closeMobileLayers()">✕ Close</button>
+  </div>
+  <div class="mld-content">
+    <div id="mld-page-select" style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+      <label style="font-size:10px;color:var(--text2);">Page</label>
+      <select id="mld-page" style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;"
+        onchange="refreshMobileLayersDrawer(this.value)">
+        <!-- populated on open -->
+      </select>
+    </div>
+    <div id="mld-layers-list"></div>
+  </div>
+</div>
 
 <!-- SAVE/LOAD MODAL -->
 <div id="saveModal">
