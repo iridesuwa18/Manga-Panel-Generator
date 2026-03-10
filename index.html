@@ -1578,12 +1578,9 @@ function importBubbles() {
       b.x = pc.x - b.w / 2;
       b.y = pc.y - b.h / 2;
     } else {
-      // No panels yet (page not generated) — stack at center
-      const cont = document.querySelector(`.page-output[data-pg="${pg}"]`);
-      const cw = cont ? cont.offsetWidth  : 300;
-      const ch = cont ? cont.offsetHeight : 400;
-      b.x = (cw - b.w) / 2;
-      b.y = (ch - b.h) / 2;
+      // No panels yet — center on full page
+      b.x = (PAGE_W - b.w) / 2;
+      b.y = (PAGE_H - b.h) / 2;
     }
   });
   bubbles[pg].push(...added);
@@ -1598,10 +1595,7 @@ function getPanelCenters(pg) {
   if (!cont) return [];
   const svgEl = cont.querySelector('svg');
   if (!svgEl) return [];
-  const vbW = svgEl.viewBox?.baseVal?.width || cont.offsetWidth;
-  const vbH = svgEl.viewBox?.baseVal?.height || cont.offsetHeight;
-  const scaleX = cont.offsetWidth  / vbW;
-  const scaleY = cont.offsetHeight / vbH;
+  // SVG is in full PAGE_W/PAGE_H coords — use those directly
   const rects = svgEl.querySelectorAll('rect');
   const centers = [];
   rects.forEach(r => {
@@ -1609,14 +1603,11 @@ function getPanelCenters(pg) {
     const y = parseFloat(r.getAttribute('y')||0);
     const w = parseFloat(r.getAttribute('width')||0);
     const h = parseFloat(r.getAttribute('height')||0);
-    if (w < 10 || h < 10) return;                         // skip tiny
-    if (w > vbW * 0.95 || h > vbH * 0.95) return;        // skip full-page bg
+    if (w < 20 || h < 20) return;
+    if (w > PAGE_W * 0.95 || h > PAGE_H * 0.95) return;
     const fill = (r.getAttribute('fill')||'').toLowerCase();
     if (fill === 'white' || fill === '#ffffff' || fill === 'none' || fill === '') return;
-    centers.push({
-      x: (x + w/2) * scaleX,
-      y: (y + h/2) * scaleY,
-    });
+    centers.push({ x: x + w/2, y: y + h/2 });
   });
   // Sort top-to-bottom, left-to-right (reading order)
   centers.sort((a,b) => a.y !== b.y ? a.y - b.y : a.x - b.x);
@@ -1630,15 +1621,17 @@ function renderBubblesOnPage(pg) {
     if (cont.dataset.pg !== pg) continue;
     let overlay = cont.querySelector('.bubble-overlay');
     if (overlay) overlay.remove();
+    // Bubble overlay lives inside svgWrap so it scales with the page
+    const svgWrap = cont.querySelector('div[style*="transform-origin"]');
     overlay = document.createElement('div');
     overlay.className = 'bubble-overlay';
-    overlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;';
-    cont.appendChild(overlay);
-    const cw = cont.offsetWidth, ch = cont.offsetHeight;
+    overlay.style.cssText = `position:absolute;top:0;left:0;width:${PAGE_W}px;height:${PAGE_H}px;pointer-events:none;`;
+    if (svgWrap) svgWrap.appendChild(overlay);
+    else cont.appendChild(overlay);
     (bubbles[pg]||[]).forEach((b,i) => {
       if (b.x === -9999 || b.y === -9999) {
-        b.x = (cw - b.w) / 2;
-        b.y = (ch - b.h) / 2;
+        b.x = (PAGE_W - b.w) / 2;
+        b.y = (PAGE_H - b.h) / 2;
       }
       b.zIndex = b.zIndex || (i+1);
       const el = createBubbleEl(b, pg);
@@ -1958,7 +1951,8 @@ function setupTailDrag(handle,b,pgKey,wrap) {
     handle.setPointerCapture(e.pointerId);
     const onMove = ev => {
       const wr=wrap.getBoundingClientRect();
-      const lx=ev.clientX-wr.left-b.w/2, ly=ev.clientY-wr.top-b.h/2;
+      // wr dimensions are in CSS px (scaled); convert to full-res by dividing by scale
+      const lx=(ev.clientX-wr.left)/scale-b.w/2, ly=(ev.clientY-wr.top)/scale-b.h/2;
       b.tailAngle=((Math.atan2(ly,lx)*180/Math.PI)+360)%360;
       positionTailHandle(handle,b);
       rebuildSVG(wrap,b);
@@ -1981,9 +1975,10 @@ function setupDrag(wrap,b,pgKey) {
     if(['resize-handle','rotate-handle','tail-handle'].some(c=>e.target.classList.contains(c))) return;
     e.preventDefault();
     wrap.setPointerCapture(e.pointerId);
-    ox=e.clientX-b.x; oy=e.clientY-b.y;
+    // Store offset in full-res coords (clientX is CSS px, divide by scale)
+    ox=e.clientX/scale-b.x; oy=e.clientY/scale-b.y;
     const onMove=ev=>{
-      b.x=ev.clientX-ox; b.y=ev.clientY-oy;
+      b.x=ev.clientX/scale-ox; b.y=ev.clientY/scale-oy;
       wrap.style.left=b.x+'px'; wrap.style.top=b.y+'px';
       syncAllBPFields(b);
     };
@@ -2006,8 +2001,8 @@ function setupResize(handle,wrap,b,pgKey) {
     handle.setPointerCapture(e.pointerId);
     sx=e.clientX;sy=e.clientY;sw=b.w;sh=b.h;
     const onMove=ev=>{
-      b.w=Math.max(50,sw+(ev.clientX-sx));
-      b.h=Math.max(40,sh+(ev.clientY-sy));
+      b.w=Math.max(50,sw+(ev.clientX-sx)/scale);
+      b.h=Math.max(40,sh+(ev.clientY-sy)/scale);
       wrap.style.width=b.w+'px'; wrap.style.height=b.h+'px';
       rebuildSVG(wrap,b);
       const td=wrap.querySelector('.bubble-text');
