@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "savedAt": "2026-03-10T10:39:48.602Z",
+  "savedAt": "2026-03-10T11:09:45.446Z",
   "rows": [
     {
       "chp": "CHP 2",
@@ -1682,7 +1682,8 @@
     },
     "PG 5": {
       "mode": "safe",
-      "gutter": 12
+      "gutter": 12,
+      "flow": "h-first"
     },
     "PG 6": {
       "mode": "safe",
@@ -1702,7 +1703,8 @@
     },
     "PG 10": {
       "mode": "safe",
-      "gutter": 12
+      "gutter": 12,
+      "flow": "h-first"
     },
     "PG 11": {
       "mode": "safe",
