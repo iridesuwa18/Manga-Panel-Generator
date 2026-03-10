@@ -1462,19 +1462,19 @@ renderTable();
     </div>
     <div class="bp-section">
       <div class="bp-title">Position &amp; Size (px at preview scale)</div>
-      <div class="bp-row"><label>X</label><input id="bp-x" type="number" oninput="bpUpdatePos()"></div>
-      <div class="bp-row"><label>Y</label><input id="bp-y" type="number" oninput="bpUpdatePos()"></div>
-      <div class="bp-row"><label>W</label><input id="bp-w" type="number" min="20" oninput="bpUpdatePos()"></div>
-      <div class="bp-row"><label>H</label><input id="bp-h" type="number" min="20" oninput="bpUpdatePos()"></div>
-      <div class="bp-row"><label>Rotate°</label><input id="bp-rot" type="number" value="0" oninput="bpUpdatePos()"></div>
+      <div class="bp-row"><label>X</label><input id="bp-x" type="number"><button class="btn small" onclick="bpUpdatePos()" style="margin-left:4px;">Set</button></div>
+      <div class="bp-row"><label>Y</label><input id="bp-y" type="number"><button class="btn small" onclick="bpUpdatePos()" style="margin-left:4px;">Set</button></div>
+      <div class="bp-row"><label>W</label><input id="bp-w" type="number" min="100"><button class="btn small" onclick="bpUpdatePos()" style="margin-left:4px;">Set</button></div>
+      <div class="bp-row"><label>H</label><input id="bp-h" type="number" min="80"><button class="btn small" onclick="bpUpdatePos()" style="margin-left:4px;">Set</button></div>
+      <div class="bp-row"><label>Rotate°</label><input id="bp-rot" type="number" value="0"><button class="btn small" onclick="bpUpdatePos()" style="margin-left:4px;">Set</button></div>
     </div>
     <div class="bp-section">
       <div class="bp-title">Tail</div>
-      <div class="bp-row"><label>Angle°</label><input id="bp-tail-angle" type="number" value="225" min="0" max="360" oninput="bpUpdate('tailAngle',+this.value)"></div>
-      <div class="bp-row"><label>Length</label><input id="bp-tail-len" type="number" value="30" min="0" max="300" oninput="bpUpdate('tailLen',+this.value)"></div>
-      <div class="bp-row"><label>Dots</label><input id="bp-dot-count" type="number" value="4" min="1" max="12" title="Thought bubble dot count" oninput="bpUpdate('dotCount',+this.value)"></div>
-      <div class="bp-row"><label>Spikes</label><input id="bp-spike-count" type="number" value="16" min="5" max="40" title="Spiked bubble spike count" oninput="bpUpdate('spikeCount',+this.value)"></div>
-      <div class="bp-row"><label>Dashes</label><input id="bp-dash-count" type="number" value="7" min="2" max="20" title="Dashed bubble dash count" oninput="bpUpdate('dashCount',+this.value)"></div>
+      <div class="bp-row"><label>Angle°</label><input id="bp-tail-angle" type="number" value="225" min="0" max="360"><button class="btn small" onclick="bpUpdatePos()" style="margin-left:4px;">Set</button></div>
+      <div class="bp-row"><label>Length</label><input id="bp-tail-len" type="number" value="30" min="0" max="9999"><button class="btn small" onclick="bpUpdatePos()" style="margin-left:4px;">Set</button></div>
+      <div class="bp-row"><label>Dots</label><input id="bp-dot-count" type="number" value="4" min="1" max="12"><button class="btn small" onclick="bpUpdate('dotCount',+document.getElementById('bp-dot-count').value)" style="margin-left:4px;">Set</button></div>
+      <div class="bp-row"><label>Spikes</label><input id="bp-spike-count" type="number" value="16" min="5" max="40"><button class="btn small" onclick="bpUpdate('spikeCount',+document.getElementById('bp-spike-count').value)" style="margin-left:4px;">Set</button></div>
+      <div class="bp-row"><label>Dashes</label><input id="bp-dash-count" type="number" value="7" min="2" max="20"><button class="btn small" onclick="bpUpdate('dashCount',+document.getElementById('bp-dash-count').value)" style="margin-left:4px;">Set</button></div>
     </div>
     <div class="bp-section">
       <div class="bp-title">Lock</div>
@@ -1519,10 +1519,10 @@ function defaultBubble(type, text, speaker, index) {
     id: 'b' + Date.now() + Math.random().toString(36).slice(2,6),
     type, text, speaker: speaker||'',
     x: -9999, y: -9999,   // sentinel — will be placed on import
-    w: 100, h: 70,
+    w: 1000, h: 700,
     rotate: 0,
     font: isRect ? 'TGLEngschrift' : 'BubbleSans',
-    fontSize: isRect ? 10 : 7,
+    fontSize: isRect ? 100 : 70,
     bold: isYell,
     italic: false,
     tailAngle: 225, tailLen: 28,
@@ -2001,8 +2001,8 @@ function setupResize(handle,wrap,b,pgKey) {
     handle.setPointerCapture(e.pointerId);
     sx=e.clientX;sy=e.clientY;sw=b.w;sh=b.h;
     const onMove=ev=>{
-      b.w=Math.max(50,sw+(ev.clientX-sx)/scale);
-      b.h=Math.max(40,sh+(ev.clientY-sy)/scale);
+      b.w=Math.max(100,sw+(ev.clientX-sx)/scale);
+      b.h=Math.max(80,sh+(ev.clientY-sy)/scale);
       wrap.style.width=b.w+'px'; wrap.style.height=b.h+'px';
       rebuildSVG(wrap,b);
       const td=wrap.querySelector('.bubble-text');
@@ -2098,42 +2098,71 @@ function syncBPFields(b) {
 }
 
 // ── BP UPDATE FUNCTIONS ──
-function bpUpdate(field,val) {
-  if(!selectedBubble) return;
-  const b=selectedBubble.data, wrap=selectedBubble.el;
-  b[field]=val;
+
+// Get active bubble — selected or the one whose layer row is highlighted
+function getActiveBubble() {
+  if(selectedBubble) return selectedBubble;
+  // Fall back: find any bubble whose layer row is marked active
+  const activeRow = document.querySelector('.layer-row.active');
+  if(!activeRow) return null;
+  const id = activeRow.dataset.id;
+  if(!id) return null;
+  for(const pg of Object.keys(bubbles)){
+    const b = (bubbles[pg]||[]).find(x=>x.id===id);
+    if(b){
+      const el = document.querySelector(`.bubble-wrap[data-id="${id}"]`);
+      return el ? {data:b, el, pgKey:pg} : null;
+    }
+  }
+  return null;
+}
+
+// Apply all visual changes to a bubble's DOM element
+function applyBubble(b, wrap, pgKey) {
+  applyBubbleStyle(wrap, b);
+  rebuildSVG(wrap, b);
   const td=wrap.querySelector('.bubble-text');
-  if(td) updateTextStyle(td,b);
-  rebuildSVG(wrap,b);
-  positionTailHandleInWrap(wrap,b);
-  refreshLayersPanel(selectedBubble.pgKey);
+  if(td) updateTextStyle(td, b);
+  positionTailHandleInWrap(wrap, b);
+  refreshLayersPanel(pgKey);
 }
+
+function bpUpdate(field, val) {
+  const ab = getActiveBubble(); if(!ab) return;
+  ab.data[field] = val;
+  applyBubble(ab.data, ab.el, ab.pgKey);
+}
+
 function bpUpdatePos() {
-  if(!selectedBubble) return;
-  const b=selectedBubble.data, wrap=selectedBubble.el;
-  b.x=+document.getElementById('bp-x').value;
-  b.y=+document.getElementById('bp-y').value;
-  b.w=Math.max(50,+document.getElementById('bp-w').value);
-  b.h=Math.max(40,+document.getElementById('bp-h').value);
-  b.rotate=+document.getElementById('bp-rot').value;
-  b.tailAngle=+document.getElementById('bp-tail-angle').value;
-  b.tailLen=+document.getElementById('bp-tail-len').value;
-  applyBubbleStyle(wrap,b);
-  rebuildSVG(wrap,b);
-  const td=wrap.querySelector('.bubble-text'); if(td) updateTextStyle(td,b);
-  positionTailHandleInWrap(wrap,b);
+  const ab = getActiveBubble(); if(!ab) return;
+  const b=ab.data, wrap=ab.el;
+  const g = id => { const e=document.getElementById(id); return e?+e.value:null; };
+  const gm = (id,fallback) => { const v=g(id); return v!==null?v:fallback; };
+  b.x      = gm('bp-x', b.x);
+  b.y      = gm('bp-y', b.y);
+  b.w      = Math.max(100, gm('bp-w', b.w));
+  b.h      = Math.max(80,  gm('bp-h', b.h));
+  b.rotate = gm('bp-rot', b.rotate);
+  b.tailAngle = gm('bp-tail-angle', b.tailAngle);
+  b.tailLen   = gm('bp-tail-len',   b.tailLen);
+  applyBubble(b, wrap, ab.pgKey);
 }
+
 function bpToggle(field) {
-  if(!selectedBubble) return;
-  selectedBubble.data[field]=!selectedBubble.data[field];
-  bpUpdate(field,selectedBubble.data[field]);
-  document.getElementById('bp-'+field)?.classList.toggle('active',selectedBubble.data[field]);
+  const ab = getActiveBubble(); if(!ab) return;
+  ab.data[field] = !ab.data[field];
+  applyBubble(ab.data, ab.el, ab.pgKey);
+  document.getElementById('bp-'+field)?.classList.toggle('active', ab.data[field]);
+  document.getElementById('m-bp-'+field)?.classList.toggle('active', ab.data[field]);
 }
+
 function bpLockToggle(field) {
-  if(!selectedBubble) return;
+  const ab = getActiveBubble(); if(!ab) return;
   const key='lock'+field[0].toUpperCase()+field.slice(1);
-  selectedBubble.data[key]=!selectedBubble.data[key];
-  document.getElementById('lock-'+field)?.classList.toggle('active',selectedBubble.data[key]);
+  ab.data[key] = !ab.data[key];
+  applyBubbleStyle(ab.el, ab.data);
+  document.getElementById('lock-'+field)?.classList.toggle('active', ab.data[key]);
+  document.getElementById('m-lock-'+field)?.classList.toggle('active', ab.data[key]);
 }
 function deleteSelectedBubble() {
   if(!selectedBubble) return;
@@ -2212,8 +2241,8 @@ function getMobileLayers(pg) {
   if (!bbs.length) return '<div style="color:var(--text3);font-size:11px;padding:4px 0;">No bubbles yet.</div>';
   return [...bbs].reverse().map((b) => {
     const isSel = selectedBubble && selectedBubble.data.id === b.id;
-    return `<div class="layer-row ${isSel?'active':''}" style="border-radius:3px;margin-bottom:2px;"
-      onclick="selectLayerById('${pg}','${b.id}');setTimeout(()=>syncMobileBPFields(selectedBubble.data),30)">
+    return `<div class="layer-row ${isSel?'active':''}" data-id="${b.id}" style="border-radius:3px;margin-bottom:2px;"
+      onclick="selectLayerById('${pg}','${b.id}');setTimeout(()=>syncMobileBPFields(selectedBubble?.data||b),30)">
       <span class="layer-icon">${layerIcon(b.type)}</span>
       <span class="layer-label">${b.speaker?b.speaker+': ':''}${b.text.slice(0,20)}${b.text.length>20?'…':''}</span>
       <div class="layer-btns">
@@ -2418,24 +2447,26 @@ function getMobileTabContent(tab) {
             <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">SIZE</div>
               <input id="m-bp-fsize" type="number" min="6" max="200" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;" oninput="bpUpdate('fontSize',+this.value)"></div>
             <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">W</div>
-              <input id="m-bp-w" type="number" min="50" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;" oninput="syncFromMobilePos()"></div>
+              <input id="m-bp-w" type="number" min="100" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;"></div>
             <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">H</div>
-              <input id="m-bp-h" type="number" min="40" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;" oninput="syncFromMobilePos()"></div>
+              <input id="m-bp-h" type="number" min="80" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;"></div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:4px;">
             <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">X</div>
-              <input id="m-bp-x" type="number" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;" oninput="syncFromMobilePos()"></div>
+              <input id="m-bp-x" type="number" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;"></div>
             <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">Y</div>
-              <input id="m-bp-y" type="number" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;" oninput="syncFromMobilePos()"></div>
+              <input id="m-bp-y" type="number" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;"></div>
             <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">ROT°</div>
-              <input id="m-bp-rot" type="number" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;" oninput="syncFromMobilePos()"></div>
+              <input id="m-bp-rot" type="number" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;"></div>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:6px;">
+          <button class="btn small" onclick="syncFromMobilePos()" style="width:100%;margin-bottom:4px;">✔ Set Position / Size</button>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:4px;">
             <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">TAIL°</div>
-              <input id="m-bp-tail-angle" type="number" min="0" max="360" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;" oninput="bpUpdate('tailAngle',+this.value)"></div>
+              <input id="m-bp-tail-angle" type="number" min="0" max="360" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;"></div>
             <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">TAIL LEN</div>
-              <input id="m-bp-tail-len" type="number" min="0" max="300" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;" oninput="bpUpdate('tailLen',+this.value)"></div>
+              <input id="m-bp-tail-len" type="number" min="0" max="9999" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;"></div>
           </div>
+          <button class="btn small" onclick="syncFromMobilePos()" style="width:100%;margin-bottom:4px;">✔ Set Tail</button>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:4px;">
             <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">DOTS</div>
               <input id="m-bp-dot-count" type="number" min="1" max="12" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;" oninput="bpUpdate('dotCount',+this.value)"></div>
@@ -2538,16 +2569,17 @@ function syncMobileLocks() {
 }
 
 function syncFromMobilePos() {
-  if(!selectedBubble) return;
-  const g=(id)=>{ const e=document.getElementById(id); return e?+e.value:0; };
-  const b=selectedBubble.data, wrap=selectedBubble.el;
-  b.x=g('m-bp-x'); b.y=g('m-bp-y');
-  b.w=Math.max(50,g('m-bp-w')); b.h=Math.max(40,g('m-bp-h'));
-  b.rotate=g('m-bp-rot');
-  applyBubbleStyle(wrap,b);
-  rebuildSVG(wrap,b);
-  const td=wrap.querySelector('.bubble-text'); if(td) updateTextStyle(td,b);
-  positionTailHandleInWrap(wrap,b);
+  const ab = getActiveBubble(); if(!ab) return;
+  const b=ab.data, wrap=ab.el;
+  const g=(id)=>{ const e=document.getElementById(id); return e&&e.value!==''?+e.value:null; };
+  if(g('m-bp-x')!==null) b.x=g('m-bp-x');
+  if(g('m-bp-y')!==null) b.y=g('m-bp-y');
+  if(g('m-bp-w')!==null) b.w=Math.max(100,g('m-bp-w'));
+  if(g('m-bp-h')!==null) b.h=Math.max(80, g('m-bp-h'));
+  if(g('m-bp-rot')!==null) b.rotate=g('m-bp-rot');
+  if(g('m-bp-tail-angle')!==null) b.tailAngle=g('m-bp-tail-angle');
+  if(g('m-bp-tail-len')!==null)   b.tailLen=g('m-bp-tail-len');
+  applyBubble(b, wrap, ab.pgKey);
 }
 
 function refreshMobileLayers(pg) {
