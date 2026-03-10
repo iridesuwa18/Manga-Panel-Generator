@@ -1506,8 +1506,8 @@ renderTable();
     <div class="bp-section">
       <div class="bp-title">Tail</div>
       <div class="bp-row"><label>Angle°</label><input id="bp-tail-angle" type="number" value="225" min="0" max="360"><button class="btn small" onclick="bpUpdatePos()" style="margin-left:4px;">Set</button></div>
-      <div class="bp-row"><label>Length</label><input id="bp-tail-len" type="number" value="280" min="0" max="9999"><button class="btn small" onclick="bpUpdatePos()" style="margin-left:4px;">Set</button></div>
-      <div class="bp-row"><label>Breadth</label><input id="bp-tail-breadth" type="number" value="1.0" min="0.1" max="10" step="0.1"><button class="btn small" onclick="bpUpdatePos()" style="margin-left:4px;">Set</button></div>
+      <div class="bp-row"><label>Length</label><input id="bp-tail-len" type="number" value="150" min="0" max="9999"><button class="btn small" onclick="bpUpdatePos()" style="margin-left:4px;">Set</button></div>
+      <div class="bp-row"><label>Breadth</label><input id="bp-tail-breadth" type="number" value="7" min="0.1" max="30" step="0.1"><button class="btn small" onclick="bpUpdatePos()" style="margin-left:4px;">Set</button></div>
       <div class="bp-row"><label>Dots</label><input id="bp-dot-count" type="number" value="4" min="1" max="12"><button class="btn small" onclick="bpUpdate('dotCount',+document.getElementById('bp-dot-count').value)" style="margin-left:4px;">Set</button></div>
       <div class="bp-row"><label>Spikes</label><input id="bp-spike-count" type="number" value="16" min="5" max="40"><button class="btn small" onclick="bpUpdate('spikeCount',+document.getElementById('bp-spike-count').value)" style="margin-left:4px;">Set</button></div>
       <div class="bp-row"><label>Dashes</label><input id="bp-dash-count" type="number" value="7" min="2" max="20"><button class="btn small" onclick="bpUpdate('dashCount',+document.getElementById('bp-dash-count').value)" style="margin-left:4px;">Set</button></div>
@@ -1561,7 +1561,7 @@ function defaultBubble(type, text, speaker, index) {
     fontSize: isRect ? 100 : 70,
     bold: isYell,
     italic: false,
-    tailAngle: 225, tailLen: 280, tailBreadth: 1.0,
+    tailAngle: 225, tailLen: 150, tailBreadth: 7,
     dotCount: 4,
     spikeCount: 16,
     dashCount: 7,
@@ -1861,7 +1861,7 @@ function svgThought(svg,cx,cy,rx,ry,b) {
   for(let i=0;i<dots;i++){
     const t=(i+1)/(dots+1);
     const px=bx+(tipX-bx)*t, py=by_+(tipY-by_)*t;
-    const r=Math.max(1, 5.5*(1-t*0.6));
+    const r=Math.max(1, 5.5*(b.tailBreadth||1)*(1-t*0.6));
     const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
     c.setAttribute('cx',px);c.setAttribute('cy',py);c.setAttribute('r',r);
     c.setAttribute('stroke','#111');c.setAttribute('stroke-width',1.5);c.setAttribute('fill','#fff');
@@ -1934,8 +1934,8 @@ function svgSpikedBubble(svg,cx,cy,rx,ry,b) {
   const n=Math.max(5,b.spikeCount||16);
   const tar=(b.tailAngle*Math.PI)/180;
   const tailLen=b.tailLen||0;
+  const breadth=b.tailBreadth||1;
   const total=n*2;
-  // Build star points
   const pts=[];
   for(let i=0;i<total;i++){
     const a=(i/total)*Math.PI*2 - Math.PI/2;
@@ -1944,21 +1944,25 @@ function svgSpikedBubble(svg,cx,cy,rx,ry,b) {
     pts.push({x:cx+rx*r*Math.cos(a), y:cy+ry*r*Math.sin(a), a, isOuter});
   }
   if(tailLen>0){
-    // Replace nearest outer spike with tail tip
-    let best=-1, bestDiff=Infinity;
+    // breadth controls how many adjacent outer spikes get pulled toward the tip
+    // breadth=1 → 1 spike, breadth=7 → ~3-4 spikes blend toward tip
+    const spikeStep=(2*Math.PI)/total; // angle between outer spikes = 2 steps
+    const halfSpread = spikeStep * Math.max(0.5, (breadth-1)*0.5);
     pts.forEach((p,idx)=>{
-      if(!p.isOuter)return;
-      const diff=Math.min(
-        Math.abs(p.a-tar),
-        Math.abs(p.a-tar+Math.PI*2),
-        Math.abs(p.a-tar-Math.PI*2)
-      );
-      if(diff<bestDiff){bestDiff=diff;best=idx;}
+      if(!p.isOuter) return;
+      let diff=p.a-tar;
+      // Normalise to [-π, π]
+      while(diff >  Math.PI) diff -= Math.PI*2;
+      while(diff < -Math.PI) diff += Math.PI*2;
+      const absDiff=Math.abs(diff);
+      if(absDiff <= halfSpread + spikeStep){
+        // How far this spike is from the centre of the tail
+        const influence = Math.max(0, 1 - absDiff/(halfSpread+spikeStep));
+        const extLen = tailLen * influence;
+        p.x = cx+(rx+extLen)*Math.cos(p.a);
+        p.y = cy+(ry+extLen)*Math.sin(p.a);
+      }
     });
-    if(best>=0){
-      pts[best].x=cx+(rx+tailLen)*Math.cos(tar);
-      pts[best].y=cy+(ry+tailLen)*Math.sin(tar);
-    }
   }
   const d=pts.map((p,i)=>`${i===0?'M':'L'} ${p.x} ${p.y}`).join(' ')+' Z';
   mkPath(svg,d,'#111','#fff',2);
@@ -2508,7 +2512,7 @@ function getMobileTabContent(tab) {
             <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">TAIL LEN</div>
               <input id="m-bp-tail-len" type="number" min="0" max="9999" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;"></div>
             <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">BREADTH</div>
-              <input id="m-bp-tail-breadth" type="number" min="0.1" max="10" step="0.1" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;"></div>
+              <input id="m-bp-tail-breadth" type="number" min="0.1" max="30" step="0.1" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;"></div>
           </div>
           <button class="btn small" onclick="syncFromMobilePos()" style="width:100%;margin-bottom:4px;">✔ Set Tail</button>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:4px;">
