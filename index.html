@@ -1464,7 +1464,10 @@ renderTable();
     <div class="bp-section">
       <div class="bp-title">Tail</div>
       <div class="bp-row"><label>Angle°</label><input id="bp-tail-angle" type="number" value="225" min="0" max="360" oninput="bpUpdate('tailAngle',+this.value)"></div>
-      <div class="bp-row"><label>Length</label><input id="bp-tail-len" type="number" value="30" min="5" max="300" oninput="bpUpdate('tailLen',+this.value)"></div>
+      <div class="bp-row"><label>Length</label><input id="bp-tail-len" type="number" value="30" min="0" max="300" oninput="bpUpdate('tailLen',+this.value)"></div>
+      <div class="bp-row"><label>Dots</label><input id="bp-dot-count" type="number" value="4" min="1" max="12" title="Thought bubble dot count" oninput="bpUpdate('dotCount',+this.value)"></div>
+      <div class="bp-row"><label>Spikes</label><input id="bp-spike-count" type="number" value="16" min="5" max="40" title="Spiked bubble spike count" oninput="bpUpdate('spikeCount',+this.value)"></div>
+      <div class="bp-row"><label>Dashes</label><input id="bp-dash-count" type="number" value="7" min="2" max="20" title="Dashed bubble dash count" oninput="bpUpdate('dashCount',+this.value)"></div>
     </div>
     <div class="bp-section">
       <div class="bp-title">Lock</div>
@@ -1503,15 +1506,22 @@ let customFontCount = 0;
 
 // ── DEFAULT BUBBLE (smaller, centered) ──
 function defaultBubble(type, text, speaker, index) {
+  const isRect = type === 'rectangle';
+  const isYell = type === 'spiked';
   return {
     id: 'b' + Date.now() + Math.random().toString(36).slice(2,6),
     type, text, speaker: speaker||'',
-    x: 40, y: 40,   // will be centered when placed
+    x: -9999, y: -9999,   // sentinel — will be placed on import
     w: 100, h: 70,
     rotate: 0,
-    font: 'Bangers', fontSize: 13,
-    bold: false, italic: false,
+    font: isRect ? 'TGLEngschrift' : 'BubbleSans',
+    fontSize: isRect ? 10 : 7,
+    bold: isYell,
+    italic: false,
     tailAngle: 225, tailLen: 28,
+    dotCount: 4,
+    spikeCount: 16,
+    dashCount: 7,
     lockMove: false, lockResize: false, lockRotate: false,
     zIndex: (index||0) + 1,
     color: '#111111',
@@ -1531,7 +1541,7 @@ function parseType(raw) {
   return 'circle';
 }
 
-// ── IMPORT ──
+// ── IMPORT — distribute bubbles across panels ──
 function importBubbles() {
   const raw = document.getElementById('bubblePaste').value.trim();
   if (!raw) { showToast('Nothing to import!'); return; }
@@ -1551,10 +1561,59 @@ function importBubbles() {
     const b = defaultBubble(type, text, speaker, existing + added.length);
     added.push(b);
   }
+  // Distribute across panels — one bubble per panel, extras stack in last
+  const panelCenters = getPanelCenters(pg);
+  added.forEach((b, i) => {
+    const pc = panelCenters.length > 0
+      ? panelCenters[Math.min(i, panelCenters.length - 1)]
+      : null;
+    if (pc) {
+      b.x = pc.x - b.w / 2;
+      b.y = pc.y - b.h / 2;
+    } else {
+      // No panels yet (page not generated) — stack at center
+      const cont = document.querySelector(`.page-output[data-pg="${pg}"]`);
+      const cw = cont ? cont.offsetWidth  : 300;
+      const ch = cont ? cont.offsetHeight : 400;
+      b.x = (cw - b.w) / 2;
+      b.y = (ch - b.h) / 2;
+    }
+  });
   bubbles[pg].push(...added);
   renderBubblesOnPage(pg);
   refreshLayersPanel(pg);
   showToast(`Added ${added.length} bubble(s) to ${pg}`);
+}
+
+// Get center of each panel rect for a page (in overlay px coords)
+function getPanelCenters(pg) {
+  const cont = document.querySelector(`.page-output[data-pg="${pg}"]`);
+  if (!cont) return [];
+  const svgEl = cont.querySelector('svg');
+  if (!svgEl) return [];
+  const vbW = svgEl.viewBox?.baseVal?.width || cont.offsetWidth;
+  const vbH = svgEl.viewBox?.baseVal?.height || cont.offsetHeight;
+  const scaleX = cont.offsetWidth  / vbW;
+  const scaleY = cont.offsetHeight / vbH;
+  const rects = svgEl.querySelectorAll('rect');
+  const centers = [];
+  rects.forEach(r => {
+    const x = parseFloat(r.getAttribute('x')||0);
+    const y = parseFloat(r.getAttribute('y')||0);
+    const w = parseFloat(r.getAttribute('width')||0);
+    const h = parseFloat(r.getAttribute('height')||0);
+    if (w < 10 || h < 10) return;                         // skip tiny
+    if (w > vbW * 0.95 || h > vbH * 0.95) return;        // skip full-page bg
+    const fill = (r.getAttribute('fill')||'').toLowerCase();
+    if (fill === 'white' || fill === '#ffffff' || fill === 'none' || fill === '') return;
+    centers.push({
+      x: (x + w/2) * scaleX,
+      y: (y + h/2) * scaleY,
+    });
+  });
+  // Sort top-to-bottom, left-to-right (reading order)
+  centers.sort((a,b) => a.y !== b.y ? a.y - b.y : a.x - b.x);
+  return centers;
 }
 
 // ── RENDER ALL BUBBLES ON A PAGE ──
@@ -1568,10 +1627,9 @@ function renderBubblesOnPage(pg) {
     overlay.className = 'bubble-overlay';
     overlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;';
     cont.appendChild(overlay);
-    // Place bubbles centered in page
     const cw = cont.offsetWidth, ch = cont.offsetHeight;
     (bubbles[pg]||[]).forEach((b,i) => {
-      if (b.x === 40 && b.y === 40) {
+      if (b.x === -9999 || b.y === -9999) {
         b.x = (cw - b.w) / 2;
         b.y = (ch - b.h) / 2;
       }
@@ -1602,14 +1660,13 @@ function createBubbleEl(b, pgKey) {
   updateTextStyle(textDiv, b);
   wrap.appendChild(textDiv);
 
-  // Handles
   ['resize-handle','rotate-handle'].forEach(cls => {
     const h = document.createElement('div');
     h.className = cls;
     wrap.appendChild(h);
   });
 
-  if (['circle','thought','fading','dashed','bold','spiked'].includes(b.type)) {
+  if (['circle','thought','fading','dashed','bold','spiked','lilypad'].includes(b.type)) {
     const tailH = document.createElement('div');
     tailH.className = 'tail-handle';
     positionTailHandle(tailH, b);
@@ -1617,6 +1674,7 @@ function createBubbleEl(b, pgKey) {
     setupTailDrag(tailH, b, pgKey, wrap);
   }
 
+  // Always-on interaction (no need to be selected)
   setupDrag(wrap, b, pgKey);
   setupResize(wrap.querySelector('.resize-handle'), wrap, b, pgKey);
   setupRotate(wrap.querySelector('.rotate-handle'), wrap, b, pgKey);
@@ -1638,25 +1696,26 @@ function applyBubbleStyle(wrap, b) {
     transform:rotate(${b.rotate}deg);
     z-index:${b.zIndex||1};
     pointer-events:all;
-    cursor:move;
+    cursor:${b.lockMove?'default':'move'};
     user-select:none;
     touch-action:none;
   `;
 }
 
 function updateTextStyle(textDiv, b) {
+  const pad = Math.min(b.w, b.h) * 0.14;
   textDiv.style.cssText = `
     position:absolute;
     top:0; left:0;
     width:100%; height:100%;
     display:flex; align-items:center; justify-content:center;
     text-align:center;
-    font-family:${BUBBLE_FONTS[b.font]||BUBBLE_FONTS['Bangers']};
+    font-family:${BUBBLE_FONTS[b.font]||BUBBLE_FONTS['BubbleSans']};
     font-size:${b.fontSize}px;
     font-weight:${b.bold?'bold':'normal'};
     font-style:${b.italic?'italic':'normal'};
     color:${b.color||'#111111'};
-    padding:${Math.round(b.w*0.12)}px ${Math.round(b.h*0.14)}px;
+    padding:${pad}px;
     line-height:1.25;
     word-break:break-word;
     overflow:hidden;
@@ -1666,65 +1725,44 @@ function updateTextStyle(textDiv, b) {
   textDiv.textContent = b.text;
 }
 
-// ── SVG SHAPES ──
+// ══════════════════════════════════════════════════
+// SVG SHAPES — all unified paths, tails joined
+// ══════════════════════════════════════════════════
+
 function buildBubbleSVG(b) {
   const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
   svg.setAttribute('width',b.w); svg.setAttribute('height',b.h);
   svg.setAttribute('viewBox',`0 0 ${b.w} ${b.h}`);
   svg.style.cssText='position:absolute;top:0;left:0;overflow:visible;';
-  const cx=b.w/2, cy=b.h/2, rx=b.w/2-4, ry=b.h/2-4;
-  const tar=(b.tailAngle*Math.PI)/180;
-  const bx=cx+rx*Math.cos(tar), by=cy+ry*Math.sin(tar);
-  const tx=cx+(rx+b.tailLen)*Math.cos(tar), ty=cy+(ry+b.tailLen)*Math.sin(tar);
-  const pa=tar+Math.PI/2, hw=Math.min(8,b.w*0.08);
-  const p1x=bx+hw*Math.cos(pa), p1y=by+hw*Math.sin(pa);
-  const p2x=bx-hw*Math.cos(pa), p2y=by-hw*Math.sin(pa);
+  const cx=b.w/2, cy=b.h/2;
+  const rx=b.w/2-4, ry=b.h/2-4;
+  const sw = b.type==='bold' ? 5 : 2.5;
 
   switch(b.type) {
-    case 'circle':
-      svgEllipse(svg,cx,cy,rx,ry,2.5,'#111','#fff');
-      if(b.tailLen>0) svgTail(svg,tx,ty,p1x,p1y,p2x,p2y,'#111','#fff',2.5);
-      break;
-    case 'bold':
-      svgEllipse(svg,cx,cy,rx,ry,5,'#111','#fff');
-      if(b.tailLen>0) svgTail(svg,tx,ty,p1x,p1y,p2x,p2y,'#111','#fff',5);
-      break;
-    case 'square':
-      svgRect(svg,4,4,b.w-8,b.h-8,2.5,'#111','#fff');
-      break;
+    case 'circle': svgCircleWithTail(svg,cx,cy,rx,ry,b,sw,'#111','#fff'); break;
+    case 'bold':   svgCircleWithTail(svg,cx,cy,rx,ry,b,sw,'#111','#fff'); break;
+    case 'square': svgRect(svg,4,4,b.w-8,b.h-8,2.5,'#111','#fff'); break;
     case 'rectangle':
       svgRect(svg,4,4,b.w-8,b.h-8,2.5,'#111','#fff');
-      svgRect(svg,9,9,b.w-18,b.h-18,1.2,'#111','none');
-      break;
-    case 'thought':
-      svgCloud(svg,cx,cy,rx,ry,'#111','#fff');
-      if(b.tailLen>0) svgThoughtDots(svg,tx,ty,bx,by,false);
-      break;
-    case 'fading':
-      svgCloud(svg,cx,cy,rx,ry,'#111','#fff');
-      if(b.tailLen>0) svgThoughtDots(svg,tx,ty,bx,by,true);
-      break;
-    case 'dashed':
-      svgEllipse(svg,cx,cy,rx,ry,2.5,'#111','#fff','7,5');
-      if(b.tailLen>0) svgDashedTail(svg,tx,ty,p1x,p1y,p2x,p2y);
-      break;
-    case 'spiked':
-      svgSpiked(svg,cx,cy,rx,ry);
-      if(b.tailLen>0) svgTail(svg,tx,ty,p1x,p1y,p2x,p2y,'#111','#fff',2);
-      break;
-    case 'lilypad':
-      svgLilypad(svg,cx,cy,rx,ry,b.tailAngle);
-      break;
+      svgRect(svg,9,9,b.w-18,b.h-18,1.2,'#111','none'); break;
+    case 'thought': svgThought(svg,cx,cy,rx,ry,b); break;
+    case 'fading':  svgFading(svg,cx,cy,rx,ry,b); break;
+    case 'dashed':  svgDashedBubble(svg,cx,cy,rx,ry,b); break;
+    case 'spiked':  svgSpikedBubble(svg,cx,cy,rx,ry,b); break;
+    case 'lilypad': svgLilypad(svg,cx,cy,rx,ry,b); break;
   }
   return svg;
 }
 
-function svgEllipse(svg,cx,cy,rx,ry,sw,stroke,fill,dash='') {
-  const el=document.createElementNS('http://www.w3.org/2000/svg','ellipse');
-  el.setAttribute('cx',cx);el.setAttribute('cy',cy);el.setAttribute('rx',rx);el.setAttribute('ry',ry);
-  el.setAttribute('stroke',stroke);el.setAttribute('stroke-width',sw);el.setAttribute('fill',fill);
-  if(dash)el.setAttribute('stroke-dasharray',dash);
-  svg.appendChild(el);
+// ── Helpers ──
+function mkPath(svg,d,stroke,fill,sw,dash='') {
+  const el=document.createElementNS('http://www.w3.org/2000/svg','path');
+  el.setAttribute('d',d); el.setAttribute('stroke',stroke);
+  el.setAttribute('fill',fill); el.setAttribute('stroke-width',sw);
+  el.setAttribute('stroke-linejoin','round');
+  el.setAttribute('stroke-linecap','round');
+  if(dash) el.setAttribute('stroke-dasharray',dash);
+  svg.appendChild(el); return el;
 }
 function svgRect(svg,x,y,w,h,sw,stroke,fill) {
   if(w<=0||h<=0)return;
@@ -1733,70 +1771,171 @@ function svgRect(svg,x,y,w,h,sw,stroke,fill) {
   el.setAttribute('stroke',stroke);el.setAttribute('stroke-width',sw);el.setAttribute('fill',fill);
   svg.appendChild(el);
 }
-function svgTail(svg,tx,ty,p1x,p1y,p2x,p2y,stroke,fill,sw) {
-  const poly=document.createElementNS('http://www.w3.org/2000/svg','polygon');
-  poly.setAttribute('points',`${tx},${ty} ${p1x},${p1y} ${p2x},${p2y}`);
-  poly.setAttribute('stroke',stroke);poly.setAttribute('stroke-width',sw);poly.setAttribute('fill',fill);
-  svg.insertBefore(poly,svg.firstChild);
+
+// Point on ellipse at angle a
+function ep(cx,cy,rx,ry,a){ return [cx+rx*Math.cos(a), cy+ry*Math.sin(a)]; }
+
+// ── CIRCLE / BOLD: true unified path — ellipse with tail grown from perimeter ──
+// Uses two SVG arcs: small arc across tail base gap, large arc for the rest of ellipse
+function svgCircleWithTail(svg,cx,cy,rx,ry,b,sw,stroke,fill) {
+  if(b.tailLen<=0) {
+    const el=document.createElementNS('http://www.w3.org/2000/svg','ellipse');
+    el.setAttribute('cx',cx);el.setAttribute('cy',cy);el.setAttribute('rx',rx);el.setAttribute('ry',ry);
+    el.setAttribute('stroke',stroke);el.setAttribute('stroke-width',sw);el.setAttribute('fill',fill);
+    svg.appendChild(el); return;
+  }
+  const tar=(b.tailAngle*Math.PI)/180;
+  // Gap half-angle: determines how wide the tail base is
+  const gapHalf = Math.min(0.28, 8/Math.max(rx,ry));
+  const a1=tar-gapHalf, a2=tar+gapHalf;
+  const [x1,y1]=ep(cx,cy,rx,ry,a1);  // tail base left
+  const [x2,y2]=ep(cx,cy,rx,ry,a2);  // tail base right
+  const tipX=cx+(rx+b.tailLen)*Math.cos(tar);
+  const tipY=cy+(ry+b.tailLen)*Math.sin(tar);
+  // Start at base-right, go large arc CCW to base-left, line to tip, close
+  // large arc = 1, sweep = 1 (go the long way around)
+  const d=`M ${x2} ${y2} A ${rx} ${ry} 0 1 1 ${x1} ${y1} L ${tipX} ${tipY} Z`;
+  mkPath(svg,d,stroke,fill,sw);
 }
-function svgDashedTail(svg,tx,ty,p1x,p1y,p2x,p2y) {
-  const poly=document.createElementNS('http://www.w3.org/2000/svg','polygon');
-  poly.setAttribute('points',`${tx},${ty} ${p1x},${p1y} ${p2x},${p2y}`);
-  poly.setAttribute('stroke','#111');poly.setAttribute('stroke-width',2);
-  poly.setAttribute('stroke-dasharray','7,5');poly.setAttribute('fill','#fff');
-  svg.insertBefore(poly,svg.firstChild);
-}
-function svgCloud(svg,cx,cy,rx,ry,stroke,fill) {
-  const n=Math.max(6,Math.round((rx+ry)/12));
+
+// ── THOUGHT: cloud body + shrinking dot chain ──
+function svgThought(svg,cx,cy,rx,ry,b) {
+  const n=Math.max(7,Math.round((rx+ry)/9));
   let d='';
   for(let i=0;i<n;i++){
     const a1=(i/n)*Math.PI*2, a2=((i+1)/n)*Math.PI*2, am=(a1+a2)/2;
-    const br=0.14;
-    const ox=cx+rx*(1+br*1.6)*Math.cos(am), oy=cy+ry*(1+br*1.6)*Math.sin(am);
-    const x1=cx+rx*(1+br)*Math.cos(a1), y1=cy+ry*(1+br)*Math.sin(a1);
-    const x2=cx+rx*(1+br)*Math.cos(a2), y2=cy+ry*(1+br)*Math.sin(a2);
+    const bump=0.14;
+    const ox=cx+rx*(1+bump*1.9)*Math.cos(am), oy=cy+ry*(1+bump*1.9)*Math.sin(am);
+    const x1=cx+rx*(1+bump)*Math.cos(a1), y1=cy+ry*(1+bump)*Math.sin(a1);
+    const x2=cx+rx*(1+bump)*Math.cos(a2), y2=cy+ry*(1+bump)*Math.sin(a2);
     d+=(i===0?`M ${x1} ${y1} `:'')+`Q ${ox} ${oy} ${x2} ${y2} `;
   }
-  const el=document.createElementNS('http://www.w3.org/2000/svg','path');
-  el.setAttribute('d',d+'Z');el.setAttribute('stroke',stroke);
-  el.setAttribute('stroke-width',2.5);el.setAttribute('fill',fill);
-  svg.appendChild(el);
-}
-function svgThoughtDots(svg,tx,ty,bx,by,curly) {
-  const steps=4;
-  for(let i=0;i<steps;i++){
-    const t=(i+1)/(steps+1);
-    const x=bx+(tx-bx)*t, y=by+(ty-by)*t;
-    const r=Math.max(2,(curly?5:6)-(i*(curly?1.2:1.4)));
+  mkPath(svg,d+'Z','#111','#fff',2.5);
+  if(b.tailLen<=0) return;
+  const tar=(b.tailAngle*Math.PI)/180;
+  const bx=cx+rx*Math.cos(tar), by_=cy+ry*Math.sin(tar);
+  const tipX=cx+(rx+b.tailLen)*Math.cos(tar), tipY=cy+(ry+b.tailLen)*Math.sin(tar);
+  const dots=Math.max(1,b.dotCount||4);
+  for(let i=0;i<dots;i++){
+    const t=(i+1)/(dots+1);
+    const px=bx+(tipX-bx)*t, py=by_+(tipY-by_)*t;
+    const r=Math.max(1, 5.5*(1-t*0.6));
     const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
-    c.setAttribute('cx',x);c.setAttribute('cy',y);c.setAttribute('r',r);
+    c.setAttribute('cx',px);c.setAttribute('cy',py);c.setAttribute('r',r);
     c.setAttribute('stroke','#111');c.setAttribute('stroke-width',1.5);c.setAttribute('fill','#fff');
     svg.appendChild(c);
   }
 }
-function svgSpiked(svg,cx,cy,rx,ry) {
-  const n=16; let pts='';
-  for(let i=0;i<n*2;i++){
-    const a=(i/(n*2))*Math.PI*2-Math.PI/2;
-    const r=i%2===0?1:0.68;
-    pts+=`${cx+rx*r*Math.cos(a)},${cy+ry*r*Math.sin(a)} `;
+
+// ── FADING: smooth oval (not cloud) + sinuous ribbon tail joined to body ──
+// Body is a plain ellipse; tail is a wide ribbon that tapers to a point,
+// drawn as a single closed path merging into the ellipse outline.
+function svgFading(svg,cx,cy,rx,ry,b) {
+  // Soft rounded body — slightly squished circle with gentle bumps
+  const n=Math.max(5,Math.round((rx+ry)/16));
+  let d='';
+  for(let i=0;i<n;i++){
+    const a1=(i/n)*Math.PI*2, a2=((i+1)/n)*Math.PI*2, am=(a1+a2)/2;
+    const bump=0.07;
+    const ox=cx+rx*(1+bump*1.3)*Math.cos(am), oy=cy+ry*(1+bump*1.3)*Math.sin(am);
+    const x1=cx+rx*(1+bump)*Math.cos(a1), y1=cy+ry*(1+bump)*Math.sin(a1);
+    const x2=cx+rx*(1+bump)*Math.cos(a2), y2=cy+ry*(1+bump)*Math.sin(a2);
+    d+=(i===0?`M ${x1} ${y1} `:'')+`Q ${ox} ${oy} ${x2} ${y2} `;
   }
-  const poly=document.createElementNS('http://www.w3.org/2000/svg','polygon');
-  poly.setAttribute('points',pts.trim());poly.setAttribute('stroke','#111');
-  poly.setAttribute('stroke-width',2);poly.setAttribute('fill','#fff');
-  svg.appendChild(poly);
+  mkPath(svg,d+'Z','#111','#fff',2);
+  if(b.tailLen<=0) return;
+  // Wavy ribbon tail — two wavy sides that meet at a point, filled shape
+  const tar=(b.tailAngle*Math.PI)/180;
+  const perp=tar+Math.PI/2;
+  const bx=cx+rx*Math.cos(tar), by_=cy+ry*Math.sin(tar);
+  const tipX=cx+(rx+b.tailLen)*Math.cos(tar);
+  const tipY=cy+(ry+b.tailLen)*Math.sin(tar);
+  const baseW=Math.min(rx,ry)*0.3;
+  // Side offsets at base
+  const s1x=bx+baseW*Math.cos(perp), s1y=by_+baseW*Math.sin(perp);
+  const s2x=bx-baseW*Math.cos(perp), s2y=by_-baseW*Math.sin(perp);
+  // Mid-wave control points (alternating sides)
+  const m1=0.35, m2=0.65;
+  const amp=baseW*0.8;
+  const cp1x=(bx+(tipX-bx)*m1)+amp*Math.cos(perp), cp1y=(by_+(tipY-by_)*m1)+amp*Math.sin(perp);
+  const cp2x=(bx+(tipX-bx)*m2)-amp*Math.cos(perp), cp2y=(by_+(tipY-by_)*m2)-amp*Math.sin(perp);
+  const cp3x=(bx+(tipX-bx)*m1)-amp*Math.cos(perp), cp3y=(by_+(tipY-by_)*m1)-amp*Math.sin(perp);
+  const cp4x=(bx+(tipX-bx)*m2)+amp*Math.cos(perp), cp4y=(by_+(tipY-by_)*m2)+amp*Math.sin(perp);
+  const td=`M ${s1x} ${s1y} Q ${cp1x} ${cp1y} ${bx+(tipX-bx)*m2} ${by_+(tipY-by_)*m2} Q ${cp2x} ${cp2y} ${tipX} ${tipY} Q ${cp3x} ${cp3y} ${bx+(tipX-bx)*m1} ${by_+(tipY-by_)*m1} Q ${cp4x} ${cp4y} ${s2x} ${s2y} Z`;
+  mkPath(svg,td,'#111','#fff',1.5);
 }
-function svgLilypad(svg,cx,cy,rx,ry,tailAngle) {
-  svgEllipse(svg,cx,cy,rx,ry,2.5,'#111','#fff');
-  const a=(tailAngle*Math.PI)/180, nw=0.3;
-  const x1=cx+rx*Math.cos(a-nw), y1=cy+ry*Math.sin(a-nw);
-  const x2=cx+rx*Math.cos(a+nw), y2=cy+ry*Math.sin(a+nw);
-  const nd=Math.min(rx,ry)*0.42;
-  const ix=cx+(rx-nd)*Math.cos(a), iy=cy+(ry-nd)*Math.sin(a);
-  const el=document.createElementNS('http://www.w3.org/2000/svg','path');
-  el.setAttribute('d',`M ${x1} ${y1} Q ${ix} ${iy} ${x2} ${y2}`);
-  el.setAttribute('stroke','#111');el.setAttribute('stroke-width',2.5);el.setAttribute('fill','none');
-  svg.appendChild(el);
+
+// ── DASHED: dashed unified path (ellipse + tail as one closed shape) ──
+function svgDashedBubble(svg,cx,cy,rx,ry,b) {
+  const dc=b.dashCount||7;
+  const dashArr=`${dc},5`;
+  if(b.tailLen<=0){
+    const el=document.createElementNS('http://www.w3.org/2000/svg','ellipse');
+    el.setAttribute('cx',cx);el.setAttribute('cy',cy);el.setAttribute('rx',rx);el.setAttribute('ry',ry);
+    el.setAttribute('stroke','#111');el.setAttribute('stroke-width',2.5);el.setAttribute('fill','#fff');
+    el.setAttribute('stroke-dasharray',dashArr);
+    svg.appendChild(el); return;
+  }
+  const tar=(b.tailAngle*Math.PI)/180;
+  const gapHalf=Math.min(0.25, 7/Math.max(rx,ry));
+  const [x1,y1]=ep(cx,cy,rx,ry,tar-gapHalf);
+  const [x2,y2]=ep(cx,cy,rx,ry,tar+gapHalf);
+  const tipX=cx+(rx+b.tailLen)*Math.cos(tar);
+  const tipY=cy+(ry+b.tailLen)*Math.sin(tar);
+  const d=`M ${x2} ${y2} A ${rx} ${ry} 0 1 1 ${x1} ${y1} L ${tipX} ${tipY} Z`;
+  mkPath(svg,d,'#111','#fff',2.5,dashArr);
+}
+
+// ── SPIKED: star burst with one spike elongated as tail ──
+function svgSpikedBubble(svg,cx,cy,rx,ry,b) {
+  const n=Math.max(5,b.spikeCount||16);
+  const tar=(b.tailAngle*Math.PI)/180;
+  const tailLen=b.tailLen||0;
+  const total=n*2;
+  // Build star points
+  const pts=[];
+  for(let i=0;i<total;i++){
+    const a=(i/total)*Math.PI*2 - Math.PI/2;
+    const isOuter=(i%2===0);
+    const r=isOuter?1:0.62;
+    pts.push({x:cx+rx*r*Math.cos(a), y:cy+ry*r*Math.sin(a), a, isOuter});
+  }
+  if(tailLen>0){
+    // Replace nearest outer spike with tail tip
+    let best=-1, bestDiff=Infinity;
+    pts.forEach((p,idx)=>{
+      if(!p.isOuter)return;
+      const diff=Math.min(
+        Math.abs(p.a-tar),
+        Math.abs(p.a-tar+Math.PI*2),
+        Math.abs(p.a-tar-Math.PI*2)
+      );
+      if(diff<bestDiff){bestDiff=diff;best=idx;}
+    });
+    if(best>=0){
+      pts[best].x=cx+(rx+tailLen)*Math.cos(tar);
+      pts[best].y=cy+(ry+tailLen)*Math.sin(tar);
+    }
+  }
+  const d=pts.map((p,i)=>`${i===0?'M':'L'} ${p.x} ${p.y}`).join(' ')+' Z';
+  mkPath(svg,d,'#111','#fff',2);
+}
+
+// ── LILYPAD: real lilypad — full ellipse outline with a sharp V-notch cut in ──
+// The notch cuts inward with straight lines to a deep point, like a real lilypad's slit
+function svgLilypad(svg,cx,cy,rx,ry,b) {
+  const a=(b.tailAngle*Math.PI)/180;
+  const nw=0.28;  // notch half-angle
+  const a1=a-nw, a2=a+nw;
+  const [x1,y1]=ep(cx,cy,rx,ry,a1);
+  const [x2,y2]=ep(cx,cy,rx,ry,a2);
+  // Inner tip — deep, at ~45% of radius toward center
+  const depth=Math.min(rx,ry)*0.65;
+  const ix=cx+(rx-depth)*Math.cos(a), iy=cy+(ry-depth)*Math.sin(a);
+  // Path: from notch-right, large arc all the way to notch-left,
+  // sharp line inward to tip, sharp line back to notch-right
+  const d=`M ${x2} ${y2} A ${rx} ${ry} 0 1 1 ${x1} ${y1} L ${ix} ${iy} L ${x2} ${y2} Z`;
+  mkPath(svg,d,'#111','#fff',2.5);
 }
 
 // ── TAIL HANDLE ──
@@ -1948,6 +2087,9 @@ function syncBPFields(b) {
   s('bp-tail-angle',Math.round(b.tailAngle));
   s('bp-tail-len',Math.round(b.tailLen));
   s('bp-color',b.color||'#111111');
+  s('bp-dot-count',b.dotCount||4);
+  s('bp-spike-count',b.spikeCount||16);
+  s('bp-dash-count',b.dashCount||7);
   const e=document.getElementById('lock-move'); if(e)e.classList.toggle('active',b.lockMove);
   const e2=document.getElementById('lock-resize'); if(e2)e2.classList.toggle('active',b.lockResize);
   const e3=document.getElementById('lock-rotate'); if(e3)e3.classList.toggle('active',b.lockRotate);
@@ -2286,6 +2428,14 @@ function getMobileTabContent(tab) {
             <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">TAIL LEN</div>
               <input id="m-bp-tail-len" type="number" min="0" max="300" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;" oninput="bpUpdate('tailLen',+this.value)"></div>
           </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:4px;">
+            <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">DOTS</div>
+              <input id="m-bp-dot-count" type="number" min="1" max="12" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;" oninput="bpUpdate('dotCount',+this.value)"></div>
+            <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">SPIKES</div>
+              <input id="m-bp-spike-count" type="number" min="5" max="40" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;" oninput="bpUpdate('spikeCount',+this.value)"></div>
+            <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">DASHES</div>
+              <input id="m-bp-dash-count" type="number" min="2" max="20" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;" oninput="bpUpdate('dashCount',+this.value)"></div>
+          </div>
           <div style="display:flex;gap:4px;margin-bottom:6px;align-items:center;">
             <button class="font-btn" id="m-bp-bold" onclick="bpToggle('bold');syncMobileBPFields(selectedBubble.data)" style="flex:1;"><b>B</b></button>
             <button class="font-btn" id="m-bp-italic" onclick="bpToggle('italic');syncMobileBPFields(selectedBubble.data)" style="flex:1;"><i>I</i></button>
@@ -2351,6 +2501,9 @@ function syncMobileBPFields(b) {
   s('m-bp-tail-angle',Math.round(b.tailAngle));
   s('m-bp-tail-len',Math.round(b.tailLen));
   s('m-bp-color',b.color||'#111111');
+  s('m-bp-dot-count',b.dotCount||4);
+  s('m-bp-spike-count',b.spikeCount||16);
+  s('m-bp-dash-count',b.dashCount||7);
   // Locks
   const tl=(id,v)=>{const e=document.getElementById(id);if(e)e.classList.toggle('active',v);};
   tl('m-lock-move',b.lockMove); tl('m-lock-resize',b.lockResize); tl('m-lock-rotate',b.lockRotate);
