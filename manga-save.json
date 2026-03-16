@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "savedAt": "2026-03-10T11:10:53.756Z",
+  "savedAt": "2026-03-16T23:26:03.128Z",
   "rows": [
     {
       "chp": "CHP 2",
@@ -1666,265 +1666,89 @@
   "pageSettings": {
     "PG 1": {
       "mode": "safe",
-      "gutter": 12
+      "gutter": 40
     },
     "PG 2": {
       "mode": "safe",
-      "gutter": 12
+      "gutter": 40
     },
     "PG 3": {
       "mode": "safe",
-      "gutter": 12
+      "gutter": 40
     },
     "PG 4": {
       "mode": "safe",
-      "gutter": 12
+      "gutter": 40
     },
     "PG 5": {
       "mode": "safe",
-      "gutter": 12,
+      "gutter": 40,
       "flow": "h-first"
     },
     "PG 6": {
       "mode": "safe",
-      "gutter": 12
+      "gutter": 40
     },
     "PG 7": {
       "mode": "safe",
-      "gutter": 12
+      "gutter": 40
     },
     "PG 8": {
       "mode": "safe",
-      "gutter": 12
+      "gutter": 40
     },
     "PG 9": {
       "mode": "safe",
-      "gutter": 12
+      "gutter": 40
     },
     "PG 10": {
       "mode": "safe",
-      "gutter": 12,
+      "gutter": 40,
       "flow": "h-first"
     },
     "PG 11": {
       "mode": "safe",
-      "gutter": 12
+      "gutter": 40
     },
     "PG 12": {
       "mode": "safe",
-      "gutter": 12
+      "gutter": 40
     },
     "PG 13": {
       "mode": "safe",
-      "gutter": 12
+      "gutter": 40
     },
     "PG 14": {
       "mode": "safe",
-      "gutter": 12
+      "gutter": 40
     },
     "PG 15": {
       "mode": "safe",
-      "gutter": 12
+      "gutter": 40
     },
     "PG 16": {
       "mode": "safe",
-      "gutter": 12
+      "gutter": 40
     },
     "PG 17": {
       "mode": "safe",
-      "gutter": 12
+      "gutter": 40
     },
     "PG 18": {
       "mode": "safe",
-      "gutter": 12
+      "gutter": 40
     },
     "PG 19": {
       "mode": "safe",
-      "gutter": 12
+      "gutter": 40
     },
     "PG 20": {
       "mode": "safe",
-      "gutter": 12
+      "gutter": 40
     }
   },
   "bubbles": {
-    "PG 1": [
-      {
-        "id": "b1773141012047boz6",
-        "type": "circle",
-        "text": "I think everyone has gathered in our online meeting-",
-        "speaker": "Claude Albson",
-        "x": 1659.8588256835938,
-        "y": 590.4000610351563,
-        "w": 1000,
-        "h": 700,
-        "rotate": 0,
-        "font": "BubbleSans",
-        "fontSize": 70,
-        "bold": false,
-        "italic": false,
-        "tailAngle": 225,
-        "tailLen": 280,
-        "dotCount": 4,
-        "spikeCount": 16,
-        "dashCount": 7,
-        "lockMove": false,
-        "lockResize": false,
-        "lockRotate": false,
-        "zIndex": 1,
-        "color": "#111111"
-      },
-      {
-        "id": "b1773141012047jvfb",
-        "type": "spiked",
-        "text": "S-sorry I am late!",
-        "speaker": "Velo Roads",
-        "x": 230.8398335774741,
-        "y": 1076.2502543131504,
-        "w": 1000,
-        "h": 700,
-        "rotate": 0,
-        "font": "BubbleSans",
-        "fontSize": 70,
-        "bold": true,
-        "italic": false,
-        "tailAngle": 225,
-        "tailLen": 280,
-        "dotCount": 4,
-        "spikeCount": 16,
-        "dashCount": 7,
-        "lockMove": false,
-        "lockResize": false,
-        "lockRotate": false,
-        "zIndex": 2,
-        "color": "#111111"
-      },
-      {
-        "id": "b17731410120473ccn",
-        "type": "circle",
-        "text": "...Almost everyone.",
-        "speaker": "Claude Albson",
-        "x": 889.5189921061201,
-        "y": 1079.227244059245,
-        "w": 1000,
-        "h": 700,
-        "rotate": 0,
-        "font": "BubbleSans",
-        "fontSize": 70,
-        "bold": false,
-        "italic": false,
-        "tailAngle": 225,
-        "tailLen": 280,
-        "dotCount": 4,
-        "spikeCount": 16,
-        "dashCount": 7,
-        "lockMove": false,
-        "lockResize": false,
-        "lockRotate": false,
-        "zIndex": 3,
-        "color": "#111111"
-      },
-      {
-        "id": "b1773141012047x064",
-        "type": "circle",
-        "text": "Isn't this ridiculous?",
-        "speaker": "Aero Nami",
-        "x": 1665.5,
-        "y": 1529.4499999999998,
-        "w": 1000,
-        "h": 700,
-        "rotate": 0,
-        "font": "BubbleSans",
-        "fontSize": 70,
-        "bold": false,
-        "italic": false,
-        "tailAngle": 225,
-        "tailLen": 280,
-        "dotCount": 4,
-        "spikeCount": 16,
-        "dashCount": 7,
-        "lockMove": false,
-        "lockResize": false,
-        "lockRotate": false,
-        "zIndex": 4,
-        "color": "#111111"
-      },
-      {
-        "id": "b1773141012047t2hj",
-        "type": "circle",
-        "text": "Apologies Sir Aero... I didn't mean-",
-        "speaker": "Velo Roads",
-        "x": 342.5,
-        "y": 2888.75,
-        "w": 1000,
-        "h": 700,
-        "rotate": 0,
-        "font": "BubbleSans",
-        "fontSize": 70,
-        "bold": false,
-        "italic": false,
-        "tailAngle": 225,
-        "tailLen": 280,
-        "dotCount": 4,
-        "spikeCount": 16,
-        "dashCount": 7,
-        "lockMove": false,
-        "lockResize": false,
-        "lockRotate": false,
-        "zIndex": 5,
-        "color": "#111111"
-      },
-      {
-        "id": "b1773141012047xig6",
-        "type": "circle",
-        "text": "I see many of you Zone Archons strolled in 5 minutes before this meeting.",
-        "speaker": "Aero Nami",
-        "x": 1114.25,
-        "y": 2888.75,
-        "w": 1000,
-        "h": 700,
-        "rotate": 0,
-        "font": "BubbleSans",
-        "fontSize": 70,
-        "bold": false,
-        "italic": false,
-        "tailAngle": 225,
-        "tailLen": 280,
-        "dotCount": 4,
-        "spikeCount": 16,
-        "dashCount": 7,
-        "lockMove": false,
-        "lockResize": false,
-        "lockRotate": false,
-        "zIndex": 6,
-        "color": "#111111"
-      },
-      {
-        "id": "b17731410120474he0",
-        "type": "circle",
-        "text": "Do you think a high level discussion like this reckons your lack of urgency?",
-        "speaker": "Aero Nami",
-        "x": 1873.8858846028643,
-        "y": 2852.4417114257812,
-        "w": 1000,
-        "h": 700,
-        "rotate": 0,
-        "font": "BubbleSans",
-        "fontSize": 70,
-        "bold": false,
-        "italic": false,
-        "tailAngle": 225,
-        "tailLen": 280,
-        "dotCount": 4,
-        "spikeCount": 16,
-        "dashCount": 7,
-        "lockMove": false,
-        "lockResize": false,
-        "lockRotate": false,
-        "zIndex": 7,
-        "color": "#111111"
-      }
-    ]
+    "PG 1": []
   },
   "globalSettings": {
     "scale": "12",
