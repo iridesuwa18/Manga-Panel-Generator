@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "savedAt": "2026-03-16T23:53:16.301Z",
+  "savedAt": "2026-03-16T23:55:46.005Z",
   "rows": [
     {
       "chp": "CHP 2",
@@ -1669,7 +1669,7 @@
       "gutter": 40
     },
     "PG 2": {
-      "mode": "safe",
+      "mode": "random",
       "gutter": 40
     },
     "PG 3": {
