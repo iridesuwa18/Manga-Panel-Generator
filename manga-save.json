@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "savedAt": "2026-03-16T23:49:50.608Z",
+  "savedAt": "2026-03-16T23:51:40.112Z",
   "rows": [
     {
       "chp": "CHP 2",
@@ -1910,8 +1910,8 @@
         "type": "circle",
         "text": "Do you think a high level discussion like this reckons your lack of urgency?",
         "speaker": "Aero Nami",
-        "x": 1924.9758097330732,
-        "y": 3366.007858276367,
+        "x": 1921.627522786459,
+        "y": 3367.7748260498047,
         "w": 734.6532185872396,
         "h": 882.012685139974,
         "rotate": 0,
@@ -1919,7 +1919,7 @@
         "fontSize": 70,
         "bold": false,
         "italic": false,
-        "tailAngle": 261.5736050200639,
+        "tailAngle": 266.45774660645645,
         "tailLen": 150,
         "tailBreadth": 7,
         "dotCount": 4,
