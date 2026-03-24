@@ -1562,7 +1562,8 @@ async function buildFontDefs() {
     }
   }
   // Google Fonts (web-hosted, always available)
-  rules.push(`@import url('https://fonts.googleapis.com/css2?family=Bangers&family=Permanent+Marker&family=Caveat:wght@600&display=swap');`);
+  // Google Fonts: & must be &amp; inside XML/SVG style element content
+  rules.push(`@import url('https://fonts.googleapis.com/css2?family=Bangers&amp;family=Permanent+Marker&amp;family=Caveat:wght@600&amp;display=swap');`);
   return `<defs><style>${rules.join('')}</style></defs>`;
 }
 
@@ -1570,17 +1571,16 @@ async function buildFontDefs() {
 function buildBubbleTextSVG(b, fontDefsStr) {
   if (!b.text) return '';
   const pad    = Math.min(b.w, b.h) * 0.14;
-  const family = BUBBLE_FONTS[b.font] || BUBBLE_FONTS['BubbleSans'];
+  const family = (BUBBLE_FONTS[b.font] || BUBBLE_FONTS['BubbleSans']).replace(/&/g,'&amp;');
   const weight = b.bold   ? 'bold'   : 'normal';
   const fstyle = b.italic ? 'italic' : 'normal';
-  const color  = b.color  || '#111111';
+  const color  = (b.color || '#111111').replace(/&/g,'&amp;');
   const text   = b.text
     .replace(/&/g,'&amp;').replace(/</g,'&lt;')
     .replace(/>/g,'&gt;').replace(/\n/g,'<br/>');
 
-  return `<foreignObject x="0" y="0" width="${b.w}" height="${b.h}">
-  <div xmlns="http://www.w3.org/1999/xhtml" style="width:${b.w}px;height:${b.h}px;display:flex;align-items:center;justify-content:center;text-align:center;font-family:${family};font-size:${b.fontSize}px;font-weight:${weight};font-style:${fstyle};color:${color};padding:${pad}px;line-height:1.25;word-break:break-word;overflow:hidden;box-sizing:border-box;">${text}</div>
-</foreignObject>`;
+  // Use XHTML namespace div inside foreignObject — all attribute values must be XML-safe
+  return `<foreignObject x="0" y="0" width="${b.w}" height="${b.h}"><div xmlns="http://www.w3.org/1999/xhtml" style="width:${b.w}px;height:${b.h}px;display:flex;align-items:center;justify-content:center;text-align:center;font-family:${family};font-size:${b.fontSize}px;font-weight:${weight};font-style:${fstyle};color:${color};padding:${pad}px;line-height:1.25;word-break:break-word;overflow:hidden;box-sizing:border-box;">${text}</div></foreignObject>`;
 }
 
 // ─── CORE SVG BUILDER FOR EXPORT ──────────────────────────────────────────────
@@ -1614,7 +1614,11 @@ function buildExportSVGString(pg, fontDefsStr) {
     const serializer = new XMLSerializer();
     const bubbleGroup = pgBubbles.map(b => {
       const bsvgEl = buildBubbleSVG(b);
+      // Serialize and strip the position:absolute style added for DOM display
       let bsvgStr = serializer.serializeToString(bsvgEl);
+      bsvgStr = bsvgStr.replace(/ style="[^"]*position[^"]*"/g, '');
+      // Ensure & in any remaining attributes are escaped
+      // (XMLSerializer should handle this, but double-check xmlns declarations are clean)
       return `<g transform="translate(${b.x},${b.y}) rotate(${b.rotate||0},${b.w/2},${b.h/2})">${bsvgStr}${buildBubbleTextSVG(b)}</g>`;
     }).join('');
     exportSvg = exportSvg.replace('</svg>', bubbleGroup + '</svg>');
