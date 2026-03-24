@@ -1364,8 +1364,8 @@ function buildSVG(pg, pgNum, panelRects, fillColor, strokeColor, strokeW, forExp
   let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${PAGE_W}" height="${PAGE_H}" viewBox="0 0 ${PAGE_W} ${PAGE_H}">`;
 
   if (forExport) {
-    // Export: fully transparent background, no guide lines, transparent panel fill
-    // panels get black stroke only, no fill — clean for Procreate import
+    // Embed font @font-face refs so custom fonts render when opened standalone
+    svg += `<defs><style>@font-face{font-family:'BubbleSans';src:url('Bubble_Sans.otf') format('opentype')}@font-face{font-family:'XLTightBoo';src:url('XL-TightBoo.otf') format('opentype')}@font-face{font-family:'TGLEngschrift';src:url('TGL_0-1451Eng.ttf') format('truetype')}</style></defs>`;
   } else {
     // Preview: white background + guide overlays
     svg += `<rect width="${PAGE_W}" height="${PAGE_H}" fill="white"/>`;
@@ -1544,19 +1544,22 @@ function exportAllSVG() {
   showToast(`Exporting ${total} SVGs… please wait`);
 }
 
-// Build bubble text as SVG <text> element for export
+// Build bubble text for export using <foreignObject> so it perfectly matches
+// the live DOM renderer (flexbox centering, word-wrap, padding, exact font/size).
 function buildBubbleTextSVG(b) {
   if (!b.text) return '';
-  const pad = Math.min(b.w, b.h) * 0.14;
-  const fontFamily = BUBBLE_FONTS[b.font] || BUBBLE_FONTS['BubbleSans'];
-  const lines = b.text.split('\n');
-  const lineH = b.fontSize * 1.25;
-  const totalH = lines.length * lineH;
-  const startY = b.h/2 - totalH/2 + b.fontSize * 0.85;
-  const linesStr = lines.map((l, i) =>
-    `<tspan x="${b.w/2}" dy="${i===0 ? startY : lineH}">${l.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</tspan>`
-  ).join('');
-  return `<text font-family="${fontFamily}" font-size="${b.fontSize}" font-weight="${b.bold?'bold':'normal'}" font-style="${b.italic?'italic':'normal'}" fill="${b.color||'#111111'}" text-anchor="middle" x="${b.w/2}" y="0">${linesStr}</text>`;
+  const pad    = Math.min(b.w, b.h) * 0.14;
+  const family = BUBBLE_FONTS[b.font] || BUBBLE_FONTS['BubbleSans'];
+  const weight = b.bold   ? 'bold'   : 'normal';
+  const fstyle = b.italic ? 'italic' : 'normal';
+  const color  = b.color  || '#111111';
+  const text   = b.text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/\n/g,'<br/>');
+
+  return `<foreignObject x="0" y="0" width="${b.w}" height="${b.h}">
+  <div xmlns="http://www.w3.org/1999/xhtml" style="width:${b.w}px;height:${b.h}px;display:flex;align-items:center;justify-content:center;text-align:center;font-family:${family};font-size:${b.fontSize}px;font-weight:${weight};font-style:${fstyle};color:${color};padding:${pad}px;line-height:1.25;word-break:break-word;overflow:hidden;box-sizing:border-box;">${text}</div>
+</foreignObject>`;
 }
 
 // ─────────────────────────────────────────────
