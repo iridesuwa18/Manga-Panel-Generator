@@ -756,6 +756,49 @@
   }
   #saveStatus { font-size:11px; color:var(--text3); min-height:16px; margin-bottom:8px; }
 
+
+  /* ── HEADER DROPDOWNS ── */
+  .hdr-dropdown {
+    position: relative;
+    display: inline-flex;
+  }
+  .hdr-dropdown-trigger { display: flex; align-items: center; gap: 4px; }
+  .hdr-dropdown-menu {
+    display: none;
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    min-width: 190px;
+    z-index: 500;
+    box-shadow: 0 8px 24px rgba(0,0,0,.5);
+    overflow: hidden;
+  }
+  .hdr-dropdown-menu.hdr-dropdown-menu-up {
+    top: auto;
+    bottom: calc(100% + 6px);
+  }
+  .hdr-dropdown.open .hdr-dropdown-menu { display: block; }
+  .hdr-dropdown-menu button {
+    display: block; width: 100%;
+    background: none; border: none;
+    color: var(--text); text-align: left;
+    padding: 9px 14px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; cursor: pointer;
+    white-space: nowrap;
+    transition: background .1s;
+  }
+  .hdr-dropdown-menu button:hover { background: var(--surface2); color: var(--accent); }
+  .hdr-dropdown-sep { height: 1px; background: var(--border); margin: 3px 0; }
+
+  /* Mobile dropdown bar */
+  .mob-act-btn { padding: 7px 10px; font-size: 12px; }
+  .mob-hdr-dd { flex: 1; }
+  .mob-hdr-dd > .btn { width: 100%; justify-content: center; }
+  #mobileTopBar { flex-wrap: nowrap; gap: 4px; }
 </style>
 </head>
 <body>
@@ -764,24 +807,19 @@
   <h1>MANGA PANEL GEN</h1>
   <span class="subtitle">// 3300×4677 | framing 2800×3940 | safe 2520×3940</span>
   <div class="header-actions">
-    <button class="btn undo-btn" onclick="undo()" title="Undo (Ctrl+Z)" disabled>↩ Undo</button>
-    <button class="btn redo-btn" onclick="redo()" title="Redo (Ctrl+Y)" disabled>↪ Redo</button>
-    <select id="pageJumpSelect" onchange="jumpToPage(this.value)" title="Jump to page">
-      <option value="">⇢ Jump to page…</option>
+    <button class="btn undo-btn" onclick="undo()" title="Undo (Ctrl+Z)" disabled>↩</button>
+    <button class="btn redo-btn" onclick="redo()" title="Redo (Ctrl+Y)" disabled>↪</button>
+    <select id="pageJumpSelect" onchange="jumpToPage(this.value)" title="Jump to page" style="max-width:120px;">
+      <option value="">⇢ Jump…</option>
     </select>
-    <label style="display:flex;align-items:center;gap:5px;cursor:pointer;" title="Toggle snap to panel edges">
+    <label style="display:flex;align-items:center;gap:4px;cursor:pointer;" title="Toggle snap">
       <input type="checkbox" id="snapToggle" onchange="snapEnabled=this.checked" style="accent-color:var(--accent2);">
       <span style="font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--text2);">Snap</span>
     </label>
     <span id="autosaveLabel"></span>
-    <button class="btn" onclick="saveToGitHub()">☁️ Save</button>
-    <button class="btn" onclick="loadFromGitHub()">📂 Load</button>
-    <button class="btn" onclick="restoreAutoSave()" title="Restore last auto-saved session">🔄 Restore</button>
-    <button class="btn" onclick="generateAll()">⚡ Generate All Pages</button>
-    <button class="btn primary" onclick="exportAllSVG()">↓ SVG (All)</button>
-    <button class="btn" onclick="exportAllPNG()">↓ PNG (All)</button>
-    <button class="btn" onclick="openSingleExportModal()">↓ Export Page…</button>
-    <button class="btn" onclick="exportExcel()">↓ Excel</button>
+    <button class="btn" onclick="openQuickModal('cloudModal')">☁ Cloud</button>
+    <button class="btn" onclick="generateAll()">⚡ Generate</button>
+    <button class="btn primary" onclick="openQuickModal('exportModal')">↓ Export</button>
   </div>
 </header>
 
@@ -789,11 +827,9 @@
 <div id="mobileTopBar">
   <button class="btn undo-btn" style="flex:1" onclick="undo()" disabled>↩</button>
   <button class="btn redo-btn" style="flex:1" onclick="redo()" disabled>↪</button>
-  <button class="btn" style="flex:1" onclick="saveToGitHub()">☁️</button>
-  <button class="btn" style="flex:1" onclick="loadFromGitHub()">📂</button>
-  <button class="btn primary" style="flex:1" onclick="generateAll()">⚡</button>
-  <button class="btn" style="flex:1" onclick="exportAllSVG()">↓SVG</button>
-  <button class="btn" style="flex:1" onclick="openSingleExportModal()">↓Pg</button>
+  <button class="btn" style="flex:1" onclick="openQuickModal('cloudModal')">☁</button>
+  <button class="btn primary" style="flex:2" onclick="generateAll()">⚡ Gen</button>
+  <button class="btn" style="flex:1" onclick="openQuickModal('exportModal')">↓ Exp</button>
 </div>
 
 <!-- MOBILE FIXED BOTTOM PANEL -->
@@ -4033,14 +4069,26 @@ window.addEventListener('DOMContentLoaded',()=> {
     updateScale(12);
     openMobileTab('data');
   }
+
   // Seed the undo stack with the initial empty state
-  snapshotState();
+  snapshotState()
   updateUndoButtons();
   // Check for existing autosave and show hint
   if (localStorage.getItem('manga_autosave')) {
     showToast('Auto-save found — click 🔄 Restore to recover');
   }
 });
+
+// ── QUICK MODAL LOGIC ─────────────────────────────────────────────────────
+function openQuickModal(id) {
+  document.getElementById(id).classList.add('open');
+}
+function closeQuickModalById(id) {
+  document.getElementById(id).classList.remove('open');
+}
+function closeQuickModal(e, id) {
+  if (e.target === document.getElementById(id)) closeQuickModalById(id);
+}
 </script>
 
 
@@ -4300,6 +4348,72 @@ document.getElementById('saveModal').addEventListener('click', e => {
 <style>
   #singleExportModal { display:none; }
   #singleExportModal.open { display:flex !important; }
+</style>
+
+<!-- CLOUD MODAL -->
+<div id="cloudModal" class="quick-modal-bg" onclick="closeQuickModal(event,'cloudModal')">
+  <div class="quick-modal-box">
+    <div class="quick-modal-title">☁ CLOUD</div>
+    <button class="quick-modal-btn" onclick="saveToGitHub();closeQuickModalById('cloudModal')">☁️ Save to GitHub</button>
+    <button class="quick-modal-btn" onclick="loadFromGitHub();closeQuickModalById('cloudModal')">📂 Load from GitHub</button>
+    <button class="quick-modal-btn" onclick="restoreAutoSave();closeQuickModalById('cloudModal')">🔄 Restore Auto-Save</button>
+    <button class="quick-modal-close" onclick="closeQuickModalById('cloudModal')">✕ Close</button>
+  </div>
+</div>
+
+<!-- EXPORT MODAL -->
+<div id="exportModal" class="quick-modal-bg" onclick="closeQuickModal(event,'exportModal')">
+  <div class="quick-modal-box">
+    <div class="quick-modal-title">↓ EXPORT</div>
+    <button class="quick-modal-btn primary" onclick="openSingleExportModal();closeQuickModalById('exportModal')">📄 Export Single Page…</button>
+    <div class="quick-modal-sep"></div>
+    <button class="quick-modal-btn" onclick="exportAllSVG();closeQuickModalById('exportModal')">↓ All Pages — SVG</button>
+    <button class="quick-modal-btn" onclick="exportAllPNG();closeQuickModalById('exportModal')">↓ All Pages — PNG</button>
+    <button class="quick-modal-btn" onclick="exportExcel();closeQuickModalById('exportModal')">↓ Excel Data</button>
+    <button class="quick-modal-close" onclick="closeQuickModalById('exportModal')">✕ Close</button>
+  </div>
+</div>
+
+<style>
+  .quick-modal-bg {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.65); z-index: 550;
+    align-items: center; justify-content: center;
+  }
+  .quick-modal-bg.open { display: flex; }
+  .quick-modal-box {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 20px;
+    width: 280px; max-width: 92vw;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .quick-modal-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px; color: var(--accent);
+    letter-spacing: 2px; margin-bottom: 6px;
+  }
+  .quick-modal-btn {
+    width: 100%; padding: 10px 14px;
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); text-align: left;
+    font-family: 'IBM Plex Mono', monospace; font-size: 12px;
+    cursor: pointer; border-radius: 3px;
+    transition: all .15s;
+  }
+  .quick-modal-btn:hover { background: var(--surface3); border-color: var(--accent2); color: var(--accent); }
+  .quick-modal-btn.primary { background: var(--accent2); color: var(--ink); border-color: var(--accent2); font-weight: 600; }
+  .quick-modal-btn.primary:hover { background: var(--accent); }
+  .quick-modal-sep { height: 1px; background: var(--border); margin: 4px 0; }
+  .quick-modal-close {
+    width: 100%; padding: 7px;
+    background: none; border: 1px solid var(--border);
+    color: var(--text3); font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; cursor: pointer; border-radius: 3px;
+    margin-top: 4px; transition: all .15s;
+  }
+  .quick-modal-close:hover { border-color: var(--danger); color: var(--danger); }
 </style>
 </body>
 </html>
