@@ -1478,6 +1478,9 @@ function exportAllSVG() {
   const strokeColor = document.getElementById('panelStroke').value;
   const strokeW = parseInt(document.getElementById('strokeWidth').value)||8;
 
+  // Pre-build all SVG blobs first, then stagger downloads
+  // (browsers block simultaneous downloads beyond ~10; staggering fixes this)
+  const downloads = [];
   containers.forEach(c => {
     const pg = c.dataset.pg;
     const pgNum = parseInt((pg.match(/\d+/)||[1])[0]);
@@ -1518,15 +1521,27 @@ function exportAllSVG() {
     const pgSafe = pg.replace(/\s/g,'_');
     const blob = new Blob([exportSvg], {type:'image/svg+xml'});
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `manga_${pgSafe}.svg`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    downloads.push({ url, filename: `manga_${pgSafe}.svg` });
   });
-  showToast(`Exported ${containers.length} SVG file(s) (transparent)`);
+
+  // Stagger downloads 200ms apart so the browser doesn't block them
+  const total = downloads.length;
+  downloads.forEach(({ url, filename }, i) => {
+    setTimeout(() => {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      if (i === total - 1) {
+        showToast(`Exported ${total} SVG file(s) (transparent)`);
+      }
+    }, i * 200);
+  });
+
+  showToast(`Exporting ${total} SVGs… please wait`);
 }
 
 // Build bubble text as SVG <text> element for export
