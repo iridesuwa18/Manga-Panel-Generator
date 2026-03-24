@@ -778,8 +778,10 @@
     <button class="btn" onclick="loadFromGitHub()">📂 Load</button>
     <button class="btn" onclick="restoreAutoSave()" title="Restore last auto-saved session">🔄 Restore</button>
     <button class="btn" onclick="generateAll()">⚡ Generate All Pages</button>
-    <button class="btn primary" onclick="exportAllSVG()">↓ Export SVG</button>
-    <button class="btn" onclick="exportExcel()">↓ Export Excel</button>
+    <button class="btn primary" onclick="exportAllSVG()">↓ SVG (All)</button>
+    <button class="btn" onclick="exportAllPNG()">↓ PNG (All)</button>
+    <button class="btn" onclick="openSingleExportModal()">↓ Export Page…</button>
+    <button class="btn" onclick="exportExcel()">↓ Excel</button>
   </div>
 </header>
 
@@ -791,6 +793,7 @@
   <button class="btn" style="flex:1" onclick="loadFromGitHub()">📂</button>
   <button class="btn primary" style="flex:1" onclick="generateAll()">⚡</button>
   <button class="btn" style="flex:1" onclick="exportAllSVG()">↓SVG</button>
+  <button class="btn" style="flex:1" onclick="openSingleExportModal()">↓Pg</button>
 </div>
 
 <!-- MOBILE FIXED BOTTOM PANEL -->
@@ -961,7 +964,9 @@
         <div class="section-title" onclick="toggleSection(this)">Actions</div>
         <div class="section-body">
         <button class="btn" style="width:100%;margin-bottom:6px" onclick="generateAll()">⚡ Generate All Pages</button>
-        <button class="btn primary" style="width:100%;margin-bottom:6px" onclick="exportAllSVG()">↓ Export All SVGs <span style="font-size:9px;opacity:0.7;">(transparent)</span></button>
+        <button class="btn primary" style="width:100%;margin-bottom:6px" onclick="exportAllSVG()">↓ Export All SVGs</button>
+        <button class="btn" style="width:100%;margin-bottom:6px" onclick="exportAllPNG()">↓ Export All PNGs</button>
+        <button class="btn" style="width:100%;margin-bottom:6px" onclick="openSingleExportModal()">↓ Export Single Page…</button>
         <button class="btn" style="width:100%;margin-bottom:6px" onclick="exportExcel()">↓ Export Excel Data</button>
         <button class="btn" style="width:100%" onclick="restoreAutoSave()">🔄 Restore Auto-Save</button>
         </div>
@@ -1471,82 +1476,62 @@ function generateAll() {
 // ─────────────────────────────────────────────
 // EXPORT SVG — transparent panels, bubbles embedded
 // ─────────────────────────────────────────────
-function exportAllSVG() {
-  const containers = document.querySelectorAll('.page-output[data-svg]');
-  if (!containers.length) { showToast('Generate pages first!'); return; }
+// ─── FONT EMBEDDING ───────────────────────────────────────────────────────────
+// Cache of base64-encoded font data so we only fetch each file once per session
+const _fontB64Cache = {};
 
-  const strokeColor = document.getElementById('panelStroke').value;
-  const strokeW = parseInt(document.getElementById('strokeWidth').value)||8;
-
-  // Pre-build all SVG blobs first, then stagger downloads
-  // (browsers block simultaneous downloads beyond ~10; staggering fixes this)
-  const downloads = [];
-  containers.forEach(c => {
-    const pg = c.dataset.pg;
-    const pgNum = parseInt((pg.match(/\d+/)||[1])[0]);
-    const ps = pageSettings[pg] || { mode:'safe', gutter:12 };
-    const pageRows = rows.filter(r => r.pg === pg);
-    const baseRects = computePanelRects(pageRows, ps.mode, ps.gutter, ps.flow||'v-first');
-    const _pgOvs = panelOverrides[pg] || {};
-    const panelRects = baseRects.map((r, idx) => {
-      const ov = _pgOvs[idx];
-      if (!ov) return r;
-      return { ...r,
-        x: ov.x !== undefined ? ov.x : r.x,
-        y: ov.y !== undefined ? ov.y : r.y,
-        w: ov.w !== undefined ? ov.w : r.w,
-        h: ov.h !== undefined ? ov.h : r.h,
-        _hidden: ov.visible === false,
-      };
-    });
-
-    // Build clean export SVG (transparent bg, no guides, transparent panel fill)
-    let exportSvg = buildSVG(pg, pgNum, panelRects, 'none', strokeColor, strokeW, true);
-
-    // Embed bubble SVGs if any
-    const pgBubbles = bubbles[pg] || [];
-    if (pgBubbles.length) {
-      // Re-serialize bubble SVGs as inline SVG elements positioned in full-res coords
-      const bubbleGroup = pgBubbles.map(b => {
-        const bsvgEl = buildBubbleSVG(b);
-        // Serialize the SVG element to string
-        const serializer = new XMLSerializer();
-        let bsvgStr = serializer.serializeToString(bsvgEl);
-        // Wrap in a positioned group
-        return `<g transform="translate(${b.x},${b.y}) rotate(${b.rotate||0},${b.w/2},${b.h/2})">${bsvgStr}${buildBubbleTextSVG(b)}</g>`;
-      }).join('');
-      exportSvg = exportSvg.replace('</svg>', bubbleGroup + '</svg>');
-    }
-
-    const pgSafe = pg.replace(/\s/g,'_');
-    const blob = new Blob([exportSvg], {type:'image/svg+xml'});
-    const url = URL.createObjectURL(blob);
-    downloads.push({ url, filename: `manga_${pgSafe}.svg` });
-  });
-
-  // Stagger downloads 200ms apart so the browser doesn't block them
-  const total = downloads.length;
-  downloads.forEach(({ url, filename }, i) => {
-    setTimeout(() => {
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 2000);
-      if (i === total - 1) {
-        showToast(`Exported ${total} SVG file(s) (transparent)`);
-      }
-    }, i * 200);
-  });
-
-  showToast(`Exporting ${total} SVGs… please wait`);
+async function fetchFontB64(url) {
+  if (_fontB64Cache[url]) return _fontB64Cache[url];
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const buf = await res.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+    const b64 = btoa(binary);
+    _fontB64Cache[url] = b64;
+    return b64;
+  } catch(e) { return null; }
 }
 
-// Build bubble text for export using <foreignObject> so it perfectly matches
-// the live DOM renderer (flexbox centering, word-wrap, padding, exact font/size).
-function buildBubbleTextSVG(b) {
+// Returns a <defs><style> block with all fonts base64-embedded.
+// Falls back to relative-URL @font-face if fetch fails (e.g. file:// with CORS block).
+async function buildFontDefs() {
+  const LOCAL_FONTS = [
+    { family: 'BubbleSans',    url: 'Bubble_Sans.otf',        fmt: 'opentype' },
+    { family: 'XLTightBoo',    url: 'XL-TightBoo.otf',        fmt: 'opentype' },
+    { family: 'TGLEngschrift', url: 'TGL_0-1451Eng.ttf',      fmt: 'truetype' },
+  ];
+  // Also include any user-uploaded custom fonts
+  for (const [key, family] of Object.entries(BUBBLE_FONTS)) {
+    if (key.startsWith('custom') && _customFontDataURLs && _customFontDataURLs[key]) {
+      LOCAL_FONTS.push({ family: family.split(',')[0].replace(/["\']/g,''), dataUrl: _customFontDataURLs[key] });
+    }
+  }
+
+  const rules = [];
+  for (const f of LOCAL_FONTS) {
+    if (f.dataUrl) {
+      rules.push(`@font-face{font-family:'${f.family}';src:url('${f.dataUrl}')}`);
+    } else {
+      const b64 = await fetchFontB64(f.url);
+      if (b64) {
+        const mime = f.fmt === 'truetype' ? 'font/ttf' : 'font/otf';
+        rules.push(`@font-face{font-family:'${f.family}';src:url('data:${mime};base64,${b64}') format('${f.fmt}')}`);
+      } else {
+        // Fallback: relative URL (works if SVG opened from same directory)
+        rules.push(`@font-face{font-family:'${f.family}';src:url('${f.url}') format('${f.fmt}')}`);
+      }
+    }
+  }
+  // Google Fonts (web-hosted, always available)
+  rules.push(`@import url('https://fonts.googleapis.com/css2?family=Bangers&family=Permanent+Marker&family=Caveat:wght@600&display=swap');`);
+  return `<defs><style>${rules.join('')}</style></defs>`;
+}
+
+// Build bubble text using <foreignObject> — mirrors live DOM exactly
+function buildBubbleTextSVG(b, fontDefsStr) {
   if (!b.text) return '';
   const pad    = Math.min(b.w, b.h) * 0.14;
   const family = BUBBLE_FONTS[b.font] || BUBBLE_FONTS['BubbleSans'];
@@ -1560,6 +1545,163 @@ function buildBubbleTextSVG(b) {
   return `<foreignObject x="0" y="0" width="${b.w}" height="${b.h}">
   <div xmlns="http://www.w3.org/1999/xhtml" style="width:${b.w}px;height:${b.h}px;display:flex;align-items:center;justify-content:center;text-align:center;font-family:${family};font-size:${b.fontSize}px;font-weight:${weight};font-style:${fstyle};color:${color};padding:${pad}px;line-height:1.25;word-break:break-word;overflow:hidden;box-sizing:border-box;">${text}</div>
 </foreignObject>`;
+}
+
+// ─── CORE SVG BUILDER FOR EXPORT ──────────────────────────────────────────────
+function buildExportSVGString(pg, fontDefsStr) {
+  const pgNum = parseInt((pg.match(/\d+/)||[1])[0]);
+  const strokeColor = document.getElementById('panelStroke').value;
+  const strokeW = parseInt(document.getElementById('strokeWidth').value)||8;
+  const ps = pageSettings[pg] || { mode:'safe', gutter:12 };
+  const pageRows = rows.filter(r => r.pg === pg);
+  const baseRects = computePanelRects(pageRows, ps.mode, ps.gutter, ps.flow||'v-first');
+  const _pgOvs = panelOverrides[pg] || {};
+  const panelRects = baseRects.map((r, idx) => {
+    const ov = _pgOvs[idx];
+    if (!ov) return r;
+    return { ...r,
+      x: ov.x !== undefined ? ov.x : r.x,
+      y: ov.y !== undefined ? ov.y : r.y,
+      w: ov.w !== undefined ? ov.w : r.w,
+      h: ov.h !== undefined ? ov.h : r.h,
+      _hidden: ov.visible === false,
+    };
+  });
+
+  let exportSvg = buildSVG(pg, pgNum, panelRects, 'none', strokeColor, strokeW, true);
+
+  // Inject base64 font defs (replaces the placeholder defs from buildSVG)
+  exportSvg = exportSvg.replace(/<defs>.*?<\/defs>/s, fontDefsStr);
+
+  const pgBubbles = bubbles[pg] || [];
+  if (pgBubbles.length) {
+    const serializer = new XMLSerializer();
+    const bubbleGroup = pgBubbles.map(b => {
+      const bsvgEl = buildBubbleSVG(b);
+      let bsvgStr = serializer.serializeToString(bsvgEl);
+      return `<g transform="translate(${b.x},${b.y}) rotate(${b.rotate||0},${b.w/2},${b.h/2})">${bsvgStr}${buildBubbleTextSVG(b)}</g>`;
+    }).join('');
+    exportSvg = exportSvg.replace('</svg>', bubbleGroup + '</svg>');
+  }
+  return exportSvg;
+}
+
+// ─── EXPORT ALL SVGs ──────────────────────────────────────────────────────────
+async function exportAllSVG() {
+  const containers = document.querySelectorAll('.page-output[data-svg]');
+  if (!containers.length) { showToast('Generate pages first!'); return; }
+  showToast('Building fonts… please wait');
+
+  const fontDefsStr = await buildFontDefs();
+  const downloads = [];
+
+  containers.forEach(c => {
+    const pg = c.dataset.pg;
+    const pgSafe = pg.replace(/\s/g,'_');
+    const svgStr = buildExportSVGString(pg, fontDefsStr);
+    const blob = new Blob([svgStr], {type:'image/svg+xml'});
+    downloads.push({ url: URL.createObjectURL(blob), filename: `manga_${pgSafe}.svg` });
+  });
+
+  const total = downloads.length;
+  downloads.forEach(({ url, filename }, i) => {
+    setTimeout(() => {
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      if (i === total - 1) showToast(`Exported ${total} SVG file(s) ✓`);
+    }, i * 200);
+  });
+}
+
+// ─── EXPORT ALL PNGs ─────────────────────────────────────────────────────────
+async function exportAllPNG() {
+  const containers = document.querySelectorAll('.page-output[data-svg]');
+  if (!containers.length) { showToast('Generate pages first!'); return; }
+  showToast('Rendering PNGs… this may take a moment');
+
+  const fontDefsStr = await buildFontDefs();
+  const total = containers.length;
+  let done = 0;
+
+  for (const c of containers) {
+    const pg = c.dataset.pg;
+    const pgSafe = pg.replace(/\s/g,'_');
+    const svgStr = buildExportSVGString(pg, fontDefsStr);
+    await renderSVGtoPNG(svgStr, PAGE_W, PAGE_H, `manga_${pgSafe}.png`);
+    done++;
+    showToast(`Exporting PNG ${done}/${total}…`);
+    await new Promise(r => setTimeout(r, 100));
+  }
+  showToast(`Exported ${total} PNG file(s) ✓`);
+}
+
+// ─── SINGLE PAGE EXPORT MODAL ────────────────────────────────────────────────
+function openSingleExportModal() {
+  const containers = document.querySelectorAll('.page-output[data-svg]');
+  if (!containers.length) { showToast('Generate pages first!'); return; }
+
+  const pages = Array.from(containers).map(c => c.dataset.pg);
+  const sel = document.getElementById('singleExportSelect');
+  sel.innerHTML = pages.map(pg => `<option value="${pg}">${pg}</option>`).join('');
+
+  document.getElementById('singleExportModal').classList.add('open');
+}
+
+function closeSingleExportModal() {
+  document.getElementById('singleExportModal').classList.remove('open');
+}
+
+async function doSingleExport(fmt) {
+  const pg = document.getElementById('singleExportSelect').value;
+  if (!pg) return;
+  closeSingleExportModal();
+  showToast('Building export… please wait');
+
+  const fontDefsStr = await buildFontDefs();
+  const svgStr = buildExportSVGString(pg, fontDefsStr);
+  const pgSafe = pg.replace(/\s/g,'_');
+
+  if (fmt === 'svg') {
+    const blob = new Blob([svgStr], {type:'image/svg+xml'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `manga_${pgSafe}.svg`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    showToast(`Exported ${pg} as SVG ✓`);
+  } else {
+    await renderSVGtoPNG(svgStr, PAGE_W, PAGE_H, `manga_${pgSafe}.png`);
+    showToast(`Exported ${pg} as PNG ✓`);
+  }
+}
+
+// ─── SVG → PNG RENDERER ───────────────────────────────────────────────────────
+function renderSVGtoPNG(svgStr, w, h, filename) {
+  return new Promise(resolve => {
+    const blob = new Blob([svgStr], {type:'image/svg+xml;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(pngBlob => {
+        const purl = URL.createObjectURL(pngBlob);
+        const a = document.createElement('a');
+        a.href = purl; a.download = filename;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(purl), 2000);
+        resolve();
+      }, 'image/png');
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(); };
+    img.src = url;
+  });
 }
 
 // ─────────────────────────────────────────────
@@ -3406,6 +3548,8 @@ function getMobileLayers(pg) {
 }
 
 // ── CUSTOM FONT ──
+const _customFontDataURLs = {}; // stores base64 data URLs for export embedding
+
 function loadCustomFont(e) {
   const file=e.target.files[0]; if(!file) return;
   customFontCount++;
@@ -3415,6 +3559,10 @@ function loadCustomFont(e) {
   style.textContent=`@font-face{font-family:'CustomFont${customFontCount}';src:url('${url}');}`;
   document.head.appendChild(style);
   BUBBLE_FONTS[key]=`CustomFont${customFontCount},sans-serif`;
+  // Also store as data URL so export can embed it
+  const reader=new FileReader();
+  reader.onload=ev=>{ _customFontDataURLs[key]=ev.target.result; };
+  reader.readAsDataURL(file);
   ['bp-font','m-bp-font'].forEach(id=>{
     const sel=document.getElementById(id); if(!sel) return;
     for(const o of sel.options) {
@@ -3672,7 +3820,9 @@ function getMobileTabContent(tab) {
     case 'generate': return `
       <div style="padding:10px;display:flex;flex-direction:column;gap:6px;">
         <button class="btn primary" style="width:100%;padding:10px" onclick="generateAll()">⚡ Generate All Pages</button>
-        <button class="btn" style="width:100%;padding:10px" onclick="exportAllSVG()">↓ Export SVGs (transparent)</button>
+        <button class="btn" style="width:100%;padding:10px;margin-bottom:6px" onclick="exportAllSVG()">↓ Export All SVGs</button>
+        <button class="btn" style="width:100%;padding:10px;margin-bottom:6px" onclick="exportAllPNG()">↓ Export All PNGs</button>
+        <button class="btn primary" style="width:100%;padding:10px;margin-bottom:6px" onclick="openSingleExportModal()">↓ Export Single Page…</button>
         <button class="btn" style="width:100%;padding:10px" onclick="exportExcel()">↓ Export Excel</button>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px;">
           <button class="btn undo-btn" style="padding:8px" onclick="undo()" disabled>↩ Undo</button>
@@ -4131,5 +4281,25 @@ document.getElementById('saveModal').addEventListener('click', e => {
 });
 </script>
 
+
+<!-- SINGLE PAGE EXPORT MODAL -->
+<div id="singleExportModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border:1px solid var(--border2);border-radius:6px;padding:24px;width:320px;max-width:90vw;">
+    <h2 style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--accent);letter-spacing:2px;margin-bottom:14px;">EXPORT SINGLE PAGE</h2>
+    <div style="margin-bottom:14px;">
+      <label style="font-size:11px;color:var(--text2);margin-bottom:6px;display:block;">Select page</label>
+      <select id="singleExportSelect" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px;font-family:'IBM Plex Mono',monospace;font-size:12px;border-radius:3px;"></select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+      <button class="btn primary" onclick="doSingleExport('svg')" style="padding:10px;">↓ Export SVG</button>
+      <button class="btn" onclick="doSingleExport('png')" style="padding:10px;">↓ Export PNG</button>
+    </div>
+    <button class="btn" style="width:100%" onclick="closeSingleExportModal()">Cancel</button>
+  </div>
+</div>
+<style>
+  #singleExportModal { display:none; }
+  #singleExportModal.open { display:flex !important; }
+</style>
 </body>
 </html>
