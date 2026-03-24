@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "savedAt": "2026-03-17T21:49:24.472Z",
+  "savedAt": "2026-03-24T22:52:34.665Z",
   "rows": [
     {
       "chp": "CHP 2",
@@ -1833,8 +1833,8 @@
         "type": "circle",
         "text": "Isn't this ridiculous?",
         "speaker": "Aero Nami",
-        "x": 1935,
-        "y": 1989,
+        "x": 1979.4442749023438,
+        "y": 2083.4442749023438,
         "w": 674,
         "h": 474,
         "rotate": 0,
@@ -1842,7 +1842,7 @@
         "fontSize": 70,
         "bold": false,
         "italic": false,
-        "tailAngle": 256,
+        "tailAngle": 247.31405602415794,
         "tailLen": 50,
         "tailBreadth": 7,
         "dotCount": 4,
