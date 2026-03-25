@@ -1,0 +1,4541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manga Panel Generator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&family=Bangers&family=Permanent+Marker&family=Caveat:wght@600&display=swap');
+
+  @font-face { font-family: 'BubbleSans'; src: url('Bubble_Sans.otf') format('opentype'); }
+  @font-face { font-family: 'XLTightBoo'; src: url('XL-TightBoo.otf') format('opentype'); }
+  @font-face { font-family: 'TGLEngschrift'; src: url('TGL_0-1451Eng.ttf') format('truetype'); }
+
+  :root {
+    --bg: #0e0e0e;
+    --surface: #161616;
+    --surface2: #1f1f1f;
+    --surface3: #2a2a2a;
+    --border: #333;
+    --border2: #444;
+    --accent: #e8d5a3;
+    --accent2: #c4a96b;
+    --text: #f0ede6;
+    --text2: #a09890;
+    --text3: #6b6460;
+    --danger: #e05a5a;
+    --success: #6abf7b;
+    --ink: #1a1a1a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 13px;
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  header h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 26px;
+    letter-spacing: 2px;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+  header .subtitle {
+    color: var(--text3);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+  }
+  .header-actions { margin-left: auto; display: flex; gap: 8px; }
+
+  /* ── BUTTONS ── */
+  .btn {
+    padding: 7px 14px;
+    border: 1px solid var(--border2);
+    background: var(--surface2);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all .15s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: var(--surface3); border-color: var(--accent2); color: var(--accent); }
+  .btn.primary { background: var(--accent2); color: var(--ink); border-color: var(--accent2); font-weight: 600; }
+  .btn.primary:hover { background: var(--accent); }
+  .btn.danger { border-color: var(--danger); color: var(--danger); }
+  .btn.danger:hover { background: rgba(224,90,90,.1); }
+  .btn.small { padding: 4px 9px; font-size: 10px; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── LAYOUT ── */
+  .app { display: grid; grid-template-columns: 1fr 340px; height: calc(100vh - 53px); }
+
+  /* ── LEFT: CANVAS AREA ── */
+  .canvas-area {
+    padding: 20px;
+    overflow: auto;
+    background: #0a0a0a;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    align-items: center;
+  }
+
+  /* ── MOBILE FIXED BOTTOM PANEL ── */
+  #mobilePanel {
+    display: none;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--surface);
+    border-top: 2px solid var(--border2);
+    z-index: 300;
+    height: 44vh;
+    flex-direction: column;
+  }
+  #mobileTabBar {
+    display: flex;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  #mobileTabBar button {
+    flex: 1;
+    background: none;
+    border: none;
+    border-right: 1px solid var(--border);
+    color: var(--text3);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    padding: 6px 2px 5px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+  }
+  #mobileTabBar button:last-child { border-right: none; }
+  #mobileTabBar button.active { color: var(--accent); background: var(--surface2); }
+  #mobileTabBar button .mtab-icon { font-size: 16px; }
+  #mobilePanelContent {
+    overflow-y: auto;
+    flex: 1;
+    -webkit-overflow-scrolling: touch;
+  }
+  #mobilePanel.collapsed {
+    height: auto;
+  }
+  #mobilePanel.collapsed #mobilePanelContent {
+    display: none;
+  }
+  #mobilePanelToggle {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    border-left: 1px solid var(--border);
+    color: var(--text3);
+    font-size: 14px;
+    padding: 6px 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.15s;
+  }
+  #mobilePanelToggle:active { color: var(--accent); }
+  #mobileTopBar {
+    display: none;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 6px 10px;
+    gap: 6px;
+    position: sticky; top: 0; z-index: 100;
+  }
+
+  @media (max-width: 700px) {
+    header .subtitle { display: none; }
+    header { padding: 10px 14px; gap: 10px; }
+    header h1 { font-size: 20px; }
+    .header-actions { display: none; }
+
+    .app {
+      display: block;
+      height: auto;
+    }
+    .sidebar { display: none !important; }
+    #bubblePanel { display: none !important; }
+    #layersPanel { display: none !important; }
+
+    .canvas-area {
+      padding: 10px 8px;
+      padding-bottom: calc(44vh + 10px);
+    }
+    .canvas-area.panel-collapsed {
+      padding-bottom: calc(44px + 10px);
+    }
+
+    #mobilePanel { display: flex; }
+    #mobileTopBar { display: flex; }
+  }
+
+  .page-output {
+    background: white;
+    position: relative;
+    flex-shrink: 0;
+    box-shadow: 0 4px 32px rgba(0,0,0,.6);
+  }
+
+  .page-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--text3);
+    text-align: center;
+    margin-bottom: 6px;
+  }
+
+  /* ── RIGHT: SIDEBAR ── */
+  .sidebar {
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sidebar-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-bottom: 1px solid var(--border);
+  }
+  .tab-btn {
+    padding: 10px;
+    background: none;
+    border: none;
+    color: var(--text3);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all .15s;
+  }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-btn:hover:not(.active) { color: var(--text); }
+
+  .sidebar-content { flex: 1; overflow-y: auto; padding: 14px; }
+
+  .section-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+  }
+  .section-title::after {
+    content: '▾';
+    font-size: 11px;
+    opacity: 0.5;
+    transition: transform .15s;
+    flex-shrink: 0;
+  }
+  .section-title.collapsed::after { transform: rotate(-90deg); }
+  .section-body { overflow: hidden; }
+  .section-body.collapsed { display: none; }
+
+  /* ── FORM ELEMENTS ── */
+  label { display: block; color: var(--text2); margin-bottom: 3px; font-size: 11px; }
+  input[type=text], input[type=number], select, textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    border-radius: 3px;
+    outline: none;
+    transition: border-color .15s;
+  }
+  input[type=text]:focus, input[type=number]:focus, select:focus, textarea:focus {
+    border-color: var(--accent2);
+  }
+  textarea { resize: vertical; min-height: 60px; }
+  select option { background: var(--surface2); }
+
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+  .form-group { margin-bottom: 8px; }
+
+  /* ── DATA TABLE ── */
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+  }
+  table { width: 100%; border-collapse: collapse; font-family: 'IBM Plex Mono', monospace; font-size: 10px; }
+  thead tr { background: var(--surface3); }
+  th { padding: 6px 8px; text-align: left; color: var(--text3); border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td { padding: 5px 8px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--surface2); }
+
+  td input {
+    background: transparent;
+    border: 1px solid transparent;
+    padding: 2px 4px;
+    width: 100%;
+    min-width: 40px;
+  }
+  td input:focus { border-color: var(--accent2); background: var(--surface2); }
+  td select { background: transparent; border: 1px solid transparent; padding: 2px; }
+  td select:focus { background: var(--surface2); border-color: var(--accent2); }
+
+  .del-btn {
+    background: none;
+    border: none;
+    color: var(--text3);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0 4px;
+    line-height: 1;
+  }
+  .del-btn:hover { color: var(--danger); }
+
+  /* ── PAGE LIST ── */
+  .page-entry {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .page-entry:hover { border-color: var(--accent2); }
+  .page-entry.selected { border-color: var(--accent); background: rgba(232,213,163,.05); }
+  .page-entry-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .page-entry-label {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 15px;
+    color: var(--accent);
+    flex: 1;
+  }
+  .page-entry-panels { color: var(--text3); font-size: 10px; font-family: 'IBM Plex Mono', monospace; }
+  .page-entry-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .page-entry-controls label { font-size: 10px; }
+
+  /* ── BADGE ── */
+  .badge {
+    padding: 2px 6px;
+    border-radius: 2px;
+    font-size: 9px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .badge-odd { background: rgba(106,191,123,.15); color: var(--success); border: 1px solid rgba(106,191,123,.3); }
+  .badge-even { background: rgba(100,140,220,.15); color: #7aabf0; border: 1px solid rgba(100,140,220,.3); }
+
+  /* ── IMPORT AREA ── */
+  .drop-zone {
+    border: 2px dashed var(--border2);
+    border-radius: 6px;
+    padding: 20px;
+    text-align: center;
+    color: var(--text3);
+    cursor: pointer;
+    transition: all .2s;
+    margin-bottom: 10px;
+  }
+  .drop-zone:hover { border-color: var(--accent2); color: var(--text2); }
+  .drop-zone.drag-over { border-color: var(--accent); background: rgba(232,213,163,.05); }
+  .drop-zone .dz-icon { font-size: 28px; margin-bottom: 6px; }
+  .drop-zone .dz-text { font-size: 11px; font-family: 'IBM Plex Mono', monospace; }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+  /* ── EMPTY STATE ── */
+  .empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--text3);
+    gap: 10px;
+    padding: 40px;
+    text-align: center;
+  }
+  .empty-state .icon { font-size: 48px; opacity: .3; }
+  .empty-state p { font-size: 12px; line-height: 1.6; max-width: 260px; }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--surface3);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    padding: 10px 16px;
+    border-radius: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    opacity: 0;
+    transition: opacity .3s;
+    pointer-events: none;
+    z-index: 999;
+  }
+  #toast.show { opacity: 1; }
+
+  .range-row { display: flex; align-items: center; gap: 8px; }
+  .range-row input[type=range] { flex: 1; accent-color: var(--accent2); }
+  .range-val { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--accent); min-width: 32px; text-align: right; }
+
+  .color-row { display: flex; gap: 8px; align-items: center; }
+  .color-row input[type=color] { width: 36px; height: 28px; border: 1px solid var(--border); border-radius: 3px; cursor: pointer; padding: 2px; background: var(--surface2); }
+
+  .info-chip {
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--text3);
+    margin-bottom: 10px;
+    line-height: 1.7;
+  }
+  .info-chip strong { color: var(--accent2); }
+
+  .flex-row { display: flex; gap: 6px; align-items: center; }
+  .flex-row label { margin: 0; white-space: nowrap; }
+
+  #pasted-csv {
+    font-size: 10px;
+    min-height: 80px;
+    background: var(--surface2);
+  }
+  .add-row-bar {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+    flex-wrap: wrap;
+  }
+
+  .page-thumb-wrap { display: flex; flex-direction: column; align-items: center; }
+
+  /* ── SPEECH BUBBLE OVERLAY ── */
+  .bubble-overlay {
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+  }
+  .bubble-wrap {
+    position: absolute;
+    pointer-events: all;
+    cursor: move;
+    user-select: none;
+  }
+  .bubble-wrap.locked-move { cursor: default; pointer-events: none; }
+  .bubble-wrap svg.bubble-svg { overflow: visible; display: block; }
+  .bubble-wrap .bubble-text {
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    text-align: center;
+    pointer-events: none;
+    overflow: hidden;
+    padding: 12%;
+    line-height: 1.2;
+    word-break: break-word;
+  }
+  /* ── SELECTION BOX (Photoshop style, scale-aware) ── */
+  .bubble-wrap .sel-box {
+    display: none;
+    position: absolute;
+    inset: 0;
+    border: calc(3px / var(--pg-scale, 0.06)) dashed #4a9eff;
+    border-radius: calc(4px / var(--pg-scale, 0.06));
+    pointer-events: none;
+    box-sizing: border-box;
+  }
+  .bubble-wrap.selected .sel-box { display: block; }
+  .bubble-wrap .sel-handle {
+    position: absolute;
+    width:  calc(18px / var(--pg-scale, 0.06));
+    height: calc(18px / var(--pg-scale, 0.06));
+    background: #fff;
+    border: calc(2.5px / var(--pg-scale, 0.06)) solid #4a9eff;
+    border-radius: calc(3px / var(--pg-scale, 0.06));
+    pointer-events: all;
+    display: none;
+    box-sizing: border-box;
+  }
+  .bubble-wrap.selected .sel-handle { display: block; }
+  .sel-handle.nw { top:0;    left:0;   transform:translate(-50%,-50%); cursor:nw-resize; }
+  .sel-handle.n  { top:0;    left:50%; transform:translate(-50%,-50%); cursor:n-resize;  }
+  .sel-handle.ne { top:0;    right:0;  transform:translate(50%,-50%);  cursor:ne-resize; }
+  .sel-handle.e  { top:50%;  right:0;  transform:translate(50%,-50%);  cursor:e-resize;  }
+  .sel-handle.se { bottom:0; right:0;  transform:translate(50%,50%);   cursor:se-resize; }
+  .sel-handle.s  { bottom:0; left:50%; transform:translate(-50%,50%);  cursor:s-resize;  }
+  .sel-handle.sw { bottom:0; left:0;   transform:translate(-50%,50%);  cursor:sw-resize; }
+  .sel-handle.w  { top:50%;  left:0;   transform:translate(-50%,-50%); cursor:w-resize;  }
+  .bubble-wrap .rotate-handle {
+    position: absolute;
+    top: 0; left: 50%;
+    transform: translate(-50%, calc(-60px / var(--pg-scale, 0.06)));
+    width:  calc(28px / var(--pg-scale, 0.06));
+    height: calc(28px / var(--pg-scale, 0.06));
+    background: #ff00aa;
+    border: calc(2.5px / var(--pg-scale, 0.06)) solid #fff;
+    border-radius: 50%;
+    cursor: grab; pointer-events: all; display: none;
+  }
+  .bubble-wrap.selected .rotate-handle { display: block; }
+  .bubble-wrap .rotate-stem {
+    display: none;
+    position: absolute;
+    top: 0; left: 50%;
+    width: calc(2px / var(--pg-scale, 0.06));
+    height: calc(50px / var(--pg-scale, 0.06));
+    background: #4a9eff;
+    transform: translate(-50%, calc(-50px / var(--pg-scale, 0.06)));
+    pointer-events: none;
+  }
+  .bubble-wrap.selected .rotate-stem { display: block; }
+  .bubble-wrap .tail-handle {
+    position: absolute;
+    width:  calc(24px / var(--pg-scale, 0.06));
+    height: calc(24px / var(--pg-scale, 0.06));
+    background: #ffaa00;
+    border: calc(2.5px / var(--pg-scale, 0.06)) solid #fff;
+    border-radius: 50%;
+    cursor: crosshair; pointer-events: all;
+    display: none; transform: translate(-50%,-50%);
+  }
+  .bubble-wrap.selected .tail-handle { display: block; }
+
+  /* ── BUBBLE EDITOR PANEL ── */
+  #bubblePanel {
+    position: fixed; right: 350px; top: 53px;
+    width: 260px; background: var(--surface);
+    border-left: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    z-index: 200; overflow-y: auto;
+    max-height: calc(100vh - 53px);
+    display: none;
+  }
+  #bubblePanel.open { display: block; }
+  .bp-section { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  .bp-title { font-family: 'IBM Plex Mono',monospace; font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; }
+  .bp-row { display:flex; gap:6px; align-items:center; margin-bottom:6px; }
+  .bp-row label { font-size:10px; color:var(--text2); min-width:46px; }
+  .bp-row input, .bp-row select { flex:1; }
+  .font-btn { padding:3px 7px; font-size:11px; border:1px solid var(--border2); background:var(--surface2); color:var(--text); cursor:pointer; border-radius:2px; }
+  .font-btn.active { background:var(--accent2); color:var(--ink); border-color:var(--accent2); }
+  #importFontBtn { width:100%; margin-top:4px; }
+  .lock-row { display:flex; gap:4px; flex-wrap:wrap; }
+  .lock-btn { padding:3px 8px; font-size:10px; border:1px solid var(--border); background:var(--surface2); color:var(--text2); cursor:pointer; border-radius:2px; }
+  .lock-btn.active { border-color:var(--danger); color:var(--danger); }
+
+
+  /* ── LAYERS PANEL ── */
+  #layersPanel {
+    position:fixed; right:0; top:53px;
+    width:220px; background:var(--surface);
+    border-left:1px solid var(--border);
+    z-index:190; display:none;
+    flex-direction:column;
+    max-height:calc(100vh - 53px);
+  }
+  #layersPanel.open { display:flex; }
+  #layersPanel .lp-header {
+    padding:8px 12px; border-bottom:1px solid var(--border);
+    display:flex; align-items:center; justify-content:space-between;
+    flex-shrink:0;
+  }
+  #layersList { overflow-y:auto; flex:1; }
+  .layer-row {
+    display:flex; align-items:center; gap:6px;
+    padding:6px 10px; border-bottom:1px solid var(--border);
+    cursor:pointer; font-size:11px;
+  }
+  .layer-row:hover { background:var(--surface2); }
+  .layer-row.active { background:var(--surface3); border-left:2px solid var(--accent2); }
+  .layer-icon { font-size:14px; flex-shrink:0; }
+  .layer-label { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text2); }
+  .layer-btns { display:flex; gap:2px; }
+  .layer-btns button {
+    background:var(--surface3); border:1px solid var(--border); color:var(--text2);
+    padding:1px 5px; cursor:pointer; font-size:11px; border-radius:2px;
+  }
+  .layer-btns button:hover { color:var(--accent); border-color:var(--accent2); }
+
+  /* ── PANELS EDITOR PANEL ── */
+  #panelsPanel {
+    position: fixed; right: 350px; top: 53px;
+    width: 278px; background: var(--surface);
+    border-left: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    z-index: 193; display: none;
+    flex-direction: column;
+    max-height: calc(100vh - 53px);
+  }
+  #panelsPanel.open { display: flex; }
+  .pp-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .pp-page-bar {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 10px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .pp-page-bar select {
+    flex: 1; background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); padding: 4px 6px; font-size: 10px;
+    font-family: 'IBM Plex Mono', monospace; border-radius: 2px;
+  }
+  #pp-body { overflow-y: auto; flex: 1; }
+  .pp-card {
+    border-bottom: 1px solid var(--border); padding: 8px 10px;
+  }
+  .pp-card-head {
+    display: flex; align-items: center; gap: 4px; margin-bottom: 6px;
+  }
+  .pp-pnl-lbl {
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+    color: var(--accent2); flex: 1;
+  }
+  .pp-icon-btn {
+    background: none; border: 1px solid transparent; border-radius: 3px;
+    cursor: pointer; font-size: 13px; padding: 1px 4px; line-height: 1;
+  }
+  .pp-icon-btn:hover { border-color: var(--border2); background: var(--surface2); }
+  .pp-icon-btn.pp-hidden { opacity: 0.35; }
+  .pp-icon-btn.pp-locked { color: var(--danger); }
+  .pp-icon-btn.pp-reset { font-size: 11px; color: var(--text3); }
+  .pp-input-grid {
+    display: grid; grid-template-columns: 14px 1fr 14px 1fr; gap: 4px 5px; align-items: center;
+  }
+  .pp-input-grid.pp-locked-inputs input { opacity: 0.4; }
+  .pp-lbl { font-size: 10px; color: var(--text3); font-family: 'IBM Plex Mono', monospace; text-align: right; }
+  .pp-input-grid input[type=number] {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+    padding: 3px 5px; font-size: 10px; font-family: 'IBM Plex Mono', monospace;
+    border-radius: 2px; width: 100%;
+  }
+  .pp-input-grid input[type=number]:focus { border-color: var(--accent2); outline: none; }
+  .pp-empty { color: var(--text3); font-size: 11px; padding: 12px; font-family: 'IBM Plex Mono', monospace; }
+  @media (max-width: 700px) { #panelsPanel { display: none !important; } }
+
+  .bubble-wrap.text-overflow svg path,
+  .bubble-wrap.text-overflow svg ellipse,
+  .bubble-wrap.text-overflow svg rect {
+    stroke: #ff4444 !important;
+    stroke-width: 4 !important;
+  }
+
+  #canvasInner {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    align-items: center;
+    transform-origin: top center;
+    transition: transform 0.05s;
+    will-change: transform;
+  }
+
+  /* ── SNAP INDICATOR ── */
+  .snap-active { box-shadow: 0 0 0 2px var(--accent2) inset; }
+
+  /* ── KEYBOARD SHORTCUT HINT ── */
+  .shortcut-hint {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    color: var(--text3);
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 1px 4px;
+    margin-left: 4px;
+  }
+
+  /* ── PAGE JUMP SELECT ── */
+  #pageJumpSelect {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text2);
+    padding: 5px 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    border-radius: 3px;
+    cursor: pointer;
+    max-width: 200px;
+  }
+  #pageJumpSelect:focus { border-color: var(--accent2); outline: none; }
+
+  /* ── AUTOSAVE LABEL ── */
+  #autosaveLabel {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--text3);
+    white-space: nowrap;
+  }
+
+  /* ── CANVAS RESET BUTTON ── */
+  #canvasResetBtn {
+    position: sticky;
+    top: 10px;
+    z-index: 50;
+    align-self: flex-end;
+    margin-right: 10px;
+    margin-bottom: -20px;
+  }
+
+
+  @media (max-width:700px) {
+    #layersPanel { display:none !important; }
+  }
+
+
+  /* ── MOBILE LAYERS SLIDE-OUT ── */
+  #mobileLayersDrawer {
+    display: none;
+    position: fixed;
+    top: 0; right: -100%;
+    width: min(280px, 85vw);
+    height: 100%;
+    background: var(--surface);
+    border-left: 2px solid var(--border2);
+    z-index: 500;
+    flex-direction: column;
+    transition: right .22s ease;
+    overflow: hidden;
+  }
+  #mobileLayersDrawer.open { right: 0; }
+  #mobileLayersDrawerBg {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.45);
+    z-index: 499;
+  }
+  #mobileLayersDrawerBg.open { display: block; }
+  #mobileLayersDrawer .mld-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 14px 8px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  #mobileLayersDrawer .mld-content {
+    overflow-y: auto; flex: 1; padding: 10px;
+  }
+  @media (max-width: 700px) {
+    #mobileLayersDrawer { display: flex; }
+  }
+
+  /* ── SAVE/LOAD ── */
+  #saveModal {
+    display:none; position:fixed; inset:0;
+    background:rgba(0,0,0,.7); z-index:600;
+    align-items:center; justify-content:center;
+  }
+  #saveModal.open { display:flex; }
+  #saveModalBox {
+    background:var(--surface); border:1px solid var(--border2);
+    border-radius:6px; padding:20px; width:320px; max-width:92vw;
+  }
+  #saveModalBox h2 { font-family:'Bebas Neue',sans-serif; font-size:20px; color:var(--accent); margin-bottom:12px; }
+  #saveModalBox input {
+    width:100%; background:var(--surface2); border:1px solid var(--border);
+    color:var(--text); padding:7px 10px; font-size:12px;
+    border-radius:3px; margin-bottom:8px; font-family:'IBM Plex Mono',monospace;
+  }
+  #saveStatus { font-size:11px; color:var(--text3); min-height:16px; margin-bottom:8px; }
+
+
+  /* ── HEADER DROPDOWNS ── */
+  .hdr-dropdown {
+    position: relative;
+    display: inline-flex;
+  }
+  .hdr-dropdown-trigger { display: flex; align-items: center; gap: 4px; }
+  .hdr-dropdown-menu {
+    display: none;
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    min-width: 190px;
+    z-index: 500;
+    box-shadow: 0 8px 24px rgba(0,0,0,.5);
+    overflow: hidden;
+  }
+  .hdr-dropdown-menu.hdr-dropdown-menu-up {
+    top: auto;
+    bottom: calc(100% + 6px);
+  }
+  .hdr-dropdown.open .hdr-dropdown-menu { display: block; }
+  .hdr-dropdown-menu button {
+    display: block; width: 100%;
+    background: none; border: none;
+    color: var(--text); text-align: left;
+    padding: 9px 14px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; cursor: pointer;
+    white-space: nowrap;
+    transition: background .1s;
+  }
+  .hdr-dropdown-menu button:hover { background: var(--surface2); color: var(--accent); }
+  .hdr-dropdown-sep { height: 1px; background: var(--border); margin: 3px 0; }
+
+  /* Mobile dropdown bar */
+  .mob-act-btn { padding: 7px 10px; font-size: 12px; }
+  .mob-hdr-dd { flex: 1; }
+  .mob-hdr-dd > .btn { width: 100%; justify-content: center; }
+  #mobileTopBar { flex-wrap: nowrap; gap: 4px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>MANGA PANEL GEN</h1>
+  <span class="subtitle">// 3300×4677 | framing 2800×3940 | safe 2520×3940</span>
+  <div class="header-actions">
+    <button class="btn undo-btn" onclick="undo()" title="Undo (Ctrl+Z)" disabled>↩</button>
+    <button class="btn redo-btn" onclick="redo()" title="Redo (Ctrl+Y)" disabled>↪</button>
+    <select id="pageJumpSelect" onchange="jumpToPage(this.value)" title="Jump to page" style="max-width:120px;">
+      <option value="">⇢ Jump…</option>
+    </select>
+    <label style="display:flex;align-items:center;gap:4px;cursor:pointer;" title="Toggle snap">
+      <input type="checkbox" id="snapToggle" onchange="snapEnabled=this.checked" style="accent-color:var(--accent2);">
+      <span style="font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--text2);">Snap</span>
+    </label>
+    <span id="autosaveLabel"></span>
+    <button class="btn" onclick="openQuickModal('cloudModal')">☁ Cloud</button>
+    <button class="btn" onclick="generateAll()">⚡ Generate</button>
+    <button class="btn primary" onclick="openQuickModal('exportModal')">↓ Export</button>
+  </div>
+</header>
+
+<!-- MOBILE TOP ACTION BAR -->
+<div id="mobileTopBar">
+  <button class="btn undo-btn" style="flex:1" onclick="undo()" disabled>↩</button>
+  <button class="btn redo-btn" style="flex:1" onclick="redo()" disabled>↪</button>
+  <button class="btn" style="flex:1" onclick="openQuickModal('cloudModal')">☁</button>
+  <button class="btn primary" style="flex:2" onclick="generateAll()">⚡ Gen</button>
+  <button class="btn" style="flex:1" onclick="openQuickModal('exportModal')">↓ Exp</button>
+</div>
+
+<!-- MOBILE FIXED BOTTOM PANEL -->
+<div id="mobilePanel">
+  <div id="mobileTabBar">
+    <button onclick="openMobileTab('data')" id="mtab-data" class="active">
+      <span class="mtab-icon">📋</span>Data
+    </button>
+    <button onclick="openMobileTab('pages')" id="mtab-pages">
+      <span class="mtab-icon">📄</span>Pages
+    </button>
+    <button onclick="openMobileTab('panels')" id="mtab-panels">
+      <span class="mtab-icon">⬜</span>Panels
+    </button>
+    <button onclick="openMobileTab('bubbles')" id="mtab-bubbles">
+      <span class="mtab-icon">💬</span>Bubbles
+    </button>
+    <button onclick="openMobileTab('generate')" id="mtab-generate">
+      <span class="mtab-icon">⚡</span>Generate
+    </button>
+    <button id="mobilePanelToggle" onclick="toggleMobilePanel()" title="Hide/show panel">▼</button>
+  </div>
+  <div id="mobilePanelContent">
+    <!-- content swapped by JS -->
+  </div>
+</div>
+
+<div class="app">
+  <!-- LEFT: canvas -->
+  <div class="canvas-area" id="canvasArea">
+    <button id="canvasResetBtn" class="btn small" onclick="resetCanvasView()" title="Reset zoom/pan (or Ctrl+scroll to zoom, Space+drag to pan)" style="opacity:0.6;">⊙ Reset View</button>
+    <div id="canvasInner">
+      <div class="empty-state" id="emptyState">
+        <div class="icon">⬜</div>
+        <p>Import panel data or add rows manually, then click <strong>Generate All Pages</strong> to preview your manga layout.</p>
+        <p style="font-size:10px;margin-top:8px;">💡 Ctrl+scroll to zoom · Space+drag to pan · Ctrl+Z to undo</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-tabs">
+      <button class="tab-btn active" onclick="switchTab('data')">📋 Data</button>
+      <button class="tab-btn" onclick="switchTab('pages')">📄 Pages</button>
+    </div>
+
+    <!-- DATA TAB -->
+    <div class="sidebar-content" id="tab-data">
+
+      <div class="section">
+        <div class="section-title" onclick="toggleSection(this)">Import Excel / CSV</div>
+        <div class="section-body">
+        <div class="drop-zone" id="dropZone" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+          <div class="dz-icon">📂</div>
+          <div class="dz-text">Drag & drop .xlsx / .csv here</div>
+          <label style="display:inline-block;margin-top:8px;cursor:pointer;">
+            <span class="btn small" style="pointer-events:none;">📁 Browse File</span>
+            <input type="file" id="fileInput" accept=".xlsx,.csv" style="display:none" onchange="handleFileImport(event)">
+          </label>
+        </div>
+
+        <div style="text-align:center; color:var(--text3); font-size:10px; margin: 6px 0;">— or paste CSV data —</div>
+        <textarea id="pasted-csv" placeholder="Chapter No.,Scene No.,Page No.,Panel No.,Row No.,Panel (L x H in %),Total Max Panel L per row (/100),Total Max Panel H per row (/100)"></textarea>
+        <button class="btn" style="width:100%; margin-top:6px" onclick="parsePastedCSV()">Parse Pasted Data</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title" onclick="toggleSection(this)">Panel Data Table</div>
+        <div class="section-body">
+        <div class="info-chip">
+          <strong>Columns:</strong> CHP · SCN · PG · PNL · ROW · LxH% · MaxL · MaxH
+        </div>
+        <div class="table-wrap">
+          <table id="dataTable">
+            <thead>
+              <tr>
+                <th>CHP</th><th>SCN</th><th>PG</th><th>PNL</th>
+                <th>ROW/CLM</th><th>L×H%</th><th>MaxL</th><th>MaxH</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+        <div class="add-row-bar">
+          <button class="btn small" onclick="addRow()">+ Add Row</button>
+          <button class="btn small danger" onclick="clearAllRows()">Clear All</button>
+          <button class="btn small" onclick="loadSampleData()">Load Sample</button>
+        </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGES TAB -->
+    <div class="sidebar-content" id="tab-pages" style="display:none">
+      <div class="section">
+        <div class="section-title" onclick="toggleSection(this)">Global Settings</div>
+        <div class="section-body">
+        <div class="form-group">
+          <label>Preview Scale</label>
+          <div class="range-row">
+            <input type="range" id="scaleSlider" min="3" max="50" value="6" oninput="updateScale(this.value)">
+            <span class="range-val" id="scaleVal">6%</span>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Panel Fill</label>
+            <div class="color-row">
+              <input type="color" id="panelFill" value="#f0ede6">
+              <span style="font-size:10px;color:var(--text3)">default fill</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Panel Stroke</label>
+            <div class="color-row">
+              <input type="color" id="panelStroke" value="#1a1a1a">
+              <span style="font-size:10px;color:var(--text3)">border</span>
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Stroke Width (px at full res)</label>
+          <input type="number" id="strokeWidth" value="8" min="1" max="30">
+        </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title" onclick="toggleSection(this)" style="cursor:default;">
+          <span onclick="toggleSection(this.parentElement)" style="cursor:pointer;flex:1;">Per-Page Settings</span>
+          <button class="btn small" onclick="togglePanelsPanel()" title="Toggle panel editor">⬜ Panels</button>
+        </div>
+        <div class="section-body">
+        <div id="pageList"></div>
+        <div id="noPages" style="color:var(--text3);font-size:11px;font-family:'IBM Plex Mono',monospace;">
+          No pages yet — import data first.
+        </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title" onclick="toggleSection(this)" style="cursor:default;" >
+          <span onclick="toggleSection(this.parentElement)" style="cursor:pointer;flex:1;">Speech Bubbles</span>
+          <button class="btn small" onclick="toggleLayersPanel()" title="Toggle layers panel">🗂 Layers</button>
+        </div>
+        <div class="section-body">
+        <div style="color:var(--text3);font-size:10px;margin-bottom:6px;">Paste from Excel: Speech Type · Speaker · Dialogue (one row per bubble)</div>
+        <textarea id="bubblePaste" style="width:100%;min-height:70px;font-size:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px;font-family:'IBM Plex Mono',monospace;" placeholder="Circle – Dialogue&#9;Claude&#9;Hello world!&#10;Spiked – Yelling&#9;Velo&#9;WAIT!"></textarea>
+        <div class="bp-row" style="margin-top:4px;">
+          <label style="font-size:10px;color:var(--text2);">For page</label>
+          <select id="bubbleTargetPage" style="flex:1;"></select>
+        </div>
+        <button class="btn" style="width:100%;margin-top:4px;" onclick="importBubbles()">+ Add Bubbles to Page</button>
+        <div style="margin-top:6px;">
+          <button class="btn small" onclick="toggleBubblePanel()">✏️ Edit Bubbles</button>
+          <button class="btn small danger" onclick="clearBubbles()">Clear Bubbles</button>
+        </div>
+        <div style="margin-top:6px;">
+          <label style="font-size:10px;color:var(--text2);display:block;margin-bottom:3px;">Import custom font (.ttf/.otf/.woff)</label>
+          <input type="file" id="fontFileInput" accept=".ttf,.otf,.woff,.woff2" onchange="loadCustomFont(event)" style="font-size:10px;color:var(--text2);width:100%;">
+        </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title" onclick="toggleSection(this)">Actions</div>
+        <div class="section-body">
+        <button class="btn" style="width:100%;margin-bottom:6px" onclick="generateAll()">⚡ Generate All Pages</button>
+        <button class="btn primary" style="width:100%;margin-bottom:6px" onclick="exportAllSVG()">↓ Export All SVGs</button>
+        <button class="btn" style="width:100%;margin-bottom:6px" onclick="exportAllPNG()">↓ Export All PNGs</button>
+        <button class="btn" style="width:100%;margin-bottom:6px" onclick="openSingleExportModal()">↓ Export Single Page…</button>
+        <button class="btn" style="width:100%;margin-bottom:6px" onclick="exportExcel()">↓ Export Excel Data</button>
+        <button class="btn" style="width:100%" onclick="restoreAutoSave()">🔄 Restore Auto-Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ─────────────────────────────────────────────
+// CONSTANTS – full-res manga dimensions
+// ─────────────────────────────────────────────
+const PAGE_W = 3300, PAGE_H = 4677;
+const FRAME_W = 2800, FRAME_H = 3940; // framing border (centered in page)
+const SAFE_W  = 2520, SAFE_H  = 3940; // safe zone (within framing border)
+const FRAME_X = (PAGE_W - FRAME_W) / 2; // 250
+const FRAME_Y = (PAGE_H - FRAME_H) / 2; // 368.5
+
+// drawing border left/right anchor
+// For ODD pages (left): drawing border anchored LEFT inside framing border
+//   drawing border = 2520 wide, starting at FRAME_X (250), binding gap 280 on right
+// For EVEN pages (right): drawing border anchored RIGHT inside framing border
+//   drawing border = 2520 wide, ending at FRAME_X+FRAME_W (3050), binding gap 280 on left
+const DRAW_W = 2520, DRAW_H = 3940;
+const DRAW_Y = FRAME_Y; // same top as frame
+
+function getDrawX(isOdd) {
+  return isOdd
+    ? FRAME_X                          // left-anchored (odd)
+    : FRAME_X + FRAME_W - DRAW_W;     // right-anchored (even) = 250+2800-2520 = 530
+}
+
+// Safe zone inside drawing border, centred
+const SAFE_MARGIN_X = (DRAW_W - SAFE_W) / 2; // (2520-2520)/2 = 0 actually same width
+// Safe zone same width as drawing border per spec
+// Re-reading: safe zone 2205×3625 inside the framing border centred
+const REAL_SAFE_W = 2205, REAL_SAFE_H = 3625;
+
+function getSafeRect(isOdd) {
+  const drawX = getDrawX(isOdd);
+  const sx = drawX + (DRAW_W - REAL_SAFE_W) / 2;
+  const sy = DRAW_Y + (DRAW_H - REAL_SAFE_H) / 2;
+  return { x: sx, y: sy, w: REAL_SAFE_W, h: REAL_SAFE_H };
+}
+
+// ─────────────────────────────────────────────
+// APP STATE
+// ─────────────────────────────────────────────
+let rows = []; // raw panel data rows
+let pageSettings = {}; // keyed by pageKey "PG X"
+let scale = (window.innerWidth <= 700) ? 0.12 : 0.06;
+let activeTab = 'data';
+
+// ─────────────────────────────────────────────
+// TAB SWITCHING
+// ─────────────────────────────────────────────
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.tab-btn').forEach((b,i) => {
+    b.classList.toggle('active', (i===0&&tab==='data')||(i===1&&tab==='pages'));
+  });
+  document.getElementById('tab-data').style.display = tab === 'data' ? '' : 'none';
+  document.getElementById('tab-pages').style.display = tab === 'pages' ? '' : 'none';
+  if (tab === 'pages') rebuildPageList();
+}
+
+// ─────────────────────────────────────────────
+// SCALE SLIDER
+// ─────────────────────────────────────────────
+function updateScale(v) {
+  scale = v / 100;
+  ['scaleVal','m-scaleVal'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.textContent = v + '%';
+  });
+  ['scaleSlider','m-scaleSlider'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.value = v;
+  });
+  // Update --pg-scale on all existing overlays so handle sizes update live
+  document.querySelectorAll('.bubble-overlay').forEach(ov => {
+    ov.style.setProperty('--pg-scale', scale);
+  });
+  generateAll();
+}
+
+// ─────────────────────────────────────────────
+// DATA TABLE
+// ─────────────────────────────────────────────
+function addRow(data={}) {
+  const r = {
+    chp: data.chp||'CHP 1', scn: data.scn||'S1', pg: data.pg||'PG 1',
+    pnl: data.pnl||'PNL 1', row: data.row||'RW 1', lh: data.lh||'30x50',
+    maxL: data.maxL||'100', maxH: data.maxH||'50'
+  };
+  rows.push(r);
+  renderTable();
+  refreshPageSettings();
+}
+
+function deleteRow(idx) {
+  rows.splice(idx,1);
+  renderTable();
+  refreshPageSettings();
+}
+
+function clearAllRows() {
+  if (!confirm('Clear all rows?')) return;
+  rows = [];
+  renderTable();
+  refreshPageSettings();
+  document.getElementById('canvasInner').innerHTML = emptyStateHTML();
+}
+
+function emptyStateHTML() {
+  return `<div class="empty-state" id="emptyState"><div class="icon">⬜</div><p>Import panel data or add rows manually, then click <strong>Generate All Pages</strong>.</p></div>`;
+}
+
+function renderTable() {
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = rows.map((r,i) => `
+    <tr>
+      <td><input value="${r.chp}" onchange="rows[${i}].chp=this.value;refreshPageSettings()"></td>
+      <td><input value="${r.scn}" onchange="rows[${i}].scn=this.value"></td>
+      <td><input value="${r.pg}" onchange="rows[${i}].pg=this.value;refreshPageSettings()"></td>
+      <td><input value="${r.pnl}" onchange="rows[${i}].pnl=this.value"></td>
+      <td><input value="${r.row}" onchange="rows[${i}].row=this.value"></td>
+      <td><input value="${r.lh}" onchange="rows[${i}].lh=this.value"></td>
+      <td><input value="${r.maxL}" onchange="rows[${i}].maxL=this.value"></td>
+      <td><input value="${r.maxH}" onchange="rows[${i}].maxH=this.value"></td>
+      <td><button class="del-btn" onclick="deleteRow(${i})">✕</button></td>
+    </tr>`).join('');
+}
+
+// ─────────────────────────────────────────────
+// PAGE SETTINGS
+// ─────────────────────────────────────────────
+function getPages() {
+  const seen = new Map();
+  rows.forEach(r => {
+    if (!seen.has(r.pg)) seen.set(r.pg, r.chp);
+  });
+  return [...seen.entries()].map(([pg, chp]) => ({ pg, chp }));
+}
+
+function refreshPageSettings() {
+  getPages().forEach(({pg}) => {
+    if (!pageSettings[pg]) {
+      pageSettings[pg] = { mode: 'safe', gutter: 12 };
+    }
+  });
+  if (activeTab === 'pages') rebuildPageList();
+}
+
+function rebuildPageList() {
+  const pages = getPages();
+  const container = document.getElementById('pageList');
+  const noPages = document.getElementById('noPages');
+  noPages.style.display = pages.length ? 'none' : '';
+  container.innerHTML = pages.map(({pg, chp}) => {
+    const pgNum = parseInt((pg.match(/\d+/)||[1])[0]);
+    const isOdd = pgNum % 2 !== 0;
+    const ps = pageSettings[pg];
+    const panelCount = rows.filter(r => r.pg === pg).length;
+    return `
+    <div class="page-entry" id="pe-${pg.replace(/\s/g,'_')}">
+      <div class="page-entry-header">
+        <div class="page-entry-label">${pg}</div>
+        <span class="badge ${isOdd?'badge-odd':'badge-even'}">${isOdd?'ODD':'EVEN'}</span>
+        <span class="page-entry-panels">${panelCount} panels</span>
+        <button class="btn small" onclick="event.stopPropagation();duplicatePage('${pg}')" title="Duplicate this page layout+bubbles" style="margin-left:4px;">⧉</button>
+      </div>
+      <div class="page-entry-controls">
+        <div class="form-group">
+          <label>Zone Mode</label>
+          <select onchange="pageSettings['${pg}'].mode=this.value" >
+            <option value="safe" ${ps.mode==='safe'?'selected':''}>Safe Zone</option>
+            <option value="frame" ${ps.mode==='frame'?'selected':''}>Full Frame</option>
+            <option value="random" ${ps.mode==='random'?'selected':''}>Random (Mixed)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Flow</label>
+          <select onchange="pageSettings['${pg}'].flow=this.value">
+            <option value="v-first" ${(ps.flow||'v-first')==='v-first'?'selected':''}>V-first (stack↓ then →)</option>
+            <option value="h-first" ${(ps.flow||'v-first')==='h-first'?'selected':''}>H-first (fill→ then ↓)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Gutter (px)</label>
+          <input type="number" value="${ps.gutter}" min="0" max="200"
+            onchange="pageSettings['${pg}'].gutter=+this.value">
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─────────────────────────────────────────────
+// LAYOUT ENGINE
+// ─────────────────────────────────────────────
+function parseLH(str) {
+  const parts = str.toString().toLowerCase().split('x');
+  return { l: parseFloat(parts[0])||0, h: parseFloat(parts[1])||0 };
+}
+
+function deduplicateRows(pageRows) {
+  const seen = new Set();
+  return pageRows.filter(r => {
+    const key = r.pg + '|' + r.pnl + '|' + r.row;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function computePanelRects(pageRows, mode, gutter, flow='v-first') {
+  pageRows = deduplicateRows(pageRows);
+
+  const isOdd = (() => {
+    const pg = pageRows[0]?.pg || 'PG 1';
+    return parseInt((pg.match(/\d+/)||[1])[0]) % 2 !== 0;
+  })();
+
+  const safe = getSafeRect(isOdd);
+  const drawX = getDrawX(isOdd);
+
+  const groupBoundsCache = new Map();
+  function getGroupBounds(groupKey) {
+    if (groupBoundsCache.has(groupKey)) return groupBoundsCache.get(groupKey);
+    let useFrame = false;
+    if (mode === 'frame') useFrame = true;
+    else if (mode === 'random') useFrame = Math.random() > 0.5;
+    const b = useFrame
+      ? { left: drawX,  top: DRAW_Y, width: DRAW_W, height: DRAW_H }
+      : { left: safe.x, top: safe.y, width: safe.w,  height: safe.h };
+    groupBoundsCache.set(groupKey, b);
+    return b;
+  }
+
+  const groups = new Map();
+  pageRows.forEach(r => {
+    if (!groups.has(r.row)) groups.set(r.row, []);
+    groups.get(r.row).push(r);
+  });
+  const keys = [...groups.keys()];
+  const isCLM = pageRows.some(r => r.row.toString().toUpperCase().startsWith('CLM'));
+  const rects = [];
+
+  if (isCLM) {
+    // ── COLUMN MODE ──────────────────────────────────────────────────────
+    // Columns go left→right. Within each column panels stack top→bottom.
+    let curX = null;
+    keys.forEach(clmKey => {
+      const panels = groups.get(clmKey);
+      const bounds = getGroupBounds(clmKey);
+      if (curX === null) curX = bounds.left;
+      const maxLpct = parseFloat(panels[0].maxL) / 100;
+      const colW = bounds.width * maxLpct;
+      let curY = bounds.top;
+      panels.forEach(p => {
+        const { h } = parseLH(p.lh);
+        const ph = bounds.height * (h / 100);
+        rects.push({ pnl: p.pnl, pg: p.pg,
+          x: curX, y: curY,
+          w: Math.max(0, colW - gutter),
+          h: Math.max(0, ph - gutter) });
+        curY += ph;
+      });
+      curX += colW;
+    });
+
+  } else {
+    // ── ROW MODE ─────────────────────────────────────────────────────────
+    //
+    // Think of each RW group as a rectangular region (groupW x groupH).
+    // We place panels into this region using a SKYLINE packer:
+    //
+    //   skyline = array of {x, y} sorted by x, meaning "at position x,
+    //             the next free Y is y". Starts as [{x: originX, y: originY}].
+    //
+    // For each panel (pw x ph):
+    //   1. Find the leftmost position in the skyline where the panel fits
+    //      horizontally (pw wide) and the skyline is at its lowest Y there.
+    //      "Fits" means x + pw <= originX + groupW.
+    //   2. Place the panel at that (x, skylineY).
+    //   3. Update the skyline: raise the segment [x, x+pw] by ph.
+    //
+    // This naturally handles:
+    //   - Side-by-side panels (they go left→right at the same Y)
+    //   - Stacking (short panel leaves gap, next panel fills it)
+    //   - Mixed layouts (PNL1 tall on left, PNL2 short top-right, PNL3/4 below PNL2)
+
+    let groupOriginY = null;
+
+    keys.forEach(rowKey => {
+      const panels = groups.get(rowKey);
+      const bounds = getGroupBounds(rowKey);
+      if (groupOriginY === null) groupOriginY = bounds.top;
+
+      const maxLpct = parseFloat(panels[0].maxL) / 100;
+      const maxHpct = parseFloat(panels[0].maxH) / 100;
+      const groupW  = bounds.width  * maxLpct;
+      const groupH  = bounds.height * maxHpct;
+      const originX = bounds.left;
+      const originY = groupOriginY;
+
+      // Skyline: sorted array of segments {x, y}
+      // Segment i covers [skyline[i].x, skyline[i+1].x) with free Y = skyline[i].y
+      // Last segment implicitly ends at originX + groupW
+      if (flow === 'v-first') {
+        // ── V-FIRST: stack panels vertically in a column, advance X when full ──
+        // Good for layouts where same-width panels stack (e.g. PNL2+3 both 20x25)
+        let curX = originX;
+        const colNextY = {};
+
+        panels.forEach(p => {
+          const { l, h } = parseLH(p.lh);
+          const pw = bounds.width  * (l / 100);
+          const ph = bounds.height * (h / 100);
+
+          const xk = Math.round(curX * 100);
+          if (!(xk in colNextY)) colNextY[xk] = originY;
+          const py = colNextY[xk];
+          const px = curX;
+
+          colNextY[xk] = py + ph;
+
+          // Advance curX only when this column is full
+          if (colNextY[xk] >= originY + groupH - 0.5) {
+            curX += pw;
+          }
+
+          rects.push({ pnl: p.pnl, pg: p.pg,
+            x: px, y: py,
+            w: Math.max(0, pw - gutter),
+            h: Math.max(0, ph - gutter) });
+        });
+
+      } else {
+        // ── H-FIRST: fill row left→right, wrap down when line width fills ──
+        // Good for layouts where a tall panel sits left and shorter panels
+        // fill the remaining space in sub-rows (e.g. PNL1 tall, PNL2 short top-right,
+        // PNL3+4 fill below PNL2)
+        // Uses a per-x nextY tracker; curX only advances when its column is full,
+        // but new columns inherit the Y level of their left neighbour's nextY.
+        let curX = originX;
+        const colNextY = {};
+        const colOrder = [];
+
+        let lastStartY = originY; // Y of the panel that last triggered a curX advance
+
+        panels.forEach(p => {
+          const { l, h } = parseLH(p.lh);
+          const pw = bounds.width  * (l / 100);
+          const ph = bounds.height * (h / 100);
+
+          const xk = Math.round(curX * 100);
+          if (!(xk in colNextY)) {
+            // New column: start at lastStartY if set, else check open cols, else originY
+            const openCols = colOrder.filter(k => colNextY[k] < originY + groupH - 0.5);
+            colNextY[xk] = openCols.length > 0
+              ? colNextY[openCols[openCols.length - 1]]
+              : lastStartY > originY + 0.5 ? lastStartY : originY;
+            colOrder.push(xk);
+          }
+
+          const py = colNextY[xk];
+          const px = curX;
+
+          colNextY[xk] = py + ph;
+
+          if (colNextY[xk] >= originY + groupH - 0.5) {
+            lastStartY = py; // remember where this panel started
+            curX += pw;
+          }
+
+          rects.push({ pnl: p.pnl, pg: p.pg,
+            x: px, y: py,
+            w: Math.max(0, pw - gutter),
+            h: Math.max(0, ph - gutter) });
+        });
+      }
+
+      groupOriginY += groupH;
+    });
+  }
+
+  return rects;
+}
+
+// ─────────────────────────────────────────────
+// SVG GENERATION
+// ─────────────────────────────────────────────
+function buildSVG(pg, pgNum, panelRects, fillColor, strokeColor, strokeW, forExport=false) {
+  const isOdd = pgNum % 2 !== 0;
+  const drawX = getDrawX(isOdd);
+  const safe = getSafeRect(isOdd);
+
+  const overflowAttr = forExport ? ' overflow="visible"' : '';
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${PAGE_W}" height="${PAGE_H}" viewBox="0 0 ${PAGE_W} ${PAGE_H}"${overflowAttr}>`;
+
+  if (forExport) {
+    // Embed font @font-face refs so custom fonts render when opened standalone
+    svg += `<defs><style>@font-face{font-family:'BubbleSans';src:url('Bubble_Sans.otf') format('opentype')}@font-face{font-family:'XLTightBoo';src:url('XL-TightBoo.otf') format('opentype')}@font-face{font-family:'TGLEngschrift';src:url('TGL_0-1451Eng.ttf') format('truetype')}</style></defs>`;
+  } else {
+    // Preview: white background + guide overlays
+    svg += `<rect width="${PAGE_W}" height="${PAGE_H}" fill="white"/>`;
+    svg += `<rect x="${FRAME_X}" y="${FRAME_Y}" width="${FRAME_W}" height="${FRAME_H}" fill="none" stroke="#ccc" stroke-width="2" stroke-dasharray="20,10"/>`;
+    svg += `<rect x="${drawX}" y="${DRAW_Y}" width="${DRAW_W}" height="${DRAW_H}" fill="none" stroke="#ddd" stroke-width="2" stroke-dasharray="10,6"/>`;
+    svg += `<rect x="${safe.x}" y="${safe.y}" width="${safe.w}" height="${safe.h}" fill="none" stroke="#e8d5a3" stroke-width="2" stroke-dasharray="6,4" opacity="0.4"/>`;
+  }
+
+  panelRects.filter(r => !r._hidden).forEach(r => {
+    svg += `<rect x="${r.x.toFixed(1)}" y="${r.y.toFixed(1)}" width="${r.w.toFixed(1)}" height="${r.h.toFixed(1)}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeW}"/>`;
+    if (!forExport) {
+      const cx = r.x + r.w/2, cy = r.y + r.h/2;
+      svg += `<text x="${cx.toFixed(1)}" y="${cy.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="80" fill="${strokeColor}" opacity="0.3">${r.pnl}</text>`;
+    }
+  });
+
+  svg += `</svg>`;
+  return svg;
+}
+
+// ─────────────────────────────────────────────
+// GENERATE & RENDER
+// ─────────────────────────────────────────────
+function generateAll() {
+  const pages = getPages();
+  if (!pages.length) { showToast('No data to generate!'); return; }
+
+  const fillColor = document.getElementById('panelFill').value;
+  const strokeColor = document.getElementById('panelStroke').value;
+  const strokeW = parseInt(document.getElementById('strokeWidth').value)||8;
+
+  const canvasArea = document.getElementById('canvasInner');
+  canvasArea.innerHTML = '';
+
+  pages.forEach(({pg, chp}) => {
+    const pgNum = parseInt((pg.match(/\d+/)||[1])[0]);
+    const ps = pageSettings[pg] || { mode:'safe', gutter:12 };
+    const pageRows = rows.filter(r => r.pg === pg);
+
+    // If layout is locked, use the stored snapshot — never re-roll random
+    let baseRects;
+    if (panelOverrides[pg]?._lockedRects?.length) {
+      baseRects = panelOverrides[pg]._lockedRects;
+      // Keep _lastBaseRects in sync for Panel Editor
+      _lastBaseRects[pg] = baseRects;
+    } else {
+      baseRects = computePanelRects(pageRows, ps.mode, ps.gutter, ps.flow||'v-first');
+      _lastBaseRects[pg] = baseRects;
+    }
+
+    // Apply per-panel overrides (position / size / visibility)
+    const _pgOvs = panelOverrides[pg] || {};
+    const panelRects = baseRects.map((r, idx) => {
+      const ov = _pgOvs[idx];
+      if (!ov) return r;
+      return { ...r,
+        x: ov.x !== undefined ? ov.x : r.x,
+        y: ov.y !== undefined ? ov.y : r.y,
+        w: ov.w !== undefined ? ov.w : r.w,
+        h: ov.h !== undefined ? ov.h : r.h,
+        _hidden: ov.visible === false,
+      };
+    });
+    console.log('PAGE:', pg, '| Raw rows ('+pageRows.length+'):', pageRows.map(r => r.pnl+'@'+r.row+' lh='+r.lh));
+    console.log('PAGE:', pg, '| Rects ('+panelRects.length+'):', panelRects.map(r => r.pnl+' x='+r.x.toFixed(0)+' y='+r.y.toFixed(0)+' w='+r.w.toFixed(0)+' h='+r.h.toFixed(0)));
+
+    const svgStr = buildSVG(pg, pgNum, panelRects, fillColor, strokeColor, strokeW);
+
+    const w = Math.round(PAGE_W * scale);
+    const h = Math.round(PAGE_H * scale);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'page-thumb-wrap';
+    wrap.innerHTML = `<div class="page-label">${chp} · ${pg} · ${pgNum%2!==0?'LEFT (ODD)':'RIGHT (EVEN)'} · ${pageRows.length} panels · mode: ${ps.mode}</div>`;
+
+    const container = document.createElement('div');
+    container.className = 'page-output';
+    container.style.width = w + 'px';
+    container.style.height = h + 'px';
+    container.style.overflow = 'hidden';
+    container.style.position = 'relative';
+    container.dataset.svg = svgStr;
+    container.dataset.pg = pg;
+
+    // Render inline SVG scaled via transform
+    const svgWrap = document.createElement('div');
+    svgWrap.style.position = 'absolute';
+    svgWrap.style.top = '0';
+    svgWrap.style.left = '0';
+    svgWrap.style.transformOrigin = 'top left';
+    svgWrap.style.transform = `scale(${scale})`;
+    svgWrap.style.width = PAGE_W + 'px';
+    svgWrap.style.height = PAGE_H + 'px';
+    svgWrap.innerHTML = svgStr;
+    container.appendChild(svgWrap);
+    wrap.appendChild(container);
+    canvasArea.appendChild(wrap);
+  });
+  showToast(`Generated ${pages.length} page(s)`);
+}
+
+// ─────────────────────────────────────────────
+// EXPORT SVG — transparent panels, bubbles embedded
+// ─────────────────────────────────────────────
+// ─── FONT EMBEDDING ───────────────────────────────────────────────────────────
+// Cache of base64-encoded font data so we only fetch each file once per session
+const _fontB64Cache = {};
+
+async function fetchFontB64(url) {
+  if (_fontB64Cache[url]) return _fontB64Cache[url];
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const buf = await res.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+    const b64 = btoa(binary);
+    _fontB64Cache[url] = b64;
+    return b64;
+  } catch(e) { return null; }
+}
+
+// Returns a <defs><style> block with all fonts base64-embedded.
+// Falls back to relative-URL @font-face if fetch fails (e.g. file:// with CORS block).
+async function buildFontDefs() {
+  const LOCAL_FONTS = [
+    { family: 'BubbleSans',    url: 'Bubble_Sans.otf',        fmt: 'opentype' },
+    { family: 'XLTightBoo',    url: 'XL-TightBoo.otf',        fmt: 'opentype' },
+    { family: 'TGLEngschrift', url: 'TGL_0-1451Eng.ttf',      fmt: 'truetype' },
+  ];
+  // Also include any user-uploaded custom fonts
+  for (const [key, family] of Object.entries(BUBBLE_FONTS)) {
+    if (key.startsWith('custom') && _customFontDataURLs && _customFontDataURLs[key]) {
+      LOCAL_FONTS.push({ family: family.split(',')[0].replace(/["\']/g,''), dataUrl: _customFontDataURLs[key] });
+    }
+  }
+
+  const rules = [];
+  for (const f of LOCAL_FONTS) {
+    if (f.dataUrl) {
+      rules.push(`@font-face{font-family:'${f.family}';src:url('${f.dataUrl}')}`);
+    } else {
+      const b64 = await fetchFontB64(f.url);
+      if (b64) {
+        const mime = f.fmt === 'truetype' ? 'font/ttf' : 'font/otf';
+        rules.push(`@font-face{font-family:'${f.family}';src:url('data:${mime};base64,${b64}') format('${f.fmt}')}`);
+      } else {
+        // Fallback: relative URL (works if SVG opened from same directory)
+        rules.push(`@font-face{font-family:'${f.family}';src:url('${f.url}') format('${f.fmt}')}`);
+      }
+    }
+  }
+  // Google Fonts (web-hosted, always available)
+  // Google Fonts: & must be &amp; inside XML/SVG style element content
+  rules.push(`@import url('https://fonts.googleapis.com/css2?family=Bangers&amp;family=Permanent+Marker&amp;family=Caveat:wght@600&amp;display=swap');`);
+  return `<defs><style>${rules.join('')}</style></defs>`;
+}
+
+// Build bubble text using <foreignObject> — mirrors live DOM exactly
+function buildBubbleTextSVG(b) {
+  if (!b.text) return '';
+  const pad    = Math.min(b.w, b.h) * 0.14;
+  const family = (BUBBLE_FONTS[b.font] || BUBBLE_FONTS['BubbleSans']).replace(/&/g,'&amp;');
+  const weight = b.bold   ? 'bold'   : 'normal';
+  const fstyle = b.italic ? 'italic' : 'normal';
+  const color  = (b.color || '#111111').replace(/&/g,'&amp;');
+  const text   = b.text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/\n/g,'<br/>');
+
+  // Use XHTML namespace div inside foreignObject — all attribute values must be XML-safe
+  return `<foreignObject x="0" y="0" width="${b.w}" height="${b.h}"><div xmlns="http://www.w3.org/1999/xhtml" style="width:${b.w}px;height:${b.h}px;display:flex;align-items:center;justify-content:center;text-align:center;font-family:${family};font-size:${b.fontSize}px;font-weight:${weight};font-style:${fstyle};color:${color};padding:${pad}px;line-height:1.25;word-break:break-word;overflow:hidden;box-sizing:border-box;">${text}</div></foreignObject>`;
+}
+
+// Build bubble text as native SVG <text>/<tspan> — used for PNG export to avoid canvas taint from foreignObject
+function buildBubbleTextSVGNative(b) {
+  if (!b.text) return '';
+  const pad    = Math.min(b.w, b.h) * 0.14;
+  const maxW   = b.w - pad * 2;
+  const family = (BUBBLE_FONTS[b.font] || BUBBLE_FONTS['BubbleSans']).replace(/&/g,'&amp;');
+  const weight = b.bold   ? 'bold'   : 'normal';
+  const fstyle = b.italic ? 'italic' : 'normal';
+  const color  = (b.color || '#111111').replace(/&/g,'&amp;');
+  const fontSize = b.fontSize || 40;
+  const lineH  = fontSize * 1.25;
+
+  // Split into lines (honour explicit newlines), then word-wrap each line
+  const rawLines = b.text.split('\n');
+  const words = [];
+  rawLines.forEach((line, li) => {
+    line.split(' ').forEach((w, wi) => {
+      words.push({ word: w, forceBreak: wi === 0 && li > 0 });
+    });
+  });
+
+  // Approximate char width ~0.55× fontSize for wrapping
+  const charW = fontSize * 0.55;
+  const lines = [];
+  let cur = '';
+  words.forEach(({ word, forceBreak }) => {
+    const escaped = word.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    if (forceBreak && cur !== '') { lines.push(cur.trim()); cur = escaped + ' '; return; }
+    const test = cur + word + ' ';
+    if (test.trimEnd().length * charW > maxW && cur !== '') {
+      lines.push(cur.trim()); cur = escaped + ' ';
+    } else {
+      cur += escaped + ' ';
+    }
+  });
+  if (cur.trim()) lines.push(cur.trim());
+
+  const totalH = lines.length * lineH;
+  const startY = b.h / 2 - totalH / 2 + fontSize * 0.85;
+
+  const tspans = lines.map((line, i) =>
+    `<tspan x="${b.w / 2}" dy="${i === 0 ? 0 : lineH}">${line}</tspan>`
+  ).join('');
+
+  return `<text x="${b.w / 2}" y="${startY.toFixed(1)}" text-anchor="middle" font-family="${family}" font-size="${fontSize}" font-weight="${weight}" font-style="${fstyle}" fill="${color}">${tspans}</text>`;
+}
+
+// ─── CORE SVG BUILDER FOR EXPORT ──────────────────────────────────────────────
+function getExportFillColor() {
+  const transparent = document.getElementById('exportTransparentPanels')?.checked
+                   || document.getElementById('exportTransparentPanelsSingle')?.checked;
+  return transparent ? 'none' : document.getElementById('panelFill').value;
+}
+
+function syncTransparentCheckbox(src) {
+  const val = src.checked;
+  const a = document.getElementById('exportTransparentPanels');
+  const b = document.getElementById('exportTransparentPanelsSingle');
+  if (a) a.checked = val;
+  if (b) b.checked = val;
+}
+function buildExportSVGString(pg, fontDefsStr) {
+  const pgNum = parseInt((pg.match(/\d+/)||[1])[0]);
+  const fillColor = getExportFillColor();
+  const strokeColor = document.getElementById('panelStroke').value;
+  const strokeW = parseInt(document.getElementById('strokeWidth').value)||8;
+  const ps = pageSettings[pg] || { mode:'safe', gutter:12 };
+  const pageRows = rows.filter(r => r.pg === pg);
+
+  // Respect locked layout snapshot (same logic as generateAll)
+  let baseRects;
+  if (panelOverrides[pg]?._lockedRects?.length) {
+    baseRects = panelOverrides[pg]._lockedRects;
+  } else {
+    baseRects = computePanelRects(pageRows, ps.mode, ps.gutter, ps.flow||'v-first');
+  }
+
+  const _pgOvs = panelOverrides[pg] || {};
+  const panelRects = baseRects.map((r, idx) => {
+    const ov = _pgOvs[idx];
+    if (!ov) return r;
+    return { ...r,
+      x: ov.x !== undefined ? ov.x : r.x,
+      y: ov.y !== undefined ? ov.y : r.y,
+      w: ov.w !== undefined ? ov.w : r.w,
+      h: ov.h !== undefined ? ov.h : r.h,
+      _hidden: ov.visible === false,
+    };
+  });
+
+  let exportSvg = buildSVG(pg, pgNum, panelRects, fillColor, strokeColor, strokeW, true);
+
+  // Inject base64 font defs (replaces the placeholder defs from buildSVG)
+  exportSvg = exportSvg.replace(/<defs>.*?<\/defs>/s, fontDefsStr);
+
+  const pgBubbles = bubbles[pg] || [];
+  if (pgBubbles.length) {
+    const serializer = new XMLSerializer();
+    const bubbleGroup = pgBubbles.map(b => {
+      const bsvgEl = buildBubbleSVG(b);
+      let bsvgStr = serializer.serializeToString(bsvgEl);
+      bsvgStr = bsvgStr.replace(/ style="[^"]*"/g, '');
+      // Use native SVG text instead of foreignObject to avoid canvas taint on PNG export
+      return `<g transform="translate(${b.x},${b.y}) rotate(${b.rotate||0},${b.w/2},${b.h/2})">${bsvgStr}${buildBubbleTextSVGNative(b)}</g>`;
+    }).join('');
+    exportSvg = exportSvg.replace('</svg>', bubbleGroup + '</svg>');
+  }
+  return exportSvg;
+}
+
+// ─── EXPORT ALL SVGs ──────────────────────────────────────────────────────────
+async function exportAllSVG() {
+  const containers = document.querySelectorAll('.page-output[data-svg]');
+  if (!containers.length) { showToast('Generate pages first!'); return; }
+  showToast('Building fonts… please wait');
+
+  const fontDefsStr = await buildFontDefs();
+  const downloads = [];
+
+  containers.forEach(c => {
+    const pg = c.dataset.pg;
+    const pgSafe = pg.replace(/\s/g,'_');
+    const svgStr = buildExportSVGString(pg, fontDefsStr);
+    const blob = new Blob([svgStr], {type:'image/svg+xml'});
+    downloads.push({ url: URL.createObjectURL(blob), filename: `manga_${pgSafe}.svg` });
+  });
+
+  const total = downloads.length;
+  downloads.forEach(({ url, filename }, i) => {
+    setTimeout(() => {
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      if (i === total - 1) showToast(`Exported ${total} SVG file(s) ✓`);
+    }, i * 200);
+  });
+}
+
+// ─── EXPORT ALL PNGs ─────────────────────────────────────────────────────────
+async function exportAllPNG() {
+  const containers = document.querySelectorAll('.page-output[data-svg]');
+  if (!containers.length) { showToast('Generate pages first!'); return; }
+  showToast('Rendering PNGs… this may take a moment');
+
+  const fontDefsStr = await buildFontDefs();
+  const total = containers.length;
+  let done = 0;
+
+  for (const c of containers) {
+    const pg = c.dataset.pg;
+    const pgSafe = pg.replace(/\s/g,'_');
+    const svgStr = buildExportSVGString(pg, fontDefsStr);
+    await renderSVGtoPNG(svgStr, PAGE_W, PAGE_H, `manga_${pgSafe}.png`);
+    done++;
+    showToast(`Exporting PNG ${done}/${total}…`);
+    await new Promise(r => setTimeout(r, 100));
+  }
+  showToast(`Exported ${total} PNG file(s) ✓`);
+}
+
+// ─── SINGLE PAGE EXPORT MODAL ────────────────────────────────────────────────
+function openSingleExportModal() {
+  const containers = document.querySelectorAll('.page-output[data-svg]');
+  if (!containers.length) { showToast('Generate pages first!'); return; }
+
+  const pages = Array.from(containers).map(c => c.dataset.pg);
+  const sel = document.getElementById('singleExportSelect');
+  sel.innerHTML = pages.map(pg => `<option value="${pg}">${pg}</option>`).join('');
+
+  document.getElementById('singleExportModal').classList.add('open');
+}
+
+function closeSingleExportModal() {
+  document.getElementById('singleExportModal').classList.remove('open');
+}
+
+async function doSingleExport(fmt) {
+  const pg = document.getElementById('singleExportSelect').value;
+  if (!pg) return;
+  closeSingleExportModal();
+  showToast('Building export… please wait');
+
+  const fontDefsStr = await buildFontDefs();
+  const svgStr = buildExportSVGString(pg, fontDefsStr);
+  const pgSafe = pg.replace(/\s/g,'_');
+
+  if (fmt === 'svg') {
+    const blob = new Blob([svgStr], {type:'image/svg+xml'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `manga_${pgSafe}.svg`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    showToast(`Exported ${pg} as SVG ✓`);
+  } else {
+    await renderSVGtoPNG(svgStr, PAGE_W, PAGE_H, `manga_${pgSafe}.png`);
+    showToast(`Exported ${pg} as PNG ✓`);
+  }
+}
+
+// ─── SVG → PNG RENDERER ───────────────────────────────────────────────────────
+function renderSVGtoPNG(svgStr, w, h, filename) {
+  return new Promise(resolve => {
+    const blob = new Blob([svgStr], {type:'image/svg+xml;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(pngBlob => {
+        const purl = URL.createObjectURL(pngBlob);
+        const a = document.createElement('a');
+        a.href = purl; a.download = filename;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(purl), 2000);
+        resolve();
+      }, 'image/png');
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(); };
+    img.src = url;
+  });
+}
+
+// ─────────────────────────────────────────────
+// EXPORT EXCEL (CSV-based .xlsx via sheetjs)
+// ─────────────────────────────────────────────
+async function exportExcel() {
+  if (!rows.length) { showToast('No data to export!'); return; }
+  try {
+    const XLSX = await loadSheetJS();
+    const headers = ['Chapter No.','Scene No.','Page No.','Panel No.','Row No.','Panel (L x H in %)','Total Max Panel L per row (/100)','Total Max Panel H per row (/100)'];
+    const data = [headers, ...rows.map(r => [r.chp, r.scn, r.pg, r.pnl, r.row, r.lh, r.maxL, r.maxH])];
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Panels');
+    XLSX.writeFile(wb, 'manga_panels.xlsx');
+    showToast('Excel exported!');
+  } catch(e) {
+    // fallback CSV
+    const headers = 'Chapter No.,Scene No.,Page No.,Panel No.,Row No.,Panel (L x H in %),Total Max Panel L per row (/100),Total Max Panel H per row (/100)';
+    const csv = [headers, ...rows.map(r => [r.chp,r.scn,r.pg,r.pnl,r.row,r.lh,r.maxL,r.maxH].join(','))].join('\n');
+    const blob = new Blob([csv], {type:'text/csv'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'manga_panels.csv'; a.click();
+    URL.revokeObjectURL(url);
+    showToast('Exported as CSV (SheetJS unavailable)');
+  }
+}
+
+function loadSheetJS() {
+  return new Promise((res, rej) => {
+    if (window.XLSX) { res(window.XLSX); return; }
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload = () => res(window.XLSX);
+    s.onerror = () => rej(new Error('SheetJS failed'));
+    document.head.appendChild(s);
+  });
+}
+
+// ─────────────────────────────────────────────
+// IMPORT FILE
+// ─────────────────────────────────────────────
+function handleFileImport(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (file.name.endsWith('.csv')) {
+    const reader = new FileReader();
+    reader.onload = e => parseCSVText(e.target.result);
+    reader.readAsText(file);
+  } else {
+    loadSheetJS().then(XLSX => {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const wb = XLSX.read(e.target.result, {type:'array'});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_csv(ws);
+        parseCSVText(data);
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  }
+  event.target.value = '';
+}
+
+function onDragOver(e) { e.preventDefault(); document.getElementById('dropZone').classList.add('drag-over'); }
+function onDragLeave(e) { document.getElementById('dropZone').classList.remove('drag-over'); }
+function onDrop(e) {
+  e.preventDefault();
+  document.getElementById('dropZone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) {
+    const fakeEvent = { target: { files: [file], value: '' } };
+    handleFileImport(fakeEvent);
+  }
+}
+
+function parsePastedCSV() {
+  const text = document.getElementById('pasted-csv').value.trim();
+  if (!text) { showToast('Nothing to parse!'); return; }
+  parseCSVText(text);
+}
+
+function parseCSVText(text) {
+  // Normalise line endings
+  text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+  // Detect delimiter: tab (Excel copy-paste) or comma
+  const firstLine = text.split('\n')[0];
+  const delimiter = firstLine.includes('\t') ? '\t' : ',';
+
+  const lines = text.trim().split('\n').map(l => l.trim()).filter(Boolean);
+  // Only skip first line if it looks like a header (contains 'chapter no' or 'panel no' or 'page no')
+  // Data rows start with 'CHP 2' etc. so we must NOT skip them
+  const firstLower = lines[0].toLowerCase();
+  const isHeader = firstLower.includes('chapter no') || firstLower.includes('panel no') || firstLower.includes('page no') || firstLower.includes('scene no');
+  const startLine = isHeader ? 1 : 0;
+
+  rows = [];
+  for (let i = startLine; i < lines.length; i++) {
+    const cols = lines[i].split(delimiter).map(c => c.trim().replace(/^"|"$/g, ''));
+    if (cols.length < 6) continue;
+
+    // Accept "100/100" or "100" for MaxL/MaxH — take first number
+    function parseMax(val, fallback) {
+      if (!val) return fallback;
+      const m = val.toString().match(/[\d.]+/);
+      return m ? m[0] : fallback;
+    }
+
+    // Normalise LxH: accept "30x50", "30X50", "30 x 50"
+    const lh = (cols[5]||'').replace(/\s/g,'').replace(/[Xx\*]/,'x');
+
+    rows.push({
+      chp: cols[0]||'', scn: cols[1]||'', pg: cols[2]||'',
+      pnl: cols[3]||'', row: cols[4]||'', lh: lh||'',
+      maxL: parseMax(cols[6], '100'),
+      maxH: parseMax(cols[7], '50')
+    });
+  }
+  renderTable();
+  refreshPageSettings();
+  showToast('Imported ' + rows.length + ' rows');
+  switchTab('pages');
+}
+
+// ─────────────────────────────────────────────
+// SAMPLE DATA (matches the screenshot)
+// ─────────────────────────────────────────────
+function loadSampleData() {
+  const sample = `CHP 2,S1,PG 1,PNL 1,RW 1,30x50,100,50
+CHP 2,S1,PG 1,PNL 2,RW 1,30x50,100,50
+CHP 2,S1,PG 1,PNL 3,RW 1,40x25,100,50
+CHP 2,S1,PG 1,PNL 4,RW 1,40x25,100,50
+CHP 2,S1,PG 1,PNL 5,RW 2,40x50,100,50
+CHP 2,S1,PG 1,PNL 6,RW 2,30x50,100,50
+CHP 2,S1,PG 1,PNL 7,RW 2,30x50,100,50
+CHP 2,S1,PG 2,PNL 1,RW 1,100x40,100,40
+CHP 2,S1,PG 2,PNL 2,RW 2,50x35,100,35
+CHP 2,S1,PG 2,PNL 3,RW 2,50x35,100,35
+CHP 2,S1,PG 2,PNL 4,RW 3,40x25,100,25
+CHP 2,S1,PG 2,PNL 5,RW 3,60x25,100,25`;
+  parseCSVText(sample);
+}
+
+// ─────────────────────────────────────────────
+// TOAST
+// ─────────────────────────────────────────────
+let toastTimer;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+}
+
+// ─────────────────────────────────────────────
+// UNDO / REDO
+// ─────────────────────────────────────────────
+const UNDO_MAX = 40;
+let undoStack = [];
+let redoStack = [];
+let _undoPaused = false;
+
+function snapshotState() {
+  if (_undoPaused) return;
+  const snap = JSON.stringify({ rows, pageSettings, bubbles });
+  // Avoid duplicate snapshots
+  if (undoStack.length && undoStack[undoStack.length-1] === snap) return;
+  undoStack.push(snap);
+  if (undoStack.length > UNDO_MAX) undoStack.shift();
+  redoStack = [];
+  updateUndoButtons();
+}
+
+function applySnapshot(snap) {
+  _undoPaused = true;
+  const d = JSON.parse(snap);
+  rows = d.rows || [];
+  pageSettings = d.pageSettings || {};
+  Object.keys(bubbles).forEach(k => delete bubbles[k]);
+  Object.assign(bubbles, d.bubbles || {});
+  renderTable();
+  refreshPageSettings();
+  generateAll();
+  _undoPaused = false;
+}
+
+function undo() {
+  if (undoStack.length < 2) { showToast('Nothing to undo'); return; }
+  const cur = undoStack.pop();
+  redoStack.push(cur);
+  applySnapshot(undoStack[undoStack.length - 1]);
+  updateUndoButtons();
+  showToast('Undo ↩');
+}
+
+function redo() {
+  if (!redoStack.length) { showToast('Nothing to redo'); return; }
+  const snap = redoStack.pop();
+  undoStack.push(snap);
+  applySnapshot(snap);
+  updateUndoButtons();
+  showToast('Redo ↪');
+}
+
+function updateUndoButtons() {
+  document.querySelectorAll('.undo-btn').forEach(b => b.disabled = undoStack.length < 2);
+  document.querySelectorAll('.redo-btn').forEach(b => b.disabled = redoStack.length === 0);
+}
+
+// Patch mutating functions to snapshot automatically
+const _patchForUndo = (fn) => function(...args) {
+  snapshotState();
+  return fn.apply(this, args);
+};
+
+// ─────────────────────────────────────────────
+// AUTO-SAVE TO LOCALSTORAGE
+// ─────────────────────────────────────────────
+let _autoSaveTimer = null;
+let _lastAutoSave = null;
+
+function scheduleAutoSave() {
+  clearTimeout(_autoSaveTimer);
+  _autoSaveTimer = setTimeout(doAutoSave, 30000); // 30s after last change
+}
+
+function doAutoSave() {
+  try {
+    const data = JSON.stringify(buildSaveData());
+    localStorage.setItem('manga_autosave', data);
+    _lastAutoSave = new Date();
+    updateAutoSaveLabel();
+  } catch(e) { /* storage full or unavailable */ }
+}
+
+function updateAutoSaveLabel() {
+  const el = document.getElementById('autosaveLabel');
+  if (!el || !_lastAutoSave) return;
+  const mins = Math.round((Date.now() - _lastAutoSave) / 60000);
+  el.textContent = mins < 1 ? 'Auto-saved just now' : `Auto-saved ${mins}m ago`;
+}
+
+function restoreAutoSave() {
+  try {
+    const raw = localStorage.getItem('manga_autosave');
+    if (!raw) { showToast('No auto-save found'); return; }
+    const data = JSON.parse(raw);
+    restoreSaveData(data);
+    showToast('Auto-save restored ✅');
+    setTimeout(() => { generateAll(); }, 200);
+  } catch(e) { showToast('Could not restore auto-save'); }
+}
+
+// Update label every minute
+setInterval(updateAutoSaveLabel, 60000);
+
+// ─────────────────────────────────────────────
+// KEYBOARD SHORTCUTS
+// ─────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  const tag = document.activeElement?.tagName;
+  const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+
+  // Ctrl+Z / Ctrl+Y — undo/redo (always active)
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); return; }
+
+  // Ctrl+S — quick save
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveToGitHub(); return; }
+
+  if (typing) return; // don't fire below shortcuts while typing
+
+  // Delete / Backspace — delete selected bubble
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (selectedBubble) { snapshotState(); deleteSelectedBubble(); }
+    return;
+  }
+
+  // Escape — deselect
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.bubble-wrap.selected').forEach(el => el.classList.remove('selected'));
+    selectedBubble = null;
+    document.getElementById('bp-nosel').style.display = '';
+    document.getElementById('bp-editor').style.display = 'none';
+    return;
+  }
+
+  // Ctrl+D — duplicate selected bubble
+  if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+    e.preventDefault();
+    if (selectedBubble) duplicateSelectedBubble();
+    return;
+  }
+
+  // Arrow keys — nudge selected bubble (1px; hold Shift = 10px)
+  if (selectedBubble && ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)) {
+    e.preventDefault();
+    const step = e.shiftKey ? 10 : 1;
+    const b = selectedBubble.data;
+    if (e.key === 'ArrowLeft')  b.x -= step;
+    if (e.key === 'ArrowRight') b.x += step;
+    if (e.key === 'ArrowUp')    b.y -= step;
+    if (e.key === 'ArrowDown')  b.y += step;
+    applyBubble(b, selectedBubble.el, selectedBubble.pgKey);
+    return;
+  }
+
+  // G — generate all
+  if (e.key === 'g') { generateAll(); return; }
+});
+
+// ─────────────────────────────────────────────
+// BUBBLE DUPLICATE
+// ─────────────────────────────────────────────
+function duplicateSelectedBubble() {
+  if (!selectedBubble) return;
+  snapshotState();
+  const { data, pgKey } = selectedBubble;
+  const copy = JSON.parse(JSON.stringify(data));
+  copy.id = 'b' + Date.now() + Math.random().toString(36).slice(2,6);
+  copy.x += 60; copy.y += 60;
+  copy.zIndex = (bubbles[pgKey]||[]).length + 1;
+  if (!bubbles[pgKey]) bubbles[pgKey] = [];
+  bubbles[pgKey].push(copy);
+  renderBubblesOnPage(pgKey);
+  refreshLayersPanel(pgKey);
+  // Select the new copy
+  setTimeout(() => {
+    const el = document.querySelector(`.bubble-wrap[data-id="${copy.id}"]`);
+    if (el) selectBubble(el, copy, pgKey);
+  }, 50);
+  showToast('Bubble duplicated (Ctrl+D)');
+}
+
+// ─────────────────────────────────────────────
+// CHAPTER / PAGE JUMP NAVIGATION
+// ─────────────────────────────────────────────
+function buildPageJumpSelect() {
+  const pages = getPages();
+  const sel = document.getElementById('pageJumpSelect');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">⇢ Jump to page…</option>' +
+    pages.map(({pg, chp}) => `<option value="${pg}">${chp} · ${pg}</option>`).join('');
+}
+
+function jumpToPage(pg) {
+  if (!pg) return;
+  const containers = document.querySelectorAll('.page-output[data-pg]');
+  for (const c of containers) {
+    if (c.dataset.pg === pg) {
+      c.closest('.page-thumb-wrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+  }
+  showToast('Generate pages first!');
+}
+
+// ─────────────────────────────────────────────
+// CANVAS ZOOM & PAN (CSS transform, no re-render)
+// ─────────────────────────────────────────────
+let canvasZoom = 1.0;
+let canvasPanX = 0, canvasPanY = 0;
+let _panActive = false, _panStartX = 0, _panStartY = 0, _panOriginX = 0, _panOriginY = 0;
+let _pinchStartDist = 0, _pinchStartZoom = 1;
+
+function getCanvasInner() { return document.getElementById('canvasInner'); }
+
+function applyCanvasTransform() {
+  const el = getCanvasInner();
+  if (!el) return;
+  el.style.transform = `translate(${canvasPanX}px,${canvasPanY}px) scale(${canvasZoom})`;
+  el.style.transformOrigin = 'top left';
+}
+
+function resetCanvasView() {
+  canvasZoom = 1.0; canvasPanY = 0;
+  // Centre the content horizontally within the canvas area
+  const area = document.getElementById('canvasArea');
+  const el = getCanvasInner();
+  if (area && el) {
+    canvasPanX = (area.clientWidth - el.scrollWidth) / 2;
+    if (isNaN(canvasPanX) || canvasPanX < 0) canvasPanX = 0;
+  } else {
+    canvasPanX = 0;
+  }
+  applyCanvasTransform();
+}
+
+// Space+drag to pan
+const canvasArea = document.getElementById('canvasArea');
+let _spaceDown = false;
+document.addEventListener('keydown', e => { if (e.key === ' ' && !['INPUT','TEXTAREA'].includes(document.activeElement?.tagName)) { _spaceDown = true; canvasArea.style.cursor = 'grab'; e.preventDefault(); } });
+document.addEventListener('keyup',   e => { if (e.key === ' ') { _spaceDown = false; canvasArea.style.cursor = ''; } });
+
+canvasArea.addEventListener('pointerdown', e => {
+  if (!_spaceDown) return;
+  _panActive = true;
+  _panStartX = e.clientX; _panStartY = e.clientY;
+  _panOriginX = canvasPanX; _panOriginY = canvasPanY;
+  canvasArea.style.cursor = 'grabbing';
+  canvasArea.setPointerCapture(e.pointerId);
+});
+canvasArea.addEventListener('pointermove', e => {
+  if (!_panActive) return;
+  canvasPanX = _panOriginX + (e.clientX - _panStartX);
+  canvasPanY = _panOriginY + (e.clientY - _panStartY);
+  applyCanvasTransform();
+});
+canvasArea.addEventListener('pointerup', () => { _panActive = false; canvasArea.style.cursor = _spaceDown ? 'grab' : ''; });
+
+// Ctrl+scroll to zoom canvas view
+canvasArea.addEventListener('wheel', e => {
+  if (!e.ctrlKey && !e.metaKey) return;
+  e.preventDefault();
+  const delta = e.deltaY > 0 ? 0.9 : 1.1;
+  canvasZoom = Math.max(0.2, Math.min(4, canvasZoom * delta));
+  applyCanvasTransform();
+}, { passive: false });
+
+// Pinch to zoom + pan on mobile canvas
+let _pinchStartMidX = 0, _pinchStartMidY = 0, _pinchStartPanX = 0, _pinchStartPanY = 0;
+let _touch1StartX = 0, _touch1StartY = 0, _touchPanOriginX = 0, _touchPanOriginY = 0, _touchPanning = false;
+
+canvasArea.addEventListener('touchstart', e => {
+  if (e.touches.length === 2) {
+    e.preventDefault();
+    const t0 = e.touches[0], t1 = e.touches[1];
+    _pinchStartDist = Math.hypot(t0.clientX - t1.clientX, t0.clientY - t1.clientY);
+    _pinchStartZoom = canvasZoom;
+    _pinchStartMidX = (t0.clientX + t1.clientX) / 2;
+    _pinchStartMidY = (t0.clientY + t1.clientY) / 2;
+    _pinchStartPanX = canvasPanX;
+    _pinchStartPanY = canvasPanY;
+    _touchPanning = false;
+  } else if (e.touches.length === 1) {
+    if (e.target.closest('.bubble-wrap')) { _touchPanning = false; return; }
+    _touch1StartX = e.touches[0].clientX;
+    _touch1StartY = e.touches[0].clientY;
+    _touchPanOriginX = canvasPanX;
+    _touchPanOriginY = canvasPanY;
+    _touchPanning = true;
+  }
+}, { passive: false });
+
+canvasArea.addEventListener('touchmove', e => {
+  if (e.touches.length === 2) {
+    e.preventDefault();
+    const t0 = e.touches[0], t1 = e.touches[1];
+    const dist = Math.hypot(t0.clientX - t1.clientX, t0.clientY - t1.clientY);
+    canvasZoom = Math.max(0.2, Math.min(4, _pinchStartZoom * (dist / _pinchStartDist)));
+    // Pan by the movement of the midpoint
+    const midX = (t0.clientX + t1.clientX) / 2;
+    const midY = (t0.clientY + t1.clientY) / 2;
+    canvasPanX = _pinchStartPanX + (midX - _pinchStartMidX);
+    canvasPanY = _pinchStartPanY + (midY - _pinchStartMidY);
+    applyCanvasTransform();
+  } else if (e.touches.length === 1 && _touchPanning) {
+    e.preventDefault();
+    canvasPanX = _touchPanOriginX + (e.touches[0].clientX - _touch1StartX);
+    canvasPanY = _touchPanOriginY + (e.touches[0].clientY - _touch1StartY);
+    applyCanvasTransform();
+  }
+}, { passive: false });
+
+canvasArea.addEventListener('touchend', e => {
+  if (e.touches.length < 2) _touchPanning = false;
+  if (e.touches.length === 0) _touchPanning = false;
+}, { passive: true });
+
+// ─────────────────────────────────────────────
+// BUBBLE TEXT OVERFLOW INDICATOR
+// ─────────────────────────────────────────────
+function checkBubbleOverflow(wrap, b) {
+  const textDiv = wrap.querySelector('.bubble-text');
+  if (!textDiv) return;
+  const isOverflowing = textDiv.scrollHeight > textDiv.clientHeight + 2 || textDiv.scrollWidth > textDiv.clientWidth + 2;
+  wrap.classList.toggle('text-overflow', isOverflowing);
+}
+
+// ─────────────────────────────────────────────
+// SNAP TO PANEL EDGES (optional toggle)
+// ─────────────────────────────────────────────
+let snapEnabled = false;
+const SNAP_THRESHOLD = 30; // px in full-res coords
+
+function getSnapX(x, pg) {
+  if (!snapEnabled) return x;
+  const rects = _lastPanelRects[pg] || [];
+  let best = x, bestDist = SNAP_THRESHOLD;
+  rects.forEach(r => {
+    [r.x, r.x + r.w].forEach(sx => {
+      const d = Math.abs(x - sx);
+      if (d < bestDist) { bestDist = d; best = sx; }
+    });
+  });
+  return best;
+}
+function getSnapY(y, pg) {
+  if (!snapEnabled) return y;
+  const rects = _lastPanelRects[pg] || [];
+  let best = y, bestDist = SNAP_THRESHOLD;
+  rects.forEach(r => {
+    [r.y, r.y + r.h].forEach(sy => {
+      const d = Math.abs(y - sy);
+      if (d < bestDist) { bestDist = d; best = sy; }
+    });
+  });
+  return best;
+}
+const _lastPanelRects = {};
+const _lastBaseRects  = {};          // pre-override rects, used by panel editor
+const panelOverrides  = {};          // panelOverrides[pg][idx] = {x,y,w,h,visible,locked}
+
+// ─────────────────────────────────────────────
+// PATCH generateAll to snapshot & store panel rects
+// ─────────────────────────────────────────────
+const __origGenAll = window.generateAll || generateAll;
+window.generateAll = function() {
+  __origGenAll();
+  // Sync snap rects from what generateAll already computed — do NOT recompute
+  // here because random mode would produce a different roll and corrupt _lastBaseRects
+  getPages().forEach(({pg}) => {
+    _lastPanelRects[pg] = _lastBaseRects[pg] || [];
+  });
+  buildPageJumpSelect();
+  scheduleAutoSave();
+};
+
+// ─────────────────────────────────────────────
+// PATCH mutating actions to auto-save & snapshot
+// ─────────────────────────────────────────────
+
+
+// Auto-save on row changes
+const __origAddRow = addRow;
+window.addRow = function(data) { __origAddRow(data); snapshotState(); scheduleAutoSave(); };
+const __origDeleteRow = deleteRow;
+window.deleteRow = function(idx) { snapshotState(); __origDeleteRow(idx); scheduleAutoSave(); };
+const __origClearAllRows = clearAllRows;
+window.clearAllRows = function() { snapshotState(); __origClearAllRows(); scheduleAutoSave(); };
+
+// Snapshot after drag/resize/rotate end
+document.addEventListener('pointerup', () => {
+  if (typeof selectedBubble !== 'undefined' && selectedBubble) {
+    scheduleAutoSave();
+  }
+});
+
+// Defer patches that depend on functions defined in later script blocks
+window.addEventListener('DOMContentLoaded', () => {
+  // Patch deleteSelectedBubble
+  const _origDel = window.deleteSelectedBubble;
+  if (_origDel) {
+    window.deleteSelectedBubble = function() { snapshotState(); _origDel(); scheduleAutoSave(); };
+  }
+
+  // Patch importBubbles
+  const _origImpB = window.importBubbles;
+  if (_origImpB) {
+    window.importBubbles = function() { snapshotState(); _origImpB(); scheduleAutoSave(); };
+  }
+
+  // Patch parseCSVText
+  const _origCSV = window.parseCSVText;
+  if (_origCSV) {
+    window.parseCSVText = function(text) { _origCSV(text); snapshotState(); scheduleAutoSave(); };
+  }
+});
+
+// ─────────────────────────────────────────────
+// DUPLICATE BUBBLE BY ID (from layers panel)
+// ─────────────────────────────────────────────
+function duplicateBubbleById(pgKey, id) {
+  const bbs = bubbles[pgKey] || [];
+  const src = bbs.find(b => b.id === id);
+  if (!src) return;
+  snapshotState();
+  const copy = JSON.parse(JSON.stringify(src));
+  copy.id = 'b' + Date.now() + Math.random().toString(36).slice(2,6);
+  copy.x += 60; copy.y += 60;
+  copy.zIndex = bbs.length + 1;
+  bbs.push(copy);
+  renderBubblesOnPage(pgKey);
+  refreshLayersPanel(pgKey);
+  scheduleAutoSave();
+  showToast('Bubble duplicated');
+}
+
+// ─────────────────────────────────────────────
+// COLLAPSIBLE SECTIONS
+// ─────────────────────────────────────────────
+function toggleSection(titleEl) {
+  titleEl.classList.toggle('collapsed');
+  const body = titleEl.nextElementSibling;
+  if (body && body.classList.contains('section-body')) {
+    body.classList.toggle('collapsed');
+  }
+}
+
+// ─────────────────────────────────────────────
+// DUPLICATE PAGE (layout + bubbles)
+// ─────────────────────────────────────────────
+function duplicatePage(pg) {
+  snapshotState();
+  const pageRows = rows.filter(r => r.pg === pg);
+  const pgNum = parseInt((pg.match(/\d+/)||[1])[0]);
+  const newPg = pg.replace(/\d+/, String(pgNum) + 'b');
+  const newRows = pageRows.map(r => ({ ...r, pg: newPg }));
+  rows.push(...newRows);
+  if (pageSettings[pg]) pageSettings[newPg] = { ...pageSettings[pg] };
+  if (bubbles[pg]) {
+    bubbles[newPg] = bubbles[pg].map(b => ({
+      ...JSON.parse(JSON.stringify(b)),
+      id: 'b' + Date.now() + Math.random().toString(36).slice(2,6)
+    }));
+  }
+  renderTable();
+  refreshPageSettings();
+  generateAll();
+  showToast(`Duplicated as "${newPg}" — rename PG column to finalise`);
+}
+
+</script>
+
+<!-- LAYERS PANEL -->
+<div id="layersPanel">
+  <div class="lp-header">
+    <span style="font-family:'Bebas Neue',sans-serif;font-size:14px;color:var(--accent);">LAYERS</span>
+    <button class="btn small" onclick="toggleLayersPanel()">✕</button>
+  </div>
+  <div id="layersList"><div style="color:var(--text3);font-size:11px;padding:8px;">Generate pages first.</div></div>
+</div>
+
+<!-- PANELS EDITOR PANEL -->
+<div id="panelsPanel">
+  <div class="pp-head">
+    <span style="font-family:'Bebas Neue',sans-serif;font-size:14px;color:var(--accent);">PANEL EDITOR</span>
+    <button class="btn small" onclick="togglePanelsPanel()">✕</button>
+  </div>
+  <div class="pp-page-bar">
+    <label style="font-size:10px;color:var(--text2);white-space:nowrap;">Page</label>
+    <select id="pp-page-sel" onchange="refreshPanelsPanel(this.value)"></select>
+    <button class="btn small" onclick="ppResetAll(document.getElementById('pp-page-sel').value)" title="Reset all overrides for this page">↺ All</button>
+    <button class="btn small" id="pp-lock-btn" onclick="ppToggleLockAll()" title="Lock layout to freeze all panel positions"></button>
+  </div>
+  <div id="pp-body">
+    <div class="pp-empty">Generate pages first to see panels.</div>
+  </div>
+</div>
+
+<!-- BUBBLE EDITOR PANEL -->
+<div id="bubblePanel">
+  <div class="bp-section" style="display:flex;align-items:center;justify-content:space-between;">
+    <span style="font-family:'Bebas Neue',sans-serif;font-size:16px;color:var(--accent);">BUBBLE EDITOR</span>
+    <button class="btn small" onclick="toggleBubblePanel()">✕</button>
+  </div>
+  <div class="bp-section" style="font-size:9px;color:var(--text3);line-height:1.7;font-family:'IBM Plex Mono',monospace;">
+    <span style="color:var(--accent2);">Del</span> delete &nbsp;
+    <span style="color:var(--accent2);">Ctrl+D</span> dup &nbsp;
+    <span style="color:var(--accent2);">Arrows</span> nudge &nbsp;
+    <span style="color:var(--accent2);">Shift+↑↓</span> ×10
+  </div>
+  <div class="bp-section" id="bp-nosel" style="color:var(--text3);font-size:11px;">Click a bubble to edit it.</div>
+  <div id="bp-editor" style="display:none;">
+    <div class="bp-section">
+      <div class="bp-title">Type</div>
+      <select id="bp-type" style="width:100%;" onchange="bpUpdate('type',this.value)">
+        <option value="circle">Circle – Dialogue</option>
+        <option value="square">Square – Narration</option>
+        <option value="rectangle">Rectangle – Titles</option>
+        <option value="thought">Cloud – Thoughts</option>
+        <option value="fading">Cloud – Fading Speech</option>
+        <option value="dashed">Dashed – Whisper</option>
+        <option value="bold">Bold Circle – Intense</option>
+        <option value="spiked">Spiked – Yelling</option>
+        <option value="lilypad">Lilypad – Off-panel</option>
+      </select>
+    </div>
+    <div class="bp-section">
+      <div class="bp-title">Speaker</div>
+      <input id="bp-speaker" type="text" style="width:100%" placeholder="Speaker name" oninput="bpUpdate('speaker',this.value)">
+    </div>
+    <div class="bp-section">
+      <div class="bp-title">Text</div>
+      <textarea id="bp-text" style="width:100%;min-height:60px;" oninput="bpUpdate('text',this.value)"></textarea>
+    </div>
+    <div class="bp-section">
+      <div class="bp-title">Font</div>
+      <div class="bp-row">
+        <label>Family</label>
+        <select id="bp-font" onchange="bpUpdate('font',this.value)" style="flex:1">
+          <option value="Bangers">Bangers (Manga)</option>
+          <option value="Permanent Marker">Permanent Marker</option>
+          <option value="Caveat">Caveat (Handwritten)</option>
+          <option value="custom1">Custom 1</option>
+          <option value="custom2">Custom 2</option>
+        </select>
+      </div>
+      <div class="bp-row">
+        <label>Size</label>
+        <input id="bp-fsize" type="number" min="6" max="200" value="16" oninput="bpUpdate('fontSize',+this.value)">
+      </div>
+      <div class="bp-row" style="gap:4px;align-items:center;">
+        <button class="font-btn" id="bp-bold" onclick="bpToggle('bold')"><b>B</b></button>
+        <button class="font-btn" id="bp-italic" onclick="bpToggle('italic')"><i>I</i></button>
+        <label style="font-size:10px;color:var(--text2);margin-left:4px;">Color</label>
+        <input type="color" id="bp-color" value="#111111" oninput="bpUpdate('color',this.value)" style="width:32px;height:24px;padding:0;border:1px solid var(--border);border-radius:2px;cursor:pointer;background:none;">
+      </div>
+    </div>
+    <div class="bp-section">
+      <div class="bp-title">Position &amp; Size (px at preview scale)</div>
+      <div class="bp-row"><label>X</label><input id="bp-x" type="number"><button class="btn small" onclick="bpUpdatePos()" style="margin-left:4px;">Set</button></div>
+      <div class="bp-row"><label>Y</label><input id="bp-y" type="number"><button class="btn small" onclick="bpUpdatePos()" style="margin-left:4px;">Set</button></div>
+      <div class="bp-row"><label>W</label><input id="bp-w" type="number" min="100"><button class="btn small" onclick="bpUpdatePos()" style="margin-left:4px;">Set</button></div>
+      <div class="bp-row"><label>H</label><input id="bp-h" type="number" min="80"><button class="btn small" onclick="bpUpdatePos()" style="margin-left:4px;">Set</button></div>
+      <div class="bp-row"><label>Rotate°</label><input id="bp-rot" type="number" value="0"><button class="btn small" onclick="bpUpdatePos()" style="margin-left:4px;">Set</button></div>
+    </div>
+    <div class="bp-section">
+      <div class="bp-title">Tail</div>
+      <div class="bp-row"><label>Angle°</label><input id="bp-tail-angle" type="number" value="225" min="0" max="360"><button class="btn small" onclick="bpUpdatePos()" style="margin-left:4px;">Set</button></div>
+      <div class="bp-row"><label>Length</label><input id="bp-tail-len" type="number" value="150" min="0" max="9999"><button class="btn small" onclick="bpUpdatePos()" style="margin-left:4px;">Set</button></div>
+      <div class="bp-row"><label>Breadth</label><input id="bp-tail-breadth" type="number" value="7" min="0.1" max="30" step="0.1"><button class="btn small" onclick="bpUpdatePos()" style="margin-left:4px;">Set</button></div>
+      <div class="bp-row"><label>Dots</label><input id="bp-dot-count" type="number" value="4" min="1" max="12"><button class="btn small" onclick="bpUpdate('dotCount',+document.getElementById('bp-dot-count').value)" style="margin-left:4px;">Set</button></div>
+      <div class="bp-row"><label>Spikes</label><input id="bp-spike-count" type="number" value="16" min="5" max="40"><button class="btn small" onclick="bpUpdate('spikeCount',+document.getElementById('bp-spike-count').value)" style="margin-left:4px;">Set</button></div>
+      <div class="bp-row"><label>Dashes</label><input id="bp-dash-count" type="number" value="7" min="2" max="20"><button class="btn small" onclick="bpUpdate('dashCount',+document.getElementById('bp-dash-count').value)" style="margin-left:4px;">Set</button></div>
+    </div>
+    <div class="bp-section">
+      <div class="bp-title">Lock</div>
+      <div class="lock-row">
+        <button class="lock-btn" id="lock-move" onclick="bpLockToggle('move')">🔒 Move</button>
+        <button class="lock-btn" id="lock-resize" onclick="bpLockToggle('resize')">🔒 Resize</button>
+        <button class="lock-btn" id="lock-rotate" onclick="bpLockToggle('rotate')">🔒 Rotate</button>
+      </div>
+    </div>
+    <div class="bp-section">
+      <div style="display:flex;gap:6px;">
+        <button class="btn small" style="flex:1" onclick="duplicateSelectedBubble()">⧉ Duplicate</button>
+        <button class="btn small danger" style="flex:1" onclick="deleteSelectedBubble()">✕ Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<script>
+// ═══════════════════════════════════════════════════
+// SPEECH BUBBLE SYSTEM — v2
+// ═══════════════════════════════════════════════════
+
+const BUBBLE_FONTS = {
+  'Bangers': 'Bangers, cursive',
+  'Permanent Marker': '"Permanent Marker", cursive',
+  'Caveat': 'Caveat, cursive',
+  'BubbleSans': 'BubbleSans, sans-serif',
+  'XLTightBoo': 'XLTightBoo, sans-serif',
+  'TGLEngschrift': 'TGLEngschrift, sans-serif',
+  'custom1': 'CustomFont1, sans-serif',
+  'custom2': 'CustomFont2, sans-serif',
+};
+
+const bubbles = {};          // bubbles[pgKey] = [bubbleData, ...]
+let selectedBubble = null;   // { el, data, pgKey }
+let customFontCount = 0;
+
+// ── DEFAULT BUBBLE (smaller, centered) ──
+function defaultBubble(type, text, speaker, index) {
+  const isRect = type === 'rectangle';
+  const isYell = type === 'spiked';
+  return {
+    id: 'b' + Date.now() + Math.random().toString(36).slice(2,6),
+    type, text, speaker: speaker||'',
+    x: -9999, y: -9999,   // sentinel — will be placed on import
+    w: 1000, h: 700,
+    rotate: 0,
+    font: isRect ? 'TGLEngschrift' : 'BubbleSans',
+    fontSize: isRect ? 100 : 70,
+    bold: isYell,
+    italic: false,
+    tailAngle: 225, tailLen: 150, tailBreadth: 7,
+    dotCount: 4,
+    spikeCount: 16,
+    dashCount: 7,
+    lockMove: false, lockResize: false, lockRotate: false,
+    zIndex: (index||0) + 1,
+    color: '#111111',
+  };
+}
+
+function parseType(raw) {
+  const r = raw.toLowerCase();
+  if (r.includes('spiked') || r.includes('yell')) return 'spiked';
+  if (r.includes('thought') || (r.includes('cloud') && r.includes('dot'))) return 'thought';
+  if (r.includes('fad') || r.includes('weak')) return 'fading';
+  if (r.includes('dashed') || r.includes('whisper')) return 'dashed';
+  if (r.includes('bold') || r.includes('intense') || r.includes('monster')) return 'bold';
+  if (r.includes('lily') || r.includes('off')) return 'lilypad';
+  if (r.includes('square') || r.includes('narrat') || r.includes('inner')) return 'square';
+  if (r.includes('rect') || r.includes('title')) return 'rectangle';
+  return 'circle';
+}
+
+// ── IMPORT — distribute bubbles across panels ──
+function importBubbles() {
+  const raw = document.getElementById('bubblePaste').value.trim();
+  if (!raw) { showToast('Nothing to import!'); return; }
+  const pg = document.getElementById('bubbleTargetPage').value;
+  if (!pg) { showToast('Select a page first'); return; }
+  if (!bubbles[pg]) bubbles[pg] = [];
+  const existing = bubbles[pg].length;
+  const lines = raw.split('\n').map(l=>l.trim()).filter(Boolean);
+  const startI = lines[0].toLowerCase().includes('speech') ? 1 : 0;
+  const added = [];
+  for (let i = startI; i < lines.length; i++) {
+    const cols = lines[i].split('\t').map(c=>c.trim());
+    if (!cols[0]) continue;
+    const type = parseType(cols[0]);
+    const speaker = cols[1]||'';
+    const text = cols[2]||cols[1]||'';
+    const b = defaultBubble(type, text, speaker, existing + added.length);
+    added.push(b);
+  }
+  // Distribute across panels — one bubble per panel, extras stack in last
+  const panelCenters = getPanelCenters(pg);
+  added.forEach((b, i) => {
+    const pc = panelCenters.length > 0
+      ? panelCenters[Math.min(i, panelCenters.length - 1)]
+      : null;
+    if (pc) {
+      b.x = pc.x - b.w / 2;
+      b.y = pc.y - b.h / 2;
+    } else {
+      // No panels yet — center on full page
+      b.x = (PAGE_W - b.w) / 2;
+      b.y = (PAGE_H - b.h) / 2;
+    }
+  });
+  bubbles[pg].push(...added);
+  renderBubblesOnPage(pg);
+  refreshLayersPanel(pg);
+  showToast(`Added ${added.length} bubble(s) to ${pg}`);
+}
+
+// Get center of each panel rect for a page (in overlay px coords)
+function getPanelCenters(pg) {
+  const cont = document.querySelector(`.page-output[data-pg="${pg}"]`);
+  if (!cont) return [];
+  const svgEl = cont.querySelector('svg');
+  if (!svgEl) return [];
+  // SVG is in full PAGE_W/PAGE_H coords — use those directly
+  const rects = svgEl.querySelectorAll('rect');
+  const centers = [];
+  rects.forEach(r => {
+    const x = parseFloat(r.getAttribute('x')||0);
+    const y = parseFloat(r.getAttribute('y')||0);
+    const w = parseFloat(r.getAttribute('width')||0);
+    const h = parseFloat(r.getAttribute('height')||0);
+    if (w < 20 || h < 20) return;
+    if (w > PAGE_W * 0.95 || h > PAGE_H * 0.95) return;
+    const fill = (r.getAttribute('fill')||'').toLowerCase();
+    if (fill === 'white' || fill === '#ffffff' || fill === 'none' || fill === '') return;
+    centers.push({ x: x + w/2, y: y + h/2 });
+  });
+  // Sort reading order: group into rows by Y proximity, then left-to-right within row
+  // Tolerance = 10% of page height to group same-row panels
+  const rowTol = PAGE_H * 0.10;
+  centers.sort((a, b) => {
+    const samRow = Math.abs(a.y - b.y) < rowTol;
+    return samRow ? a.x - b.x : a.y - b.y;
+  });
+  return centers;
+}
+
+// ── RENDER ALL BUBBLES ON A PAGE ──
+function renderBubblesOnPage(pg) {
+  const containers = document.querySelectorAll('.page-output[data-pg]');
+  for (const cont of containers) {
+    if (cont.dataset.pg !== pg) continue;
+    let overlay = cont.querySelector('.bubble-overlay');
+    if (overlay) overlay.remove();
+    // Bubble overlay lives inside svgWrap so it scales with the page
+    const svgWrap = cont.querySelector('div[style*="transform-origin"]');
+    overlay = document.createElement('div');
+    overlay.className = 'bubble-overlay';
+    overlay.style.cssText = `position:absolute;top:0;left:0;width:${PAGE_W}px;height:${PAGE_H}px;pointer-events:none;--pg-scale:${scale};`;
+    if (svgWrap) svgWrap.appendChild(overlay);
+    else cont.appendChild(overlay);
+    (bubbles[pg]||[]).forEach((b,i) => {
+      if (b.x === -9999 || b.y === -9999) {
+        b.x = (PAGE_W - b.w) / 2;
+        b.y = (PAGE_H - b.h) / 2;
+      }
+      b.zIndex = b.zIndex || (i+1);
+      const el = createBubbleEl(b, pg);
+      overlay.appendChild(el);
+    });
+    break;
+  }
+}
+
+function renderAllBubbles() {
+  for (const pg of Object.keys(bubbles)) renderBubblesOnPage(pg);
+}
+
+// ── CREATE BUBBLE ELEMENT ──
+function createBubbleEl(b, pgKey) {
+  const wrap = document.createElement('div');
+  wrap.className = 'bubble-wrap';
+  wrap.dataset.id = b.id;
+  applyBubbleStyle(wrap, b);
+
+  const svg = buildBubbleSVG(b);
+  wrap.appendChild(svg);
+
+  const textDiv = document.createElement('div');
+  textDiv.className = 'bubble-text';
+  updateTextStyle(textDiv, b);
+  wrap.appendChild(textDiv);
+
+  // Dashed selection box
+  const selBox = document.createElement('div');
+  selBox.className = 'sel-box';
+  wrap.appendChild(selBox);
+
+  // 8 resize handles
+  ['nw','n','ne','e','se','s','sw','w'].forEach(dir => {
+    const h = document.createElement('div');
+    h.className = 'sel-handle ' + dir;
+    h.dataset.dir = dir;
+    wrap.appendChild(h);
+  });
+
+  // Rotate stem + handle
+  const stem = document.createElement('div');
+  stem.className = 'rotate-stem';
+  wrap.appendChild(stem);
+  const rotH = document.createElement('div');
+  rotH.className = 'rotate-handle';
+  wrap.appendChild(rotH);
+
+  if (['circle','thought','fading','dashed','bold','spiked','lilypad'].includes(b.type)) {
+    const tailH = document.createElement('div');
+    tailH.className = 'tail-handle';
+    positionTailHandle(tailH, b);
+    wrap.appendChild(tailH);
+    setupTailDrag(tailH, b, pgKey, wrap);
+  }
+
+  setupDrag(wrap, b, pgKey);
+  wrap.querySelectorAll('.sel-handle').forEach(h => setupResize(h, wrap, b, pgKey));
+  setupRotate(rotH, wrap, b, pgKey);
+
+  wrap.addEventListener('pointerdown', e => {
+    if (e.target.classList.contains('resize-handle') || e.target.classList.contains('rotate-handle') || e.target.classList.contains('tail-handle')) return;
+    e.stopPropagation();
+    selectBubble(wrap, b, pgKey);
+  });
+
+  return wrap;
+}
+
+function applyBubbleStyle(wrap, b) {
+  wrap.style.cssText = `
+    position:absolute;
+    left:${b.x}px; top:${b.y}px;
+    width:${b.w}px; height:${b.h}px;
+    transform:rotate(${b.rotate}deg);
+    z-index:${b.zIndex||1};
+    pointer-events:all;
+    cursor:${b.lockMove?'default':'move'};
+    user-select:none;
+    touch-action:none;
+  `;
+}
+
+function updateTextStyle(textDiv, b) {
+  const pad = Math.min(b.w, b.h) * 0.14;
+  textDiv.style.cssText = `
+    position:absolute;
+    top:0; left:0;
+    width:100%; height:100%;
+    display:flex; align-items:center; justify-content:center;
+    text-align:center;
+    font-family:${BUBBLE_FONTS[b.font]||BUBBLE_FONTS['BubbleSans']};
+    font-size:${b.fontSize}px;
+    font-weight:${b.bold?'bold':'normal'};
+    font-style:${b.italic?'italic':'normal'};
+    color:${b.color||'#111111'};
+    padding:${pad}px;
+    line-height:1.25;
+    word-break:break-word;
+    overflow:hidden;
+    pointer-events:none;
+    box-sizing:border-box;
+  `;
+  textDiv.textContent = b.text;
+  // Check for overflow after a microtask (allows layout to settle)
+  requestAnimationFrame(() => {
+    const wrap = textDiv.parentElement;
+    if (wrap) checkBubbleOverflow(wrap, b);
+  });
+}
+
+// ══════════════════════════════════════════════════
+// SVG SHAPES — all unified paths, tails joined
+// ══════════════════════════════════════════════════
+
+function buildBubbleSVG(b) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('width',b.w); svg.setAttribute('height',b.h);
+  svg.setAttribute('viewBox',`0 0 ${b.w} ${b.h}`);
+  svg.setAttribute('overflow','visible');
+  const cx=b.w/2, cy=b.h/2;
+  const rx=b.w/2-4, ry=b.h/2-4;
+  const sw = b.type==='bold' ? 5 : 2.5;
+
+  switch(b.type) {
+    case 'circle': svgCircleWithTail(svg,cx,cy,rx,ry,b,sw,'#111','#fff'); break;
+    case 'bold':   svgCircleWithTail(svg,cx,cy,rx,ry,b,sw,'#111','#fff'); break;
+    case 'square': svgRect(svg,4,4,b.w-8,b.h-8,2.5,'#111','#fff'); break;
+    case 'rectangle':
+      svgRect(svg,4,4,b.w-8,b.h-8,2.5,'#111','#fff');
+      svgRect(svg,9,9,b.w-18,b.h-18,1.2,'#111','none'); break;
+    case 'thought': svgThought(svg,cx,cy,rx,ry,b); break;
+    case 'fading':  svgFading(svg,cx,cy,rx,ry,b); break;
+    case 'dashed':  svgDashedBubble(svg,cx,cy,rx,ry,b); break;
+    case 'spiked':  svgSpikedBubble(svg,cx,cy,rx,ry,b); break;
+    case 'lilypad': svgLilypad(svg,cx,cy,rx,ry,b); break;
+  }
+  return svg;
+}
+
+// ── Helpers ──
+function mkPath(svg,d,stroke,fill,sw,dash='') {
+  const el=document.createElementNS('http://www.w3.org/2000/svg','path');
+  el.setAttribute('d',d); el.setAttribute('stroke',stroke);
+  el.setAttribute('fill',fill); el.setAttribute('stroke-width',sw);
+  el.setAttribute('stroke-linejoin','round');
+  el.setAttribute('stroke-linecap','round');
+  if(dash) el.setAttribute('stroke-dasharray',dash);
+  svg.appendChild(el); return el;
+}
+function svgRect(svg,x,y,w,h,sw,stroke,fill) {
+  if(w<=0||h<=0)return;
+  const el=document.createElementNS('http://www.w3.org/2000/svg','rect');
+  el.setAttribute('x',x);el.setAttribute('y',y);el.setAttribute('width',w);el.setAttribute('height',h);
+  el.setAttribute('stroke',stroke);el.setAttribute('stroke-width',sw);el.setAttribute('fill',fill);
+  svg.appendChild(el);
+}
+
+// Point on ellipse at angle a
+function ep(cx,cy,rx,ry,a){ return [cx+rx*Math.cos(a), cy+ry*Math.sin(a)]; }
+
+// ── CIRCLE / BOLD: true unified path — ellipse with tail grown from perimeter ──
+// Uses two SVG arcs: small arc across tail base gap, large arc for the rest of ellipse
+function svgCircleWithTail(svg,cx,cy,rx,ry,b,sw,stroke,fill) {
+  if(b.tailLen<=0) {
+    const el=document.createElementNS('http://www.w3.org/2000/svg','ellipse');
+    el.setAttribute('cx',cx);el.setAttribute('cy',cy);el.setAttribute('rx',rx);el.setAttribute('ry',ry);
+    el.setAttribute('stroke',stroke);el.setAttribute('stroke-width',sw);el.setAttribute('fill',fill);
+    svg.appendChild(el); return;
+  }
+  const tar=(b.tailAngle*Math.PI)/180;
+  // Gap half-angle: determines how wide the tail base is
+  const baseGap = Math.min(0.28, 8/Math.max(rx,ry));
+  const gapHalf = baseGap * (b.tailBreadth||1.0);
+  const a1=tar-gapHalf, a2=tar+gapHalf;
+  const [x1,y1]=ep(cx,cy,rx,ry,a1);  // tail base left
+  const [x2,y2]=ep(cx,cy,rx,ry,a2);  // tail base right
+  const tipX=cx+(rx+b.tailLen)*Math.cos(tar);
+  const tipY=cy+(ry+b.tailLen)*Math.sin(tar);
+  // Start at base-right, go large arc CCW to base-left, line to tip, close
+  // large arc = 1, sweep = 1 (go the long way around)
+  const d=`M ${x2} ${y2} A ${rx} ${ry} 0 1 1 ${x1} ${y1} L ${tipX} ${tipY} Z`;
+  mkPath(svg,d,stroke,fill,sw);
+}
+
+// ── THOUGHT: cloud body + shrinking dot chain ──
+function svgThought(svg,cx,cy,rx,ry,b) {
+  const n=Math.max(7,Math.round((rx+ry)/9));
+  let d='';
+  for(let i=0;i<n;i++){
+    const a1=(i/n)*Math.PI*2, a2=((i+1)/n)*Math.PI*2, am=(a1+a2)/2;
+    const bump=0.14;
+    const ox=cx+rx*(1+bump*1.9)*Math.cos(am), oy=cy+ry*(1+bump*1.9)*Math.sin(am);
+    const x1=cx+rx*(1+bump)*Math.cos(a1), y1=cy+ry*(1+bump)*Math.sin(a1);
+    const x2=cx+rx*(1+bump)*Math.cos(a2), y2=cy+ry*(1+bump)*Math.sin(a2);
+    d+=(i===0?`M ${x1} ${y1} `:'')+`Q ${ox} ${oy} ${x2} ${y2} `;
+  }
+  mkPath(svg,d+'Z','#111','#fff',2.5);
+  if(b.tailLen<=0) return;
+  const tar=(b.tailAngle*Math.PI)/180;
+  const bx=cx+rx*Math.cos(tar), by_=cy+ry*Math.sin(tar);
+  const tipX=cx+(rx+b.tailLen)*Math.cos(tar), tipY=cy+(ry+b.tailLen)*Math.sin(tar);
+  const dots=Math.max(1,b.dotCount||4);
+  for(let i=0;i<dots;i++){
+    const t=(i+1)/(dots+1);
+    const px=bx+(tipX-bx)*t, py=by_+(tipY-by_)*t;
+    const r=Math.max(1, 5.5*(b.tailBreadth||1)*(1-t*0.6));
+    const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.setAttribute('cx',px);c.setAttribute('cy',py);c.setAttribute('r',r);
+    c.setAttribute('stroke','#111');c.setAttribute('stroke-width',1.5);c.setAttribute('fill','#fff');
+    svg.appendChild(c);
+  }
+}
+
+// ── FADING: smooth oval (not cloud) + sinuous ribbon tail joined to body ──
+// Body is a plain ellipse; tail is a wide ribbon that tapers to a point,
+// drawn as a single closed path merging into the ellipse outline.
+function svgFading(svg,cx,cy,rx,ry,b) {
+  // Soft rounded body — slightly squished circle with gentle bumps
+  const n=Math.max(5,Math.round((rx+ry)/16));
+  let d='';
+  for(let i=0;i<n;i++){
+    const a1=(i/n)*Math.PI*2, a2=((i+1)/n)*Math.PI*2, am=(a1+a2)/2;
+    const bump=0.07;
+    const ox=cx+rx*(1+bump*1.3)*Math.cos(am), oy=cy+ry*(1+bump*1.3)*Math.sin(am);
+    const x1=cx+rx*(1+bump)*Math.cos(a1), y1=cy+ry*(1+bump)*Math.sin(a1);
+    const x2=cx+rx*(1+bump)*Math.cos(a2), y2=cy+ry*(1+bump)*Math.sin(a2);
+    d+=(i===0?`M ${x1} ${y1} `:'')+`Q ${ox} ${oy} ${x2} ${y2} `;
+  }
+  mkPath(svg,d+'Z','#111','#fff',2);
+  if(b.tailLen<=0) return;
+  // Wavy ribbon tail — two wavy sides that meet at a point, filled shape
+  const tar=(b.tailAngle*Math.PI)/180;
+  const perp=tar+Math.PI/2;
+  const bx=cx+rx*Math.cos(tar), by_=cy+ry*Math.sin(tar);
+  const tipX=cx+(rx+b.tailLen)*Math.cos(tar);
+  const tipY=cy+(ry+b.tailLen)*Math.sin(tar);
+  const baseW=Math.min(rx,ry)*0.3*(b.tailBreadth||1.0);
+  // Side offsets at base
+  const s1x=bx+baseW*Math.cos(perp), s1y=by_+baseW*Math.sin(perp);
+  const s2x=bx-baseW*Math.cos(perp), s2y=by_-baseW*Math.sin(perp);
+  // Mid-wave control points (alternating sides)
+  const m1=0.35, m2=0.65;
+  const amp=baseW*0.8;
+  const cp1x=(bx+(tipX-bx)*m1)+amp*Math.cos(perp), cp1y=(by_+(tipY-by_)*m1)+amp*Math.sin(perp);
+  const cp2x=(bx+(tipX-bx)*m2)-amp*Math.cos(perp), cp2y=(by_+(tipY-by_)*m2)-amp*Math.sin(perp);
+  const cp3x=(bx+(tipX-bx)*m1)-amp*Math.cos(perp), cp3y=(by_+(tipY-by_)*m1)-amp*Math.sin(perp);
+  const cp4x=(bx+(tipX-bx)*m2)+amp*Math.cos(perp), cp4y=(by_+(tipY-by_)*m2)+amp*Math.sin(perp);
+  const td=`M ${s1x} ${s1y} Q ${cp1x} ${cp1y} ${bx+(tipX-bx)*m2} ${by_+(tipY-by_)*m2} Q ${cp2x} ${cp2y} ${tipX} ${tipY} Q ${cp3x} ${cp3y} ${bx+(tipX-bx)*m1} ${by_+(tipY-by_)*m1} Q ${cp4x} ${cp4y} ${s2x} ${s2y} Z`;
+  mkPath(svg,td,'#111','#fff',1.5);
+}
+
+// ── DASHED: dashed unified path (ellipse + tail as one closed shape) ──
+function svgDashedBubble(svg,cx,cy,rx,ry,b) {
+  const dc=b.dashCount||7;
+  const dashArr=`${dc},5`;
+  if(b.tailLen<=0){
+    const el=document.createElementNS('http://www.w3.org/2000/svg','ellipse');
+    el.setAttribute('cx',cx);el.setAttribute('cy',cy);el.setAttribute('rx',rx);el.setAttribute('ry',ry);
+    el.setAttribute('stroke','#111');el.setAttribute('stroke-width',2.5);el.setAttribute('fill','#fff');
+    el.setAttribute('stroke-dasharray',dashArr);
+    svg.appendChild(el); return;
+  }
+  const tar=(b.tailAngle*Math.PI)/180;
+  const baseGapD=Math.min(0.25, 7/Math.max(rx,ry));
+  const gapHalf=baseGapD * (b.tailBreadth||1.0);
+  const [x1,y1]=ep(cx,cy,rx,ry,tar-gapHalf);
+  const [x2,y2]=ep(cx,cy,rx,ry,tar+gapHalf);
+  const tipX=cx+(rx+b.tailLen)*Math.cos(tar);
+  const tipY=cy+(ry+b.tailLen)*Math.sin(tar);
+  const d=`M ${x2} ${y2} A ${rx} ${ry} 0 1 1 ${x1} ${y1} L ${tipX} ${tipY} Z`;
+  mkPath(svg,d,'#111','#fff',2.5,dashArr);
+}
+
+// ── SPIKED: star burst with one spike elongated as tail ──
+function svgSpikedBubble(svg,cx,cy,rx,ry,b) {
+  const n=Math.max(5,b.spikeCount||16);
+  const tar=(b.tailAngle*Math.PI)/180;
+  const tailLen=b.tailLen||0;
+  const breadth=b.tailBreadth||1;
+  const total=n*2;
+  const pts=[];
+  for(let i=0;i<total;i++){
+    const a=(i/total)*Math.PI*2 - Math.PI/2;
+    const isOuter=(i%2===0);
+    const r=isOuter?1:0.62;
+    pts.push({x:cx+rx*r*Math.cos(a), y:cy+ry*r*Math.sin(a), a, isOuter});
+  }
+  if(tailLen>0){
+    // breadth controls how many adjacent outer spikes get pulled toward the tip
+    // breadth=1 → 1 spike, breadth=7 → ~3-4 spikes blend toward tip
+    const spikeStep=(2*Math.PI)/total; // angle between outer spikes = 2 steps
+    const halfSpread = spikeStep * Math.max(0.5, (breadth-1)*0.5);
+    pts.forEach((p,idx)=>{
+      if(!p.isOuter) return;
+      let diff=p.a-tar;
+      // Normalise to [-π, π]
+      while(diff >  Math.PI) diff -= Math.PI*2;
+      while(diff < -Math.PI) diff += Math.PI*2;
+      const absDiff=Math.abs(diff);
+      if(absDiff <= halfSpread + spikeStep){
+        // How far this spike is from the centre of the tail
+        const influence = Math.max(0, 1 - absDiff/(halfSpread+spikeStep));
+        const extLen = tailLen * influence;
+        p.x = cx+(rx+extLen)*Math.cos(p.a);
+        p.y = cy+(ry+extLen)*Math.sin(p.a);
+      }
+    });
+  }
+  const d=pts.map((p,i)=>`${i===0?'M':'L'} ${p.x} ${p.y}`).join(' ')+' Z';
+  mkPath(svg,d,'#111','#fff',2);
+}
+
+// ── LILYPAD: real lilypad — full ellipse outline with a sharp V-notch cut in ──
+// The notch cuts inward with straight lines to a deep point, like a real lilypad's slit
+function svgLilypad(svg,cx,cy,rx,ry,b) {
+  const a=(b.tailAngle*Math.PI)/180;
+  const nw=0.28*(b.tailBreadth||1.0);  // notch half-angle
+  const a1=a-nw, a2=a+nw;
+  const [x1,y1]=ep(cx,cy,rx,ry,a1);
+  const [x2,y2]=ep(cx,cy,rx,ry,a2);
+  // Inner tip — deep, at ~45% of radius toward center
+  const depth=Math.min(rx,ry)*0.65;
+  const ix=cx+(rx-depth)*Math.cos(a), iy=cy+(ry-depth)*Math.sin(a);
+  // Path: from notch-right, large arc all the way to notch-left,
+  // sharp line inward to tip, sharp line back to notch-right
+  const d=`M ${x2} ${y2} A ${rx} ${ry} 0 1 1 ${x1} ${y1} L ${ix} ${iy} L ${x2} ${y2} Z`;
+  mkPath(svg,d,'#111','#fff',2.5);
+}
+
+// ── TAIL HANDLE ──
+function positionTailHandle(handle,b) {
+  const a=(b.tailAngle*Math.PI)/180;
+  handle.style.left=(b.w/2+b.w/2*Math.cos(a))+'px';
+  handle.style.top=(b.h/2+b.h/2*Math.sin(a))+'px';
+}
+
+function setupTailDrag(handle,b,pgKey,wrap) {
+  handle.addEventListener('pointerdown', e => {
+    e.preventDefault(); e.stopPropagation();
+    handle.setPointerCapture(e.pointerId);
+    const onMove = ev => {
+      const wr=wrap.getBoundingClientRect();
+      // wr dimensions are in CSS px (scaled); convert to full-res by dividing by scale
+      const lx=(ev.clientX-wr.left)/scale-b.w/2, ly=(ev.clientY-wr.top)/scale-b.h/2;
+      b.tailAngle=((Math.atan2(ly,lx)*180/Math.PI)+360)%360;
+      positionTailHandle(handle,b);
+      rebuildSVG(wrap,b);
+      syncAllBPFields(b);
+    };
+    const onUp = () => {
+      handle.removeEventListener('pointermove',onMove);
+      handle.removeEventListener('pointerup',onUp);
+    };
+    handle.addEventListener('pointermove',onMove);
+    handle.addEventListener('pointerup',onUp);
+  });
+}
+
+// ── DRAG ──
+function setupDrag(wrap,b,pgKey) {
+  let ox=0,oy=0;
+  wrap.addEventListener('pointerdown', e => {
+    if(b.lockMove) return;
+    if(['resize-handle','rotate-handle','tail-handle'].some(c=>e.target.classList.contains(c))) return;
+    e.preventDefault();
+    e.stopPropagation();
+    wrap.setPointerCapture(e.pointerId);
+    // Store offset in full-res coords (clientX is CSS px, divide by scale)
+    ox=e.clientX/scale-b.x; oy=e.clientY/scale-b.y;
+    const onMove=ev=>{
+      b.x=getSnapX(ev.clientX/scale-ox, pgKey); b.y=getSnapY(ev.clientY/scale-oy, pgKey);
+      wrap.style.left=b.x+'px'; wrap.style.top=b.y+'px';
+      syncAllBPFields(b);
+    };
+    const onUp=()=>{
+      wrap.removeEventListener('pointermove',onMove);
+      wrap.removeEventListener('pointerup',onUp);
+    };
+    wrap.addEventListener('pointermove',onMove);
+    wrap.addEventListener('pointerup',onUp);
+  });
+}
+
+// ── RESIZE ──
+function setupResize(handle,wrap,b,pgKey) {
+  if(!handle) return;
+  let sx=0,sy=0,ox=0,oy=0,ow=0,oh=0;
+  handle.addEventListener('pointerdown',e=>{
+    if(b.lockResize) return;
+    e.preventDefault(); e.stopPropagation();
+    handle.setPointerCapture(e.pointerId);
+    sx=e.clientX; sy=e.clientY;
+    ox=b.x; oy=b.y; ow=b.w; oh=b.h;
+    const dir=handle.dataset.dir||'se';
+    const onMove=ev=>{
+      const dx=(ev.clientX-sx)/scale;
+      const dy=(ev.clientY-sy)/scale;
+      // Determine new x/y/w/h based on handle direction
+      let nx=ox,ny=oy,nw=ow,nh=oh;
+      if(dir.includes('e')) nw=Math.max(100,ow+dx);
+      if(dir.includes('s')) nh=Math.max(80,oh+dy);
+      if(dir.includes('w')){ nw=Math.max(100,ow-dx); nx=ox+ow-nw; }
+      if(dir.includes('n')){ nh=Math.max(80,oh-dy);  ny=oy+oh-nh; }
+      b.x=nx; b.y=ny; b.w=nw; b.h=nh;
+      wrap.style.left=b.x+'px'; wrap.style.top=b.y+'px';
+      wrap.style.width=b.w+'px'; wrap.style.height=b.h+'px';
+      rebuildSVG(wrap,b);
+      const td=wrap.querySelector('.bubble-text');
+      if(td) updateTextStyle(td,b);
+      positionTailHandleInWrap(wrap,b);
+      syncAllBPFields(b);
+    };
+    const onUp=()=>{
+      handle.removeEventListener('pointermove',onMove);
+      handle.removeEventListener('pointerup',onUp);
+    };
+    handle.addEventListener('pointermove',onMove);
+    handle.addEventListener('pointerup',onUp);
+  });
+}
+
+// ── ROTATE ──
+function setupRotate(handle,wrap,b,pgKey) {
+  if(!handle) return;
+  handle.addEventListener('pointerdown',e=>{
+    if(b.lockRotate) return;
+    e.preventDefault(); e.stopPropagation();
+    handle.setPointerCapture(e.pointerId);
+    const onMove=ev=>{
+      const r=wrap.getBoundingClientRect();
+      const cx=r.left+r.width/2, cy=r.top+r.height/2;
+      b.rotate=Math.round(Math.atan2(ev.clientY-cy,ev.clientX-cx)*180/Math.PI+90);
+      wrap.style.transform=`rotate(${b.rotate}deg)`;
+      syncAllBPFields(b);
+    };
+    const onUp=()=>{
+      handle.removeEventListener('pointermove',onMove);
+      handle.removeEventListener('pointerup',onUp);
+    };
+    handle.addEventListener('pointermove',onMove);
+    handle.addEventListener('pointerup',onUp);
+  });
+}
+
+function rebuildSVG(wrap,b) {
+  const old=wrap.querySelector('svg');
+  if(old) old.remove();
+  wrap.insertBefore(buildBubbleSVG(b),wrap.firstChild);
+}
+function positionTailHandleInWrap(wrap,b) {
+  const th=wrap.querySelector('.tail-handle');
+  if(th) positionTailHandle(th,b);
+}
+
+// ── SELECT ──
+function selectBubble(el,data,pgKey) {
+  document.querySelectorAll('.bubble-wrap.selected').forEach(e=>{
+    e.classList.remove('selected');
+  });
+  el.classList.add('selected');
+  selectedBubble={el,data,pgKey};
+  syncAllBPFields(data);
+  refreshLayersPanel(pgKey);  // refresh layers list but don't open/jump to it
+  // Desktop: open bubble editor panel but do NOT open layers panel
+  document.getElementById('bp-nosel').style.display='none';
+  document.getElementById('bp-editor').style.display='block';
+  document.getElementById('bubblePanel').classList.add('open');
+  // Mobile: sync fields but only switch tab if already on bubbles tab
+  if(isMobile()) {
+    setTimeout(()=>syncMobileBPFields(data),80);
+  }
+}
+
+// Sync both desktop + mobile editor fields at once
+function syncAllBPFields(b) {
+  syncBPFields(b);
+  if(isMobile()) syncMobileBPFields(b);
+}
+
+function syncBPFields(b) {
+  const s=(id,v)=>{const e=document.getElementById(id);if(e)e.value=v;};
+  const t=(id,v)=>{const e=document.getElementById(id);if(e)e.classList.toggle('active',v);};
+  s('bp-type',b.type); s('bp-speaker',b.speaker); s('bp-text',b.text);
+  s('bp-font',b.font); s('bp-fsize',b.fontSize);
+  t('bp-bold',b.bold); t('bp-italic',b.italic);
+  s('bp-x',Math.round(b.x)); s('bp-y',Math.round(b.y));
+  s('bp-w',Math.round(b.w)); s('bp-h',Math.round(b.h));
+  s('bp-rot',Math.round(b.rotate));
+  s('bp-tail-angle',Math.round(b.tailAngle));
+  s('bp-tail-len',Math.round(b.tailLen));
+  s('bp-color',b.color||'#111111');
+  s('bp-tail-breadth',b.tailBreadth||1.0);
+  s('bp-dot-count',b.dotCount||4);
+  s('bp-spike-count',b.spikeCount||16);
+  s('bp-dash-count',b.dashCount||7);
+  const e=document.getElementById('lock-move'); if(e)e.classList.toggle('active',b.lockMove);
+  const e2=document.getElementById('lock-resize'); if(e2)e2.classList.toggle('active',b.lockResize);
+  const e3=document.getElementById('lock-rotate'); if(e3)e3.classList.toggle('active',b.lockRotate);
+}
+
+// ── BP UPDATE FUNCTIONS ──
+
+// Get active bubble — selected or the one whose layer row is highlighted
+function getActiveBubble() {
+  if(selectedBubble) return selectedBubble;
+  // Fall back: find any bubble whose layer row is marked active
+  const activeRow = document.querySelector('.layer-row.active');
+  if(!activeRow) return null;
+  const id = activeRow.dataset.id;
+  if(!id) return null;
+  for(const pg of Object.keys(bubbles)){
+    const b = (bubbles[pg]||[]).find(x=>x.id===id);
+    if(b){
+      const el = document.querySelector(`.bubble-wrap[data-id="${id}"]`);
+      return el ? {data:b, el, pgKey:pg} : null;
+    }
+  }
+  return null;
+}
+
+// Apply all visual changes to a bubble's DOM element
+function applyBubble(b, wrap, pgKey) {
+  applyBubbleStyle(wrap, b);
+  rebuildSVG(wrap, b);
+  const td=wrap.querySelector('.bubble-text');
+  if(td) updateTextStyle(td, b);
+  positionTailHandleInWrap(wrap, b);
+  refreshLayersPanel(pgKey);
+}
+
+function bpUpdate(field, val) {
+  const ab = getActiveBubble(); if(!ab) return;
+  ab.data[field] = val;
+  applyBubble(ab.data, ab.el, ab.pgKey);
+}
+
+function bpUpdatePos() {
+  const ab = getActiveBubble(); if(!ab) return;
+  const b=ab.data, wrap=ab.el;
+  const g = id => { const e=document.getElementById(id); return e?+e.value:null; };
+  const gm = (id,fallback) => { const v=g(id); return v!==null?v:fallback; };
+  b.x      = gm('bp-x', b.x);
+  b.y      = gm('bp-y', b.y);
+  b.w      = Math.max(100, gm('bp-w', b.w));
+  b.h      = Math.max(80,  gm('bp-h', b.h));
+  b.rotate = gm('bp-rot', b.rotate);
+  b.tailAngle   = gm('bp-tail-angle',   b.tailAngle);
+  b.tailLen     = gm('bp-tail-len',     b.tailLen);
+  b.tailBreadth = gm('bp-tail-breadth', b.tailBreadth||1.0);
+  applyBubble(b, wrap, ab.pgKey);
+}
+
+function bpToggle(field) {
+  const ab = getActiveBubble(); if(!ab) return;
+  ab.data[field] = !ab.data[field];
+  applyBubble(ab.data, ab.el, ab.pgKey);
+  document.getElementById('bp-'+field)?.classList.toggle('active', ab.data[field]);
+  document.getElementById('m-bp-'+field)?.classList.toggle('active', ab.data[field]);
+}
+
+function bpLockToggle(field) {
+  const ab = getActiveBubble(); if(!ab) return;
+  const key='lock'+field[0].toUpperCase()+field.slice(1);
+  ab.data[key] = !ab.data[key];
+  applyBubbleStyle(ab.el, ab.data);
+  document.getElementById('lock-'+field)?.classList.toggle('active', ab.data[key]);
+  document.getElementById('m-lock-'+field)?.classList.toggle('active', ab.data[key]);
+}
+function deleteSelectedBubble() {
+  if(!selectedBubble) return;
+  const{el,data,pgKey}=selectedBubble;
+  bubbles[pgKey]=(bubbles[pgKey]||[]).filter(b=>b.id!==data.id);
+  el.remove(); selectedBubble=null;
+  document.getElementById('bp-nosel').style.display='';
+  document.getElementById('bp-editor').style.display='none';
+  refreshLayersPanel(pgKey);
+  syncMobileNoSel?.();
+}
+function clearBubbles() {
+  const pg=document.getElementById('bubbleTargetPage').value;
+  if(!pg) return;
+  bubbles[pg]=[]; renderBubblesOnPage(pg); refreshLayersPanel(pg);
+  showToast('Bubbles cleared for '+pg);
+}
+function toggleBubblePanel() {
+  document.getElementById('bubblePanel').classList.toggle('open');
+}
+
+// ── PANELS PANEL ──
+function togglePanelsPanel() {
+  const el = document.getElementById('panelsPanel');
+  el.classList.toggle('open');
+  if (el.classList.contains('open')) refreshPanelsPanelPageSelect();
+}
+
+function refreshPanelsPanelPageSelect() {
+  const sel = document.getElementById('pp-page-sel');
+  if (!sel) return;
+  const pgs = getPages();
+  const cur = sel.value;
+  sel.innerHTML = pgs.map(({pg}) => `<option value="${pg}">${pg}</option>`).join('');
+  if (cur && pgs.find(p => p.pg === cur)) sel.value = cur;
+  const activePg = sel.value;
+  if (activePg) refreshPanelsPanel(activePg);
+}
+
+function lockAllPanels(pg) {
+  const base = _lastBaseRects[pg];
+  if (!base?.length) { showToast('Generate pages first!'); return; }
+  if (!panelOverrides[pg]) panelOverrides[pg] = {};
+
+  // Compute the actual displayed rects (base + any existing x/y/w/h overrides)
+  const ovs = panelOverrides[pg];
+  const finalRects = base.map((r, idx) => {
+    const ov = ovs[idx] || {};
+    return { ...r,
+      x: ov.x !== undefined ? ov.x : r.x,
+      y: ov.y !== undefined ? ov.y : r.y,
+      w: ov.w !== undefined ? ov.w : r.w,
+      h: ov.h !== undefined ? ov.h : r.h,
+    };
+  });
+
+  // Store as a locked snapshot — generateAll will use this directly instead of recomputing
+  panelOverrides[pg]._lockedRects = finalRects;
+
+  // Also bake into per-panel overrides and mark locked (for individual panel UI)
+  finalRects.forEach((r, idx) => {
+    if (!ovs[idx]) ovs[idx] = {};
+    Object.assign(ovs[idx], { x: r.x, y: r.y, w: r.w, h: r.h, locked: true });
+  });
+
+  // Update _lastBaseRects to match so Panel Editor stays in sync
+  _lastBaseRects[pg] = finalRects;
+
+  refreshPanelsPanel(pg);
+  renderMobilePanelsFor(pg);
+  rebuildPageList();
+  scheduleAutoSave();
+  showToast(`Layout locked — Generate won't re-roll ${pg}`);
+}
+
+function unlockAllPanels(pg) {
+  if (panelOverrides[pg]) {
+    delete panelOverrides[pg]._lockedRects;
+    // Remove baked positions too — without this, overrides would still override random
+    const ovs = panelOverrides[pg];
+    Object.keys(ovs).forEach(k => {
+      if (typeof ovs[k] === 'object' && ovs[k] !== null) {
+        delete ovs[k].x; delete ovs[k].y;
+        delete ovs[k].w; delete ovs[k].h;
+        ovs[k].locked = false;
+        // Clean up empty override objects
+        if (!Object.keys(ovs[k]).length) delete ovs[k];
+      }
+    });
+  }
+  refreshPanelsPanel(pg);
+  renderMobilePanelsFor(pg);
+  rebuildPageList();
+  scheduleAutoSave();
+  showToast(`Unlocked — Generate will re-roll ${pg}`);
+}
+
+function ppToggleLockAll() {
+  const pg = document.getElementById('pp-page-sel')?.value;
+  if (!pg) return;
+  if (panelOverrides[pg]?._lockedRects) unlockAllPanels(pg);
+  else lockAllPanels(pg);
+  syncLockBtn(pg);
+}
+
+function mPpToggleLockAll() {
+  const pg = document.getElementById('m-pp-page-sel')?.value;
+  if (!pg) return;
+  if (panelOverrides[pg]?._lockedRects) unlockAllPanels(pg);
+  else lockAllPanels(pg);
+  syncMobileLockBtn(pg);
+  renderMobilePanelsFor(pg);
+}
+
+function syncLockBtn(pg) {
+  const btn = document.getElementById('pp-lock-btn');
+  if (!btn) return;
+  const isLocked = !!(panelOverrides[pg]?._lockedRects);
+  btn.textContent = isLocked ? '🔒 Locked' : '🔓 Lock Layout';
+  btn.style.borderColor = isLocked ? 'var(--danger)' : '';
+  btn.style.color = isLocked ? 'var(--danger)' : '';
+}
+
+function syncMobileLockBtn(pg) {
+  const btn = document.getElementById('m-pp-lock-btn');
+  if (!btn) return;
+  const isLocked = !!(panelOverrides[pg]?._lockedRects);
+  btn.textContent = isLocked ? '🔒 Locked' : '🔓 Lock Layout';
+  btn.style.borderColor = isLocked ? 'var(--danger)' : '';
+  btn.style.color = isLocked ? 'var(--danger)' : '';
+}
+
+function refreshPanelsPanel(pg) {
+  const body = document.getElementById('pp-body');
+  if (!body) return;
+  const sel = document.getElementById('pp-page-sel');
+  if (sel && pg) sel.value = pg;
+  syncLockBtn(pg);
+
+  const baseRects = _lastBaseRects[pg] || [];
+  const ovs = panelOverrides[pg] || {};
+
+  if (!baseRects.length) {
+    body.innerHTML = '<div class="pp-empty">Generate pages first to see panels.</div>';
+    return;
+  }
+
+  body.innerHTML = baseRects.map((r, idx) => {
+    const ov = ovs[idx] || {};
+    const x = ov.x !== undefined ? ov.x : r.x;
+    const y = ov.y !== undefined ? ov.y : r.y;
+    const w = ov.w !== undefined ? ov.w : r.w;
+    const h = ov.h !== undefined ? ov.h : r.h;
+    const visible = ov.visible !== false;
+    const locked  = ov.locked  === true;
+    const hasOv   = Object.keys(ov).some(k => k !== 'locked');
+    const rowKey  = r.row || '?';
+    return `<div class="pp-card" id="pp-card-${idx}">
+      <div class="pp-card-head">
+        <span class="pp-pnl-lbl">PNL ${r.pnl} <span style="color:var(--text3);font-size:9px;">row ${rowKey}</span></span>
+        <button class="pp-icon-btn${visible ? '' : ' pp-hidden'}" title="${visible ? 'Hide panel' : 'Show panel'}" onclick="ppToggleVisible('${pg}',${idx})">${visible ? '👁' : '🚫'}</button>
+        <button class="pp-icon-btn${locked ? ' pp-locked' : ''}" title="${locked ? 'Unlock' : 'Lock position'}" onclick="ppToggleLock('${pg}',${idx})">${locked ? '🔒' : '🔓'}</button>
+        ${hasOv ? `<button class="pp-icon-btn pp-reset" title="Reset to computed layout" onclick="ppReset('${pg}',${idx})">↺</button>` : ''}
+      </div>
+      <div class="pp-input-grid${locked ? ' pp-locked-inputs' : ''}">
+        <span class="pp-lbl">X</span>
+        <input type="number" value="${Math.round(x)}" ${locked ? 'disabled' : ''} onchange="ppSet('${pg}',${idx},'x',+this.value)">
+        <span class="pp-lbl">Y</span>
+        <input type="number" value="${Math.round(y)}" ${locked ? 'disabled' : ''} onchange="ppSet('${pg}',${idx},'y',+this.value)">
+        <span class="pp-lbl">W</span>
+        <input type="number" value="${Math.round(w)}" ${locked ? 'disabled' : ''} onchange="ppSet('${pg}',${idx},'w',+this.value)">
+        <span class="pp-lbl">H</span>
+        <input type="number" value="${Math.round(h)}" ${locked ? 'disabled' : ''} onchange="ppSet('${pg}',${idx},'h',+this.value)">
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// Targeted SVG-only re-render for a single page (preserves bubble overlay)
+function rerenderPageSVG(pg) {
+  const cont = document.querySelector(`.page-output[data-pg="${pg}"]`);
+  if (!cont) return;
+  const pgNum = parseInt((pg.match(/\d+/)||[1])[0]);
+  const ps = pageSettings[pg] || { mode:'safe', gutter:12 };
+  const fillColor = document.getElementById('panelFill').value;
+  const strokeColor = document.getElementById('panelStroke').value;
+  const strokeW = parseInt(document.getElementById('strokeWidth').value)||8;
+
+  // Use locked snapshot if present, otherwise fall back to cache, then recompute
+  const baseRects = panelOverrides[pg]?._lockedRects?.length
+    ? panelOverrides[pg]._lockedRects
+    : (_lastBaseRects[pg]
+        || computePanelRects(rows.filter(r => r.pg === pg), ps.mode, ps.gutter, ps.flow||'v-first'));
+
+  const _pgOvs = panelOverrides[pg] || {};
+  const finalRects = baseRects.map((r, idx) => {
+    const ov = _pgOvs[idx];
+    if (!ov) return r;
+    return { ...r,
+      x: ov.x !== undefined ? ov.x : r.x,
+      y: ov.y !== undefined ? ov.y : r.y,
+      w: ov.w !== undefined ? ov.w : r.w,
+      h: ov.h !== undefined ? ov.h : r.h,
+      _hidden: ov.visible === false,
+    };
+  });
+
+  const svgStr = buildSVG(pg, pgNum, finalRects, fillColor, strokeColor, strokeW);
+  cont.dataset.svg = svgStr;
+
+  // Swap just the SVG element, leaving bubble overlay untouched
+  const svgWrap = cont.querySelector('div[style*="transform-origin"]');
+  if (!svgWrap) return;
+  const oldSvg = svgWrap.querySelector(':scope > svg');
+  const tmp = document.createElement('div');
+  tmp.innerHTML = svgStr;
+  const newSvg = tmp.querySelector('svg');
+  if (!newSvg) return;
+  if (oldSvg) svgWrap.replaceChild(newSvg, oldSvg);
+  else svgWrap.insertBefore(newSvg, svgWrap.firstChild);
+}
+
+function ppEnsure(pg, idx) {
+  if (!panelOverrides[pg]) panelOverrides[pg] = {};
+  if (!panelOverrides[pg][idx]) panelOverrides[pg][idx] = {};
+}
+
+function ppSet(pg, idx, field, val) {
+  ppEnsure(pg, idx);
+  if (panelOverrides[pg][idx].locked) return;
+  panelOverrides[pg][idx][field] = val;
+  rerenderPageSVG(pg);
+  if (document.getElementById('panelsPanel')?.classList.contains('open')) refreshPanelsPanel(pg);
+  scheduleAutoSave();
+}
+
+function ppToggleVisible(pg, idx) {
+  ppEnsure(pg, idx);
+  const cur = panelOverrides[pg][idx].visible;
+  panelOverrides[pg][idx].visible = (cur === false) ? true : false;
+  rerenderPageSVG(pg);
+  if (document.getElementById('panelsPanel')?.classList.contains('open')) refreshPanelsPanel(pg);
+  scheduleAutoSave();
+}
+
+function ppToggleLock(pg, idx) {
+  ppEnsure(pg, idx);
+  panelOverrides[pg][idx].locked = !panelOverrides[pg][idx].locked;
+  if (document.getElementById('panelsPanel')?.classList.contains('open')) refreshPanelsPanel(pg);
+}
+
+function ppReset(pg, idx) {
+  if (!panelOverrides[pg]) return;
+  const locked = panelOverrides[pg][idx]?.locked;
+  delete panelOverrides[pg][idx];
+  // Restore lock state so it survives reset
+  if (locked) { ppEnsure(pg, idx); panelOverrides[pg][idx].locked = true; }
+  rerenderPageSVG(pg);
+  refreshPanelsPanel(pg);
+  scheduleAutoSave();
+}
+
+function ppResetAll(pg) {
+  if (!pg) return;
+  delete panelOverrides[pg];
+  rerenderPageSVG(pg);
+  refreshPanelsPanel(pg);
+  scheduleAutoSave();
+  showToast(`All panel overrides reset for ${pg}`);
+}
+
+// ── LAYOUT LOCK — bake current positions into overrides so random never re-rolls ──
+function getMobilePanelsHTML(pg) {
+  if (!pg) return '<div style="color:var(--text3);font-size:11px;">No pages yet.</div>';
+  const baseRects = _lastBaseRects[pg] || [];
+  const ovs = panelOverrides[pg] || {};
+  if (!baseRects.length) return '<div style="color:var(--text3);font-size:11px;font-family:\'IBM Plex Mono\',monospace;">Generate pages first.</div>';
+
+  return baseRects.map((r, idx) => {
+    const ov = ovs[idx] || {};
+    const x = ov.x !== undefined ? ov.x : r.x;
+    const y = ov.y !== undefined ? ov.y : r.y;
+    const w = ov.w !== undefined ? ov.w : r.w;
+    const h = ov.h !== undefined ? ov.h : r.h;
+    const visible = ov.visible !== false;
+    const locked  = ov.locked  === true;
+    const hasOv   = Object.keys(ov).some(k => k !== 'locked');
+    const inp = (field, val) =>
+      `<input type="number" value="${Math.round(val)}" ${locked?'disabled':''} style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;border-radius:2px;opacity:${locked?'0.4':'1'};"
+        onchange="ppSet('${pg}',${idx},'${field}',+this.value);renderMobilePanelsFor('${pg}')">`;
+    return `<div style="border:1px solid var(--border);border-radius:3px;padding:7px;margin-bottom:6px;background:var(--surface2);">
+      <div style="display:flex;align-items:center;gap:4px;margin-bottom:5px;">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--accent2);flex:1;">PNL ${r.pnl} <span style="color:var(--text3);font-size:9px;">row ${r.row||'?'}</span></span>
+        <button style="background:none;border:1px solid transparent;border-radius:3px;cursor:pointer;font-size:13px;padding:1px 5px;opacity:${visible?'1':'0.4'};" title="${visible?'Hide':'Show'}" onclick="ppToggleVisible('${pg}',${idx});renderMobilePanelsFor('${pg}')">${visible?'👁':'🚫'}</button>
+        <button style="background:none;border:1px solid transparent;border-radius:3px;cursor:pointer;font-size:13px;padding:1px 5px;${locked?'color:var(--danger);':''}" title="${locked?'Unlock':'Lock'}" onclick="ppToggleLock('${pg}',${idx});renderMobilePanelsFor('${pg}')">${locked?'🔒':'🔓'}</button>
+        ${hasOv?`<button style="background:none;border:1px solid transparent;border-radius:3px;cursor:pointer;font-size:11px;padding:1px 5px;color:var(--text3);" title="Reset" onclick="ppReset('${pg}',${idx});renderMobilePanelsFor('${pg}')">↺</button>`:''}
+      </div>
+      <div style="display:grid;grid-template-columns:14px 1fr 14px 1fr;gap:3px 5px;align-items:center;">
+        <span style="font-size:10px;color:var(--text3);text-align:right;">X</span>${inp('x',x)}
+        <span style="font-size:10px;color:var(--text3);text-align:right;">Y</span>${inp('y',y)}
+        <span style="font-size:10px;color:var(--text3);text-align:right;">W</span>${inp('w',w)}
+        <span style="font-size:10px;color:var(--text3);text-align:right;">H</span>${inp('h',h)}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderMobilePanelsFor(pg) {
+  const body = document.getElementById('m-pp-body');
+  if (body) body.innerHTML = getMobilePanelsHTML(pg);
+  syncMobileLockBtn(pg);
+}
+
+// ── LAYERS PANEL ──
+function refreshLayersPanel(pg) {
+  const panel = document.getElementById('layersPanel');
+  const list  = document.getElementById('layersList');
+  // Also refresh mobile layers list if visible
+  const mll = document.getElementById('m-layers-list');
+  if(mll) mll.innerHTML = getMobileLayers(pg);
+  if (!panel || !list) return;
+  panel.dataset.pg = pg;
+  const bbs = bubbles[pg] || [];
+  if (!bbs.length) { list.innerHTML='<div style="color:var(--text3);font-size:11px;padding:8px;">No bubbles on this page.</div>'; return; }
+
+  list.innerHTML = [...bbs].reverse().map((b,ri) => {
+    const i = bbs.length-1-ri;
+    const isSel = selectedBubble && selectedBubble.data.id === b.id;
+    return `<div class="layer-row ${isSel?'active':''}" data-id="${b.id}" onclick="selectLayerById('${pg}','${b.id}')">
+      <span class="layer-icon">${layerIcon(b.type)}</span>
+      <span class="layer-label">${b.speaker ? b.speaker+': ' : ''}${b.text.slice(0,22)}${b.text.length>22?'…':''}</span>
+      <div class="layer-btns">
+        <button title="Duplicate" onclick="event.stopPropagation();duplicateBubbleById('${pg}','${b.id}')">⧉</button>
+        <button title="Move up" onclick="event.stopPropagation();layerMove('${pg}','${b.id}',1)">↑</button>
+        <button title="Move down" onclick="event.stopPropagation();layerMove('${pg}','${b.id}',-1)">↓</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function layerIcon(type) {
+  return {circle:'💬',bold:'💬',square:'📦',rectangle:'🏷️',thought:'💭',fading:'💭',dashed:'🔇',spiked:'💥',lilypad:'🌀'}[type]||'💬';
+}
+
+function selectLayerById(pg, id) {
+  const containers = document.querySelectorAll('.page-output[data-pg]');
+  for (const cont of containers) {
+    if (cont.dataset.pg !== pg) continue;
+    const el = cont.querySelector(`.bubble-wrap[data-id="${id}"]`);
+    const b  = (bubbles[pg]||[]).find(b=>b.id===id);
+    if (el && b) selectBubble(el, b, pg);
+    break;
+  }
+}
+
+function layerMove(pg, id, dir) {
+  const bbs = bubbles[pg]||[];
+  const i = bbs.findIndex(b=>b.id===id);
+  const j = i - dir;
+  if (j<0||j>=bbs.length) return;
+  [bbs[i],bbs[j]]=[bbs[j],bbs[i]];
+  bbs.forEach((b,idx)=>{ b.zIndex=idx+1; });
+  renderBubblesOnPage(pg);
+  refreshLayersPanel(pg);
+}
+
+function getMobileLayers(pg) {
+  const bbs = bubbles[pg]||[];
+  if (!bbs.length) return '<div style="color:var(--text3);font-size:11px;padding:4px 0;">No bubbles yet.</div>';
+  return [...bbs].reverse().map((b) => {
+    const isSel = selectedBubble && selectedBubble.data.id === b.id;
+    return `<div class="layer-row ${isSel?'active':''}" data-id="${b.id}" style="border-radius:3px;margin-bottom:2px;"
+      onclick="selectLayerById('${pg}','${b.id}');setTimeout(()=>syncMobileBPFields(selectedBubble?.data||b),30)">
+      <span class="layer-icon">${layerIcon(b.type)}</span>
+      <span class="layer-label">${b.speaker?b.speaker+': ':''}${b.text.slice(0,20)}${b.text.length>20?'…':''}</span>
+      <div class="layer-btns">
+        <button onclick="event.stopPropagation();layerMove('${pg}','${b.id}',1);refreshMobileLayers('${pg}')">↑</button>
+        <button onclick="event.stopPropagation();layerMove('${pg}','${b.id}',-1);refreshMobileLayers('${pg}')">↓</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── CUSTOM FONT ──
+const _customFontDataURLs = {}; // stores base64 data URLs for export embedding
+
+function loadCustomFont(e) {
+  const file=e.target.files[0]; if(!file) return;
+  customFontCount++;
+  const key='custom'+customFontCount;
+  const url=URL.createObjectURL(file);
+  const style=document.createElement('style');
+  style.textContent=`@font-face{font-family:'CustomFont${customFontCount}';src:url('${url}');}`;
+  document.head.appendChild(style);
+  BUBBLE_FONTS[key]=`CustomFont${customFontCount},sans-serif`;
+  // Also store as data URL so export can embed it
+  const reader=new FileReader();
+  reader.onload=ev=>{ _customFontDataURLs[key]=ev.target.result; };
+  reader.readAsDataURL(file);
+  ['bp-font','m-bp-font'].forEach(id=>{
+    const sel=document.getElementById(id); if(!sel) return;
+    for(const o of sel.options) {
+      if(o.value==='custom1'||o.value==='custom2'){o.value=key;o.textContent=file.name.replace(/\.[^.]+$/,'')+'(custom)';break;}
+    }
+  });
+  showToast('Font loaded: '+file.name);
+}
+
+// (generateAll & switchTab patched in mobile JS block)
+
+function refreshBubblePageSelect() {
+  const pgs = getPages();
+  ['bubbleTargetPage','m-bubbleTargetPage'].forEach(id=>{
+    const sel=document.getElementById(id); if(!sel) return;
+    const cur=sel.value;
+    sel.innerHTML=pgs.map(({pg})=>`<option value="${pg}">${pg}</option>`).join('');
+    if(cur) sel.value=cur;
+  });
+}
+
+// Deselect on canvas click
+document.addEventListener('pointerdown', e=>{
+  if(!e.target.closest('.bubble-wrap')&&!e.target.closest('#bubblePanel')&&!e.target.closest('#layersPanel')&&!e.target.closest('#mobilePanel')) {
+    document.querySelectorAll('.bubble-wrap.selected').forEach(el=>{
+      el.classList.remove('selected');
+    });
+    if(selectedBubble){
+      selectedBubble=null;
+      document.getElementById('bp-nosel').style.display='';
+      document.getElementById('bp-editor').style.display='none';
+    }
+  }
+});
+</script>
+
+
+<script>
+// ═══════════════════════════════════════════════════
+// MOBILE UI — fixed bottom panel, no drawer
+// ═══════════════════════════════════════════════════
+
+const isMobile = () => window.innerWidth <= 700;
+let currentMobileTab = 'data';
+
+function openMobileTab(tab) {
+  currentMobileTab = tab;
+  // If panel is collapsed, expand it when a tab is tapped
+  const panel = document.getElementById('mobilePanel');
+  if (panel && panel.classList.contains('collapsed')) {
+    panel.classList.remove('collapsed');
+    document.getElementById('canvasArea').classList.remove('panel-collapsed');
+    const tog = document.getElementById('mobilePanelToggle');
+    if (tog) tog.textContent = '▼';
+  }
+  document.querySelectorAll('#mobileTabBar button').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('mtab-' + tab);
+  if (btn) btn.classList.add('active');
+  const content = document.getElementById('mobilePanelContent');
+  if (!content) return;
+  content.innerHTML = getMobileTabContent(tab);
+  // Rebind file inputs (cloned HTML loses listeners)
+  const fi = content.querySelector('input[type="file"][accept=".xlsx,.csv"]');
+  if (fi) fi.addEventListener('change', handleFileImport);
+  // Sync scale slider to current value
+  const ms = document.getElementById('m-scaleSlider');
+  const mv = document.getElementById('m-scaleVal');
+  const ds = document.getElementById('scaleSlider');
+  if (ms && ds) { ms.value = ds.value; }
+  if (mv && ds) { mv.textContent = ds.value + '%'; }
+}
+
+function toggleMobilePanel() {
+  const panel = document.getElementById('mobilePanel');
+  const canvas = document.getElementById('canvasArea');
+  const tog = document.getElementById('mobilePanelToggle');
+  const collapsed = panel.classList.toggle('collapsed');
+  canvas.classList.toggle('panel-collapsed', collapsed);
+  tog.textContent = collapsed ? '▲' : '▼';
+}
+
+function getMobileTabContent(tab) {
+  switch(tab) {
+    case 'data': return `
+      <div style="padding:10px;">
+        <div class="section-title" style="margin-bottom:6px;">IMPORT</div>
+        <div class="drop-zone" style="padding:10px;" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+          <div class="dz-icon" style="font-size:20px;">📂</div>
+          <div class="dz-text" style="font-size:10px;">Drag .xlsx/.csv or browse</div>
+          <label style="display:inline-block;margin-top:6px;cursor:pointer;">
+            <span class="btn small" style="pointer-events:none;">📁 Browse File</span>
+            <input type="file" accept=".xlsx,.csv" style="display:none" onchange="handleFileImport(event)">
+          </label>
+        </div>
+        <div style="color:var(--text3);font-size:10px;margin:6px 0 3px;">— or paste data —</div>
+        <textarea id="m-pasted-csv" style="width:100%;min-height:60px;font-size:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px;" placeholder="CHP,SCN,PG,PNL,ROW,LxH,MaxL,MaxH"></textarea>
+        <div style="display:flex;gap:6px;margin-top:4px;">
+          <button class="btn small" style="flex:1" onclick="parseMobileCSV()">Parse</button>
+          <button class="btn small" style="flex:1" onclick="loadSampleData()">Sample</button>
+          <button class="btn small danger" style="flex:1" onclick="clearAllRows()">Clear</button>
+        </div>
+      </div>`;
+
+    case 'pages': return `
+      <div style="padding:10px;">
+        <div class="section-title" style="margin-bottom:6px;">GLOBAL</div>
+        <div class="bp-row">
+          <label>Scale</label>
+          <input type="range" id="m-scaleSlider" min="3" max="50" value="12"
+            oninput="updateScale(this.value)"
+            style="flex:1;">
+          <span id="m-scaleVal" style="font-size:10px;color:var(--text2);min-width:28px;">12%</span>
+        </div>
+        <div class="bp-row">
+          <label>Fill</label>
+          <input type="color" id="m-panelFill" value="#f0ede6"
+            oninput="document.getElementById('panelFill').value=this.value">
+        </div>
+        <hr style="border-color:var(--border);margin:6px 0;">
+        <div class="section-title" style="margin-bottom:4px;">PER PAGE</div>
+        ${getPages().map(({pg}) => {
+          const ps = pageSettings[pg]||{mode:'safe',gutter:12,flow:'v-first'};
+          return `<div style="margin-bottom:6px;padding:6px;background:var(--surface2);border-radius:3px;">
+            <div style="font-size:10px;color:var(--accent2);margin-bottom:4px;">${pg}</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+              <select style="background:var(--surface3);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;"
+                onchange="(pageSettings['${pg}']||={}).mode=this.value">
+                <option value="safe" ${ps.mode==='safe'?'selected':''}>Safe</option>
+                <option value="frame" ${ps.mode==='frame'?'selected':''}>Frame</option>
+                <option value="random" ${ps.mode==='random'?'selected':''}>Random</option>
+              </select>
+              <select style="background:var(--surface3);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;"
+                onchange="(pageSettings['${pg}']||={}).flow=this.value">
+                <option value="v-first" ${(ps.flow||'v-first')==='v-first'?'selected':''}>V-first</option>
+                <option value="h-first" ${(ps.flow||'v-first')==='h-first'?'selected':''}>H-first</option>
+              </select>
+            </div>
+            <div class="bp-row" style="margin-top:4px;">
+              <label style="font-size:10px;">Gutter</label>
+              <input type="number" value="${ps.gutter||12}" min="0" max="200"
+                style="flex:1;background:var(--surface3);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;"
+                onchange="(pageSettings['${pg}']||={}).gutter=+this.value">
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`;
+
+    case 'panels': {
+      const pgs = getPages();
+      const firstPg = pgs[0]?.pg || '';
+      return `<div style="padding:10px;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+          <span style="font-size:10px;color:var(--text2);white-space:nowrap;">Page</span>
+          <select id="m-pp-page-sel" style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px;font-size:10px;font-family:'IBM Plex Mono',monospace;border-radius:2px;"
+            onchange="renderMobilePanelsFor(this.value)">
+            ${pgs.map(({pg}) => `<option value="${pg}">${pg}</option>`).join('')}
+          </select>
+          <button class="btn small" onclick="ppResetAll(document.getElementById('m-pp-page-sel').value);renderMobilePanelsFor(document.getElementById('m-pp-page-sel').value)">↺ All</button>
+          <button class="btn small" id="m-pp-lock-btn" onclick="mPpToggleLockAll()" title="Lock/unlock layout"></button>
+        </div>
+        <div id="m-pp-body">${getMobilePanelsHTML(firstPg)}</div>
+      </div>`;
+    }
+
+    case 'bubbles': {
+      const _pg = getPages()[0]?.pg || '';
+      return `<div style="padding:10px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <div class="section-title" style="margin:0;">EDIT BUBBLE</div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <label style="font-size:10px;color:var(--text2);">Page</label>
+            <select id="m-bubbleTargetPage" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;">
+              ${getPages().map(({pg}) => `<option value="${pg}">${pg}</option>`).join('')}
+            </select>
+            <button class="btn small" onclick="openMobileLayers()" style="white-space:nowrap;">🗂 Layers</button>
+          </div>
+        </div>
+        <div id="m-bp-nosel" style="color:var(--text3);font-size:11px;">Tap a bubble or open Layers to select.</div>
+        <div id="m-bp-editor" style="display:none;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:4px;">
+            <div>
+              <div style="font-size:9px;color:var(--text3);margin-bottom:2px;">TYPE</div>
+              <select id="m-bp-type" onchange="bpUpdate('type',this.value)" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;">
+                <option value="circle">Circle</option><option value="square">Square</option>
+                <option value="rectangle">Rectangle</option><option value="thought">Thought</option>
+                <option value="fading">Fading</option><option value="dashed">Dashed</option>
+                <option value="bold">Bold</option><option value="spiked">Spiked</option>
+                <option value="lilypad">Lilypad</option>
+              </select>
+            </div>
+            <div>
+              <div style="font-size:9px;color:var(--text3);margin-bottom:2px;">FONT</div>
+              <select id="m-bp-font" onchange="bpUpdate('font',this.value)" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;">
+                <option value="Bangers">Bangers</option>
+                <option value="Permanent Marker">P.Marker</option>
+                <option value="Caveat">Caveat</option>
+                <option value="BubbleSans">Bubble Sans</option>
+                <option value="XLTightBoo">XL Tight Boo</option>
+                <option value="TGLEngschrift">TGL Engschrift</option>
+                <option value="custom1">Custom 1</option>
+                <option value="custom2">Custom 2</option>
+              </select>
+            </div>
+          </div>
+          <div style="margin-bottom:4px;">
+            <div style="font-size:9px;color:var(--text3);margin-bottom:2px;">TEXT</div>
+            <textarea id="m-bp-text" style="width:100%;min-height:40px;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px;font-size:11px;" oninput="bpUpdate('text',this.value)"></textarea>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:4px;">
+            <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">SIZE</div>
+              <input id="m-bp-fsize" type="number" min="6" max="200" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;" oninput="bpUpdate('fontSize',+this.value)"></div>
+            <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">W</div>
+              <input id="m-bp-w" type="number" min="100" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;"></div>
+            <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">H</div>
+              <input id="m-bp-h" type="number" min="80" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:4px;">
+            <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">X</div>
+              <input id="m-bp-x" type="number" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;"></div>
+            <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">Y</div>
+              <input id="m-bp-y" type="number" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;"></div>
+            <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">ROT°</div>
+              <input id="m-bp-rot" type="number" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;"></div>
+          </div>
+          <button class="btn small" onclick="syncFromMobilePos()" style="width:100%;margin-bottom:4px;">✔ Set Position / Size</button>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:4px;">
+            <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">TAIL°</div>
+              <input id="m-bp-tail-angle" type="number" min="0" max="360" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;"></div>
+            <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">TAIL LEN</div>
+              <input id="m-bp-tail-len" type="number" min="0" max="9999" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;"></div>
+            <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">BREADTH</div>
+              <input id="m-bp-tail-breadth" type="number" min="0.1" max="30" step="0.1" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;"></div>
+          </div>
+          <button class="btn small" onclick="syncFromMobilePos()" style="width:100%;margin-bottom:4px;">✔ Set Tail</button>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:4px;">
+            <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">DOTS</div>
+              <input id="m-bp-dot-count" type="number" min="1" max="12" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;" oninput="bpUpdate('dotCount',+this.value)"></div>
+            <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">SPIKES</div>
+              <input id="m-bp-spike-count" type="number" min="5" max="40" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;" oninput="bpUpdate('spikeCount',+this.value)"></div>
+            <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">DASHES</div>
+              <input id="m-bp-dash-count" type="number" min="2" max="20" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;" oninput="bpUpdate('dashCount',+this.value)"></div>
+          </div>
+          <div style="display:flex;gap:4px;margin-bottom:6px;align-items:center;">
+            <button class="font-btn" id="m-bp-bold" onclick="bpToggle('bold');syncMobileBPFields(selectedBubble.data)" style="flex:1;"><b>B</b></button>
+            <button class="font-btn" id="m-bp-italic" onclick="bpToggle('italic');syncMobileBPFields(selectedBubble.data)" style="flex:1;"><i>I</i></button>
+            <input type="color" id="m-bp-color" value="#111111" oninput="bpUpdate('color',this.value)" style="width:32px;height:28px;padding:0;border:1px solid var(--border);border-radius:2px;cursor:pointer;background:none;flex-shrink:0;">
+          </div>
+          <div style="display:flex;gap:4px;margin-bottom:6px;">
+            <button class="btn small" style="flex:1" onclick="duplicateSelectedBubble()">⧉ Dup</button>
+            <button class="btn small danger" style="flex:2" onclick="deleteSelectedBubble();syncMobileNoSel()">✕ Delete</button>
+          </div>
+          <div style="display:flex;gap:4px;margin-bottom:6px;">
+            <button class="lock-btn" id="m-lock-move" onclick="bpLockToggle('move');syncMobileLocks()" style="flex:1;">🔒 Move</button>
+            <button class="lock-btn" id="m-lock-resize" onclick="bpLockToggle('resize');syncMobileLocks()" style="flex:1;">🔒 Resize</button>
+            <button class="lock-btn" id="m-lock-rotate" onclick="bpLockToggle('rotate');syncMobileLocks()" style="flex:1;">🔒 Rotate</button>
+          </div>
+        </div>
+        <hr style="border-color:var(--border);margin:6px 0;">
+        <div class="section-title" style="margin-bottom:4px;">IMPORT BUBBLES</div>
+        <textarea id="m-bubblePaste" style="width:100%;min-height:40px;font-size:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px;" placeholder="Circle&#9;Speaker&#9;Text"></textarea>
+        <div style="display:flex;gap:6px;margin-top:4px;">
+          <button class="btn small" style="flex:1" onclick="mobileImportBubbles()">+ Add</button>
+          <button class="btn small danger" style="flex:1" onclick="mobileClearBubbles()">Clear</button>
+        </div>
+        <hr style="border-color:var(--border);margin:6px 0;">
+        <label style="cursor:pointer;display:block;">
+          <span class="btn small" style="pointer-events:none;width:100%;display:block;text-align:center;">📁 Import Font</span>
+          <input type="file" accept=".ttf,.otf,.woff,.woff2" style="display:none" onchange="loadCustomFont(event)">
+        </label>
+      </div>`;}
+
+    case 'generate': return `
+      <div style="padding:10px;display:flex;flex-direction:column;gap:6px;">
+        <button class="btn primary" style="width:100%;padding:10px" onclick="generateAll()">⚡ Generate All Pages</button>
+        <button class="btn" style="width:100%;padding:10px;margin-bottom:6px" onclick="exportAllSVG()">↓ Export All SVGs</button>
+        <button class="btn" style="width:100%;padding:10px;margin-bottom:6px" onclick="exportAllPNG()">↓ Export All PNGs</button>
+        <button class="btn primary" style="width:100%;padding:10px;margin-bottom:6px" onclick="openSingleExportModal()">↓ Export Single Page…</button>
+        <button class="btn" style="width:100%;padding:10px" onclick="exportExcel()">↓ Export Excel</button>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px;">
+          <button class="btn undo-btn" style="padding:8px" onclick="undo()" disabled>↩ Undo</button>
+          <button class="btn redo-btn" style="padding:8px" onclick="redo()" disabled>↪ Redo</button>
+        </div>
+        <button class="btn" style="width:100%" onclick="restoreAutoSave()">🔄 Restore Auto-Save</button>
+        <div id="autosaveLabelMobile" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3);text-align:center;"></div>
+      </div>`;
+
+    default: return '';
+  }
+}
+
+function parseMobileCSV() {
+  const ta = document.getElementById('m-pasted-csv');
+  if (!ta) return;
+  document.getElementById('pasted-csv').value = ta.value;
+  parsePastedCSV();
+}
+
+function mobileImportBubbles() {
+  const ta  = document.getElementById('m-bubblePaste');
+  const sel = document.getElementById('m-bubbleTargetPage');
+  if (!ta||!sel) return;
+  document.getElementById('bubblePaste').value  = ta.value;
+  document.getElementById('bubbleTargetPage').value = sel.value;
+  importBubbles();
+}
+
+function mobileClearBubbles() {
+  const sel = document.getElementById('m-bubbleTargetPage');
+  if (!sel) return;
+  document.getElementById('bubbleTargetPage').value = sel.value;
+  clearBubbles();
+}
+
+function syncMobileBPFields(b) {
+  const s=(id,v)=>{const e=document.getElementById(id);if(e)e.value=v;};
+  const t=(id,v)=>{const e=document.getElementById(id);if(e)e.classList.toggle('active',v);};
+  s('m-bp-type',b.type); s('m-bp-text',b.text); s('m-bp-font',b.font);
+  s('m-bp-fsize',b.fontSize);
+  t('m-bp-bold',b.bold); t('m-bp-italic',b.italic);
+  s('m-bp-x',Math.round(b.x)); s('m-bp-y',Math.round(b.y));
+  s('m-bp-w',Math.round(b.w)); s('m-bp-h',Math.round(b.h));
+  s('m-bp-rot',Math.round(b.rotate));
+  s('m-bp-tail-angle',Math.round(b.tailAngle));
+  s('m-bp-tail-len',Math.round(b.tailLen));
+  s('m-bp-color',b.color||'#111111');
+  s('m-bp-tail-breadth',b.tailBreadth||1.0);
+  s('m-bp-dot-count',b.dotCount||4);
+  s('m-bp-spike-count',b.spikeCount||16);
+  s('m-bp-dash-count',b.dashCount||7);
+  // Locks
+  const tl=(id,v)=>{const e=document.getElementById(id);if(e)e.classList.toggle('active',v);};
+  tl('m-lock-move',b.lockMove); tl('m-lock-resize',b.lockResize); tl('m-lock-rotate',b.lockRotate);
+  const nosel=document.getElementById('m-bp-nosel');
+  const editor=document.getElementById('m-bp-editor');
+  if(nosel) nosel.style.display='none';
+  if(editor) editor.style.display='block';
+}
+
+function syncMobileNoSel() {
+  const nosel=document.getElementById('m-bp-nosel');
+  const editor=document.getElementById('m-bp-editor');
+  if(nosel) nosel.style.display='';
+  if(editor) editor.style.display='none';
+}
+
+function openMobileLayers() {
+  // Populate page select
+  const pgs = getPages();
+  const sel = document.getElementById('mld-page');
+  if(sel) {
+    const cur = document.getElementById('m-bubbleTargetPage')?.value || pgs[0]?.pg || '';
+    sel.innerHTML = pgs.map(({pg})=>`<option value="${pg}"${pg===cur?' selected':''}>${pg}</option>`).join('');
+  }
+  refreshMobileLayersDrawer(sel?.value || pgs[0]?.pg || '');
+  document.getElementById('mobileLayersDrawer').classList.add('open');
+  document.getElementById('mobileLayersDrawerBg').classList.add('open');
+}
+
+function closeMobileLayers() {
+  document.getElementById('mobileLayersDrawer').classList.remove('open');
+  document.getElementById('mobileLayersDrawerBg').classList.remove('open');
+}
+
+function refreshMobileLayersDrawer(pg) {
+  const list = document.getElementById('mld-layers-list');
+  if(!list) return;
+  const bbs = bubbles[pg]||[];
+  if(!bbs.length){ list.innerHTML='<div style="color:var(--text3);font-size:11px;">No bubbles yet.</div>'; return; }
+  list.innerHTML = [...bbs].reverse().map(b => {
+    const isSel = selectedBubble && selectedBubble.data.id === b.id;
+    return `<div class="layer-row ${isSel?'active':''}" data-id="${b.id}" style="border-radius:3px;margin-bottom:2px;"
+      onclick="selectLayerById('${pg}','${b.id}');closeMobileLayers();openMobileTab('bubbles');setTimeout(()=>syncMobileBPFields(selectedBubble?.data||b),60)">
+      <span class="layer-icon">${layerIcon(b.type)}</span>
+      <span class="layer-label">${b.speaker?b.speaker+': ':''}${b.text.slice(0,22)}${b.text.length>22?'…':''}</span>
+      <div class="layer-btns">
+        <button onclick="event.stopPropagation();layerMove('${pg}','${b.id}',1);refreshMobileLayersDrawer('${pg}')">↑</button>
+        <button onclick="event.stopPropagation();layerMove('${pg}','${b.id}',-1);refreshMobileLayersDrawer('${pg}')">↓</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function syncMobileLocks() {
+  if(!selectedBubble) return;
+  const b=selectedBubble.data;
+  const t=(id,v)=>{const e=document.getElementById(id);if(e)e.classList.toggle('active',v);};
+  t('m-lock-move',b.lockMove);
+  t('m-lock-resize',b.lockResize);
+  t('m-lock-rotate',b.lockRotate);
+}
+
+function syncFromMobilePos() {
+  const ab = getActiveBubble(); if(!ab) return;
+  const b=ab.data, wrap=ab.el;
+  const g=(id)=>{ const e=document.getElementById(id); return e&&e.value!==''?+e.value:null; };
+  if(g('m-bp-x')!==null) b.x=g('m-bp-x');
+  if(g('m-bp-y')!==null) b.y=g('m-bp-y');
+  if(g('m-bp-w')!==null) b.w=Math.max(100,g('m-bp-w'));
+  if(g('m-bp-h')!==null) b.h=Math.max(80, g('m-bp-h'));
+  if(g('m-bp-rot')!==null) b.rotate=g('m-bp-rot');
+  if(g('m-bp-tail-angle')!==null) b.tailAngle=g('m-bp-tail-angle');
+  if(g('m-bp-tail-len')!==null)     b.tailLen=g('m-bp-tail-len');
+  if(g('m-bp-tail-breadth')!==null) b.tailBreadth=g('m-bp-tail-breadth');
+  applyBubble(b, wrap, ab.pgKey);
+}
+
+function refreshMobileLayers(pg) {
+  const el=document.getElementById('m-layers-list');
+  if(el) el.innerHTML=getMobileLayers(pg||document.getElementById('m-bubbleTargetPage')?.value||'');
+  // Also refresh drawer if open
+  if(document.getElementById('mobileLayersDrawer')?.classList.contains('open')) {
+    refreshMobileLayersDrawer(pg||document.getElementById('mld-page')?.value||'');
+  }
+}
+
+function toggleLayersPanel() {
+  document.getElementById('layersPanel').classList.toggle('open');
+}
+
+// Patch generateAll to refresh panels without switching tabs or rebuilding UI
+const _origGenerateAll=generateAll;
+window.generateAll=function(){
+  _origGenerateAll();
+  setTimeout(()=>{
+    renderAllBubbles();
+    refreshBubblePageSelect();
+    refreshLayersPanel(document.getElementById('bubbleTargetPage')?.value||'');
+
+    // Refresh panels panel page select (desktop) — preserves open/close state
+    const ppSel = document.getElementById('pp-page-sel');
+    if (ppSel) {
+      const pgs = getPages();
+      const cur = ppSel.value;
+      ppSel.innerHTML = pgs.map(({pg}) => `<option value="${pg}">${pg}</option>`).join('');
+      if (cur && pgs.find(p => p.pg === cur)) ppSel.value = cur;
+      if (document.getElementById('panelsPanel')?.classList.contains('open')) {
+        refreshPanelsPanel(ppSel.value);
+      }
+    }
+
+    // Refresh mobile panels tab content IN-PLACE (never switch active tab)
+    if (isMobile() && currentMobileTab === 'panels') {
+      const mSel = document.getElementById('m-pp-page-sel');
+      const pg = mSel?.value || getPages()[0]?.pg || '';
+      renderMobilePanelsFor(pg);
+      syncMobileLockBtn(pg);
+    }
+    // Mobile pages tab: refresh content in-place without switching
+    if (isMobile() && currentMobileTab === 'pages') {
+      const content = document.getElementById('mobilePanelContent');
+      if (content) content.innerHTML = getMobileTabContent('pages');
+    }
+  },150);
+};
+
+const _origSwitchTab=switchTab;
+window.switchTab=function(tab){
+  _origSwitchTab(tab);
+  if(tab==='pages') setTimeout(refreshBubblePageSelect,100);
+};
+
+function refreshBubblePageSelect() {
+  const pgs=getPages();
+  ['bubbleTargetPage','m-bubbleTargetPage'].forEach(id=>{
+    const sel=document.getElementById(id); if(!sel) return;
+    const cur=sel.value;
+    sel.innerHTML=pgs.map(({pg})=>`<option value="${pg}">${pg}</option>`).join('');
+    if(cur) sel.value=cur;
+  });
+}
+
+// On mobile, tapping a bubble switches to bubbles tab and shows editor
+const _origSelectBubble=selectBubble;
+window.selectBubble=function(el,data,pgKey){
+  _origSelectBubble(el,data,pgKey);
+  if(isMobile()){
+    openMobileTab('bubbles');
+    setTimeout(()=>syncMobileBPFields(data),60);
+  }
+};
+
+// Open data tab on load
+window.addEventListener('DOMContentLoaded',()=> {
+  if(isMobile()) {
+    updateScale(12);
+    openMobileTab('data');
+  }
+
+  // Seed the undo stack with the initial empty state
+  snapshotState()
+  updateUndoButtons();
+  // Check for existing autosave and show hint
+  if (localStorage.getItem('manga_autosave')) {
+    showToast('Auto-save found — click 🔄 Restore to recover');
+  }
+});
+
+// ── QUICK MODAL LOGIC ─────────────────────────────────────────────────────
+function openQuickModal(id) {
+  document.getElementById(id).classList.add('open');
+}
+function closeQuickModalById(id) {
+  document.getElementById(id).classList.remove('open');
+}
+function closeQuickModal(e, id) {
+  if (e.target === document.getElementById(id)) closeQuickModalById(id);
+}
+</script>
+
+
+<!-- MOBILE LAYERS SLIDE-OUT -->
+<div id="mobileLayersDrawerBg" onclick="closeMobileLayers()"></div>
+<div id="mobileLayersDrawer">
+  <div class="mld-header">
+    <span style="font-family:'Bebas Neue',sans-serif;font-size:16px;color:var(--accent);">LAYERS</span>
+    <button class="btn small" onclick="closeMobileLayers()">✕ Close</button>
+  </div>
+  <div class="mld-content">
+    <div id="mld-page-select" style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+      <label style="font-size:10px;color:var(--text2);">Page</label>
+      <select id="mld-page" style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;"
+        onchange="refreshMobileLayersDrawer(this.value)">
+        <!-- populated on open -->
+      </select>
+    </div>
+    <div id="mld-layers-list"></div>
+  </div>
+</div>
+
+<!-- SAVE/LOAD MODAL -->
+<div id="saveModal">
+  <div id="saveModalBox">
+    <h2 id="saveModalTitle">SAVE TO GITHUB</h2>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:10px;">
+      Enter your GitHub Personal Access Token (repo scope).<br>
+      It's stored only in this browser, never sent anywhere else.
+    </p>
+    <input type="password" id="ghTokenInput" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+    <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);margin-bottom:10px;cursor:pointer;">
+      <input type="checkbox" id="rememberToken" checked> Remember token in this browser
+    </label>
+    <div id="saveStatus"></div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn primary" style="flex:1" id="saveModalConfirm" onclick="confirmSaveLoad()">Confirm</button>
+      <button class="btn" style="flex:1" onclick="closeSaveModal()">Cancel</button>
+    </div>
+    <hr style="border-color:var(--border);margin:12px 0 10px;">
+    <p style="font-size:11px;color:var(--text3);margin-bottom:8px;">Or work with a local JSON file:</p>
+    <div style="display:flex;gap:8px;">
+      <button class="btn" style="flex:1" onclick="downloadJSON()">⬇ Download JSON</button>
+      <label style="flex:1;cursor:pointer;">
+        <span class="btn" style="pointer-events:none;width:100%;display:block;text-align:center;">⬆ Load JSON</span>
+        <input type="file" accept=".json" style="display:none" onchange="uploadJSON(event)">
+      </label>
+    </div>
+    <button style="background:none;border:none;color:var(--danger);font-size:10px;cursor:pointer;margin-top:10px;padding:0;"
+      onclick="localStorage.removeItem('gh_token');document.getElementById('ghTokenInput').value='';showSaveStatus('Token cleared');">
+      🗑 Forget saved token
+    </button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// GITHUB SAVE / LOAD
+// ═══════════════════════════════════════════════════
+
+const GH_USER   = 'iridesuwa18';
+const GH_REPO   = 'Manga-Panel-Generator';
+const GH_FILE   = 'manga-save.json';
+const GH_BRANCH = 'main';
+const GH_API    = `https://api.github.com/repos/${GH_USER}/${GH_REPO}/contents/${GH_FILE}`;
+
+let _saveMode = 'save'; // 'save' or 'load'
+
+function getToken() {
+  return localStorage.getItem('gh_token') || '';
+}
+
+function openSaveModal(mode) {
+  _saveMode = mode;
+  document.getElementById('saveModalTitle').textContent = mode === 'save' ? 'SAVE TO GITHUB' : 'LOAD FROM GITHUB';
+  document.getElementById('saveModalConfirm').textContent = mode === 'save' ? '☁️ Save' : '📂 Load';
+  document.getElementById('saveStatus').textContent = '';
+  const saved = getToken();
+  document.getElementById('ghTokenInput').value = saved;
+  document.getElementById('saveModal').classList.add('open');
+}
+
+function closeSaveModal() {
+  document.getElementById('saveModal').classList.remove('open');
+}
+
+function showSaveStatus(msg, color) {
+  const el = document.getElementById('saveStatus');
+  el.textContent = msg;
+  el.style.color = color || 'var(--text3)';
+}
+
+function saveToGitHub()  { openSaveModal('save'); }
+function loadFromGitHub() { openSaveModal('load'); }
+
+async function confirmSaveLoad() {
+  const token = document.getElementById('ghTokenInput').value.trim();
+  if (!token) { showSaveStatus('Please enter your token.', 'var(--danger)'); return; }
+  if (document.getElementById('rememberToken').checked) {
+    localStorage.setItem('gh_token', token);
+  }
+  if (_saveMode === 'save') await doSave(token);
+  else await doLoad(token);
+}
+
+function buildSaveData() {
+  return {
+    version: 1,
+    savedAt: new Date().toISOString(),
+    rows,
+    pageSettings,
+    bubbles,
+    panelOverrides,
+    globalSettings: {
+      scale: document.getElementById('scaleSlider')?.value,
+      panelFill: document.getElementById('panelFill')?.value,
+      panelStroke: document.getElementById('panelStroke')?.value,
+      strokeWidth: document.getElementById('strokeWidth')?.value,
+    }
+  };
+}
+
+async function doSave(token) {
+  showSaveStatus('Saving…');
+  try {
+    // Get current SHA if file exists (needed for update)
+    let sha = null;
+    try {
+      const check = await fetch(GH_API, {
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' }
+      });
+      if (check.ok) { const j = await check.json(); sha = j.sha; }
+    } catch(_) {}
+
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(buildSaveData(), null, 2))));
+    const body = { message: `Save: ${new Date().toLocaleString()}`, content, branch: GH_BRANCH };
+    if (sha) body.sha = sha;
+
+    const res = await fetch(GH_API, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/vnd.github+json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (res.ok) {
+      showSaveStatus('✅ Saved to GitHub!', 'var(--success)');
+      setTimeout(closeSaveModal, 1200);
+    } else {
+      const err = await res.json();
+      showSaveStatus('❌ ' + (err.message || res.status), 'var(--danger)');
+    }
+  } catch(e) {
+    showSaveStatus('❌ ' + e.message, 'var(--danger)');
+  }
+}
+
+async function doLoad(token) {
+  showSaveStatus('Loading…');
+  try {
+    const res = await fetch(GH_API + '?ref=' + GH_BRANCH, {
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' }
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      showSaveStatus('❌ ' + (err.message || 'File not found'), 'var(--danger)');
+      return;
+    }
+    const j = await res.json();
+    const data = JSON.parse(decodeURIComponent(escape(atob(j.content))));
+
+    // Restore state
+    restoreSaveData(data);
+
+    showSaveStatus('✅ Loaded! Regenerating…', 'var(--success)');
+    setTimeout(() => {
+      generateAll();
+      closeSaveModal();
+      showToast('Session loaded from GitHub ✅');
+    }, 800);
+  } catch(e) {
+    showSaveStatus('❌ ' + e.message, 'var(--danger)');
+  }
+}
+
+// ── LOCAL JSON DOWNLOAD / UPLOAD ──
+function downloadJSON() {
+  const data = JSON.stringify(buildSaveData(), null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const date = new Date().toISOString().slice(0,10);
+  a.href = url;
+  a.download = `manga-save-${date}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showSaveStatus('✅ JSON downloaded!', 'var(--success)');
+}
+
+function uploadJSON(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      restoreSaveData(data);
+      showSaveStatus('✅ Loaded from file!', 'var(--success)');
+      setTimeout(() => { generateAll(); closeSaveModal(); showToast('Session loaded from JSON ✅'); }, 800);
+    } catch(err) {
+      showSaveStatus('❌ Invalid JSON file', 'var(--danger)');
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+function restoreSaveData(data) {
+  if (data.rows)          { rows = data.rows; renderTable(); }
+  if (data.pageSettings)  { Object.assign(pageSettings, data.pageSettings); refreshPageSettings(); }
+  if (data.bubbles)       { Object.assign(bubbles, data.bubbles); }
+  if (data.panelOverrides){ Object.assign(panelOverrides, data.panelOverrides); }
+  if (data.globalSettings) {
+    const gs = data.globalSettings;
+    if (gs.scale)       { document.getElementById('scaleSlider').value = gs.scale; updateScale(gs.scale); }
+    if (gs.panelFill)   { document.getElementById('panelFill').value   = gs.panelFill; }
+    if (gs.panelStroke) { document.getElementById('panelStroke').value = gs.panelStroke; }
+    if (gs.strokeWidth) { document.getElementById('strokeWidth').value = gs.strokeWidth; }
+  }
+}
+
+// Close modal on backdrop click
+document.getElementById('saveModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('saveModal')) closeSaveModal();
+});
+</script>
+
+
+<!-- SINGLE PAGE EXPORT MODAL -->
+<div id="singleExportModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border:1px solid var(--border2);border-radius:6px;padding:24px;width:320px;max-width:90vw;">
+    <h2 style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--accent);letter-spacing:2px;margin-bottom:14px;">EXPORT SINGLE PAGE</h2>
+    <div style="margin-bottom:14px;">
+      <label style="font-size:11px;color:var(--text2);margin-bottom:6px;display:block;">Select page</label>
+      <select id="singleExportSelect" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px;font-family:'IBM Plex Mono',monospace;font-size:12px;border-radius:3px;"></select>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;margin-bottom:14px;cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text2);">
+      <input type="checkbox" id="exportTransparentPanelsSingle" onchange="syncTransparentCheckbox(this)" style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer;">
+      Transparent panel backgrounds
+    </label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+      <button class="btn primary" onclick="doSingleExport('svg')" style="padding:10px;">↓ Export SVG</button>
+      <button class="btn" onclick="doSingleExport('png')" style="padding:10px;">↓ Export PNG</button>
+    </div>
+    <button class="btn" style="width:100%" onclick="closeSingleExportModal()">Cancel</button>
+  </div>
+</div>
+<style>
+  #singleExportModal { display:none; }
+  #singleExportModal.open { display:flex !important; }
+</style>
+
+<!-- CLOUD MODAL -->
+<div id="cloudModal" class="quick-modal-bg" onclick="closeQuickModal(event,'cloudModal')">
+  <div class="quick-modal-box">
+    <div class="quick-modal-title">☁ CLOUD</div>
+    <button class="quick-modal-btn" onclick="saveToGitHub();closeQuickModalById('cloudModal')">☁️ Save to GitHub</button>
+    <button class="quick-modal-btn" onclick="loadFromGitHub();closeQuickModalById('cloudModal')">📂 Load from GitHub</button>
+    <button class="quick-modal-btn" onclick="restoreAutoSave();closeQuickModalById('cloudModal')">🔄 Restore Auto-Save</button>
+    <button class="quick-modal-close" onclick="closeQuickModalById('cloudModal')">✕ Close</button>
+  </div>
+</div>
+
+<!-- EXPORT MODAL -->
+<div id="exportModal" class="quick-modal-bg" onclick="closeQuickModal(event,'exportModal')">
+  <div class="quick-modal-box">
+    <div class="quick-modal-title">↓ EXPORT</div>
+    <button class="quick-modal-btn primary" onclick="openSingleExportModal();closeQuickModalById('exportModal')">📄 Export Single Page…</button>
+    <div class="quick-modal-sep"></div>
+    <button class="quick-modal-btn" onclick="exportAllSVG();closeQuickModalById('exportModal')">↓ All Pages — SVG</button>
+    <button class="quick-modal-btn" onclick="exportAllPNG();closeQuickModalById('exportModal')">↓ All Pages — PNG</button>
+    <button class="quick-modal-btn" onclick="exportExcel();closeQuickModalById('exportModal')">↓ Excel Data</button>
+    <div class="quick-modal-sep"></div>
+    <label style="display:flex;align-items:center;gap:8px;padding:6px 2px;cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text2);">
+      <input type="checkbox" id="exportTransparentPanels" onchange="syncTransparentCheckbox(this)" style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer;">
+      Transparent panel backgrounds
+    </label>
+    <button class="quick-modal-close" onclick="closeQuickModalById('exportModal')">✕ Close</button>
+  </div>
+</div>
+
+<style>
+  .quick-modal-bg {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.65); z-index: 550;
+    align-items: center; justify-content: center;
+  }
+  .quick-modal-bg.open { display: flex; }
+  .quick-modal-box {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 20px;
+    width: 280px; max-width: 92vw;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .quick-modal-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px; color: var(--accent);
+    letter-spacing: 2px; margin-bottom: 6px;
+  }
+  .quick-modal-btn {
+    width: 100%; padding: 10px 14px;
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); text-align: left;
+    font-family: 'IBM Plex Mono', monospace; font-size: 12px;
+    cursor: pointer; border-radius: 3px;
+    transition: all .15s;
+  }
+  .quick-modal-btn:hover { background: var(--surface3); border-color: var(--accent2); color: var(--accent); }
+  .quick-modal-btn.primary { background: var(--accent2); color: var(--ink); border-color: var(--accent2); font-weight: 600; }
+  .quick-modal-btn.primary:hover { background: var(--accent); }
+  .quick-modal-sep { height: 1px; background: var(--border); margin: 4px 0; }
+  .quick-modal-close {
+    width: 100%; padding: 7px;
+    background: none; border: 1px solid var(--border);
+    color: var(--text3); font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; cursor: pointer; border-radius: 3px;
+    margin-top: 4px; transition: all .15s;
+  }
+  .quick-modal-close:hover { border-color: var(--danger); color: var(--danger); }
+</style>
+</body>
+</html>
