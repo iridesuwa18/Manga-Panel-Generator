@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "savedAt": "2026-03-25T00:24:24.450Z",
+  "savedAt": "2026-03-25T00:24:33.844Z",
   "rows": [
     {
       "chp": "CHP 2",
@@ -1926,9 +1926,9 @@
         "dotCount": 4,
         "spikeCount": 16,
         "dashCount": 7,
-        "lockMove": false,
-        "lockResize": false,
-        "lockRotate": false,
+        "lockMove": true,
+        "lockResize": true,
+        "lockRotate": true,
         "zIndex": 7,
         "color": "#111111"
       }
