@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "savedAt": "2026-03-26T00:30:38.237Z",
+  "savedAt": "2026-03-26T00:45:04.723Z",
   "rows": [
     {
       "chp": "CHP 2",
@@ -1991,8 +1991,8 @@
         "type": "circle",
         "text": "They are out of your control but... this meeting is about them, isn't it?",
         "speaker": "Bond Bridge",
-        "x": 2227.06601969401,
-        "y": 670.787129720052,
+        "x": 2070,
+        "y": 847,
         "w": 1000,
         "h": 700,
         "rotate": 0,
@@ -2010,7 +2010,8 @@
         "lockResize": false,
         "lockRotate": false,
         "zIndex": 3,
-        "color": "#111111"
+        "color": "#111111",
+        "clipPanel": 2
       },
       {
         "id": "b177448194828863wq",
@@ -2043,8 +2044,8 @@
         "type": "thought",
         "text": "What is this guy's boldness? Does he want to die?",
         "speaker": "Claude Albson",
-        "x": 2003.6353251139321,
-        "y": 1835.3703358968103,
+        "x": 1852.9657185872395,
+        "y": 2015.6157989501955,
         "w": 715,
         "h": 677,
         "rotate": 0,
