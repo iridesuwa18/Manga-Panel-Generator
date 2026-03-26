@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "savedAt": "2026-03-26T00:49:00.213Z",
+  "savedAt": "2026-03-26T00:49:51.583Z",
   "rows": [
     {
       "chp": "CHP 2",
@@ -2044,10 +2044,10 @@
         "type": "thought",
         "text": "What is this guy's boldness? Does he want to die?",
         "speaker": "Claude Albson",
-        "x": 1849,
-        "y": 2019,
-        "w": 715,
-        "h": 677,
+        "x": 1136.6674652099607,
+        "y": 2064.944849650065,
+        "w": 596.9754282633463,
+        "h": 730.0133565266927,
         "rotate": 0,
         "font": "BubbleSans",
         "fontSize": 70,
@@ -2059,9 +2059,9 @@
         "dotCount": 2,
         "spikeCount": 15,
         "dashCount": 7,
-        "lockMove": false,
-        "lockResize": false,
-        "lockRotate": false,
+        "lockMove": true,
+        "lockResize": true,
+        "lockRotate": true,
         "zIndex": 5,
         "color": "#111111",
         "clipPanel": null
