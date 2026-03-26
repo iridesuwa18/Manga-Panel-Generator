@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "savedAt": "2026-03-26T00:10:31.802Z",
+  "savedAt": "2026-03-26T00:30:38.237Z",
   "rows": [
     {
       "chp": "CHP 2",
@@ -1939,17 +1939,17 @@
         "type": "circle",
         "text": "Excuse me, Sir Aero. \nBut I do think we are still missing the captains of the null Corps.",
         "speaker": "Bond Bridge",
-        "x": 561.6652603149419,
-        "y": 1261.0026855468748,
-        "w": 722.9351043701172,
-        "h": 899.6838887532552,
+        "x": 474,
+        "y": 987,
+        "w": 908,
+        "h": 799,
         "rotate": 0,
         "font": "BubbleSans",
         "fontSize": 70,
         "bold": false,
         "italic": false,
-        "tailAngle": 253.7265594858277,
-        "tailLen": 150,
+        "tailAngle": 255,
+        "tailLen": 80,
         "tailBreadth": 7,
         "dotCount": 4,
         "spikeCount": 16,
@@ -1965,16 +1965,16 @@
         "type": "circle",
         "text": "I am aware. But the null Corps' attendance is out of my control.",
         "speaker": "Aero Nami",
-        "x": 1527.1030782063808,
-        "y": 342.10429382324196,
-        "w": 1000,
-        "h": 700,
+        "x": 1303.6097564697272,
+        "y": 997.7032521565752,
+        "w": 691.9642130533854,
+        "h": 791.8899536132812,
         "rotate": 0,
         "font": "BubbleSans",
         "fontSize": 70,
         "bold": false,
         "italic": false,
-        "tailAngle": 225,
+        "tailAngle": 237.39042622918015,
         "tailLen": 150,
         "tailBreadth": 7,
         "dotCount": 4,
@@ -1991,8 +1991,8 @@
         "type": "circle",
         "text": "They are out of your control but... this meeting is about them, isn't it?",
         "speaker": "Bond Bridge",
-        "x": 1837,
-        "y": 589.5,
+        "x": 2227.06601969401,
+        "y": 670.787129720052,
         "w": 1000,
         "h": 700,
         "rotate": 0,
@@ -2043,8 +2043,8 @@
         "type": "thought",
         "text": "What is this guy's boldness? Does he want to die?",
         "speaker": "Claude Albson",
-        "x": 1976.8500467936196,
-        "y": 1950.232905069987,
+        "x": 2003.6353251139321,
+        "y": 1835.3703358968103,
         "w": 715,
         "h": 677,
         "rotate": 0,
@@ -2318,6 +2318,115 @@
           "y": 2638,
           "w": 842,
           "h": 1410
+        }
+      ]
+    },
+    "PG 1": {
+      "0": {
+        "x": 407.5,
+        "y": 526,
+        "w": 621.5,
+        "h": 1772.5,
+        "locked": true
+      },
+      "1": {
+        "x": 1069,
+        "y": 526,
+        "w": 621.5,
+        "h": 1772.5,
+        "locked": true
+      },
+      "2": {
+        "x": 1730.5,
+        "y": 526,
+        "w": 842,
+        "h": 866.25,
+        "locked": true
+      },
+      "3": {
+        "x": 1730.5,
+        "y": 1432.25,
+        "w": 842,
+        "h": 866.25,
+        "locked": true
+      },
+      "4": {
+        "x": 407.5,
+        "y": 2338.5,
+        "w": 842,
+        "h": 1772.5,
+        "locked": true
+      },
+      "5": {
+        "x": 1289.5,
+        "y": 2338.5,
+        "w": 621.5,
+        "h": 1772.5,
+        "locked": true
+      },
+      "6": {
+        "x": 1951,
+        "y": 2338.5,
+        "w": 621.5,
+        "h": 1772.5,
+        "locked": true
+      },
+      "_lockedRects": [
+        {
+          "pnl": "PNL 1",
+          "pg": "PG 1",
+          "x": 407.5,
+          "y": 526,
+          "w": 621.5,
+          "h": 1772.5
+        },
+        {
+          "pnl": "PNL 2",
+          "pg": "PG 1",
+          "x": 1069,
+          "y": 526,
+          "w": 621.5,
+          "h": 1772.5
+        },
+        {
+          "pnl": "PNL 3",
+          "pg": "PG 1",
+          "x": 1730.5,
+          "y": 526,
+          "w": 842,
+          "h": 866.25
+        },
+        {
+          "pnl": "PNL 4",
+          "pg": "PG 1",
+          "x": 1730.5,
+          "y": 1432.25,
+          "w": 842,
+          "h": 866.25
+        },
+        {
+          "pnl": "PNL 5",
+          "pg": "PG 1",
+          "x": 407.5,
+          "y": 2338.5,
+          "w": 842,
+          "h": 1772.5
+        },
+        {
+          "pnl": "PNL 6",
+          "pg": "PG 1",
+          "x": 1289.5,
+          "y": 2338.5,
+          "w": 621.5,
+          "h": 1772.5
+        },
+        {
+          "pnl": "PNL 7",
+          "pg": "PG 1",
+          "x": 1951,
+          "y": 2338.5,
+          "w": 621.5,
+          "h": 1772.5
         }
       ]
     }
