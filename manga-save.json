@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "savedAt": "2026-03-28T06:23:15.686Z",
+  "savedAt": "2026-03-28T13:30:08.277Z",
   "rows": [
     {
       "chp": "CHP 2",
@@ -2260,16 +2260,53 @@
         "type": "thought",
         "text": "He was faking it?",
         "speaker": "Bond Bridge",
-        "x": 616.5278625488284,
-        "y": 1795.5833333333333,
-        "w": 622.2223917643229,
-        "h": 377.77760823567706,
+        "x": 539,
+        "y": 1173,
+        "w": 622,
+        "h": 378,
         "rotate": 0,
         "font": "BubbleSans",
         "fontSize": 70,
         "bold": false,
         "italic": false,
-        "tailAngle": 233.16853953013435,
+        "tailAngle": 247,
+        "tailLen": 150,
+        "tailBreadth": 7,
+        "dotCount": 2,
+        "spikeCount": 16,
+        "dashCount": 7,
+        "lockMove": true,
+        "lockResize": true,
+        "lockRotate": true,
+        "zIndex": 1,
+        "color": "#111111",
+        "clipPanel": null,
+        "extraTails": [
+          {
+            "angle": 71.44628906132277,
+            "len": 150,
+            "breadth": 7,
+            "dotCount": 2,
+            "spikeCount": 16,
+            "dashCount": 7
+          }
+        ]
+      },
+      {
+        "id": "b17746624472416ju1",
+        "type": "circle",
+        "text": "But you are right, Bond. The Null Corps has kept a secret hidden for years.",
+        "speaker": "Aero Nami",
+        "x": 1400.7226460774732,
+        "y": 258.0828247070308,
+        "w": 916.6669209798177,
+        "h": 700.000254313151,
+        "rotate": 0,
+        "font": "BubbleSans",
+        "fontSize": 70,
+        "bold": false,
+        "italic": false,
+        "tailAngle": 74.37483482005308,
         "tailLen": 150,
         "tailBreadth": 7,
         "dotCount": 4,
@@ -2278,26 +2315,26 @@
         "lockMove": false,
         "lockResize": false,
         "lockRotate": false,
-        "zIndex": 1,
+        "zIndex": 2,
         "color": "#111111",
         "clipPanel": null,
         "extraTails": []
       },
       {
-        "id": "b17746624472416ju1",
+        "id": "b1774704508693ce3y",
         "type": "circle",
-        "text": "But you are right, Bond. The Null Corps has kept a secret hidden for years. The disappearance of that girl and her joining up with them needs to be dealt with harshly.",
+        "text": "The disappearance of that girl and her joining up with them needs to be dealt with harshly.",
         "speaker": "Aero Nami",
-        "x": 328.5,
-        "y": 2874.75,
-        "w": 1000,
-        "h": 700,
+        "x": 1966.2778625488277,
+        "y": 701.4164123535147,
+        "w": 838.8893127441406,
+        "h": 966.6669209798177,
         "rotate": 0,
         "font": "BubbleSans",
         "fontSize": 70,
         "bold": false,
         "italic": false,
-        "tailAngle": 225,
+        "tailAngle": 121.49215394451062,
         "tailLen": 150,
         "tailBreadth": 7,
         "dotCount": 4,
@@ -2316,16 +2353,16 @@
         "type": "circle",
         "text": "Dozers... as we all know, have taken away our lives for centuries. This virus has infected innocent people with a coma. Dozers are monsters all in all.",
         "speaker": "Aero Nami",
-        "x": 1100.25,
-        "y": 2874.75,
-        "w": 1000,
-        "h": 700,
+        "x": 1878.0278625488281,
+        "y": 1552.5273539225261,
+        "w": 1050,
+        "h": 1211.1111958821614,
         "rotate": 0,
         "font": "BubbleSans",
         "fontSize": 70,
         "bold": false,
         "italic": false,
-        "tailAngle": 225,
+        "tailAngle": 217.94112226336196,
         "tailLen": 150,
         "tailBreadth": 7,
         "dotCount": 4,
@@ -2344,8 +2381,8 @@
         "type": "circle",
         "text": "And I am sure you are here listening, Mr Keaton Fort, the director of the Null Corporation.",
         "speaker": "Aero Nami",
-        "x": 1761.75,
-        "y": 2421.65,
+        "x": 1039.5276082356768,
+        "y": 2921.65,
         "w": 1000,
         "h": 700,
         "rotate": 0,
@@ -2612,7 +2649,13 @@
         "y": 368.5,
         "w": 1220,
         "h": 1930,
-        "locked": true
+        "locked": true,
+        "split": {
+          "dir": "h",
+          "pos": 50,
+          "gap": 0,
+          "style": "line"
+        }
       },
       "1": {
         "x": 1510,
@@ -2701,10 +2744,45 @@
       ]
     }
   },
-  "cornerOffsets": {},
-  "cornerLocks": {},
+  "cornerOffsets": {
+    "PG 3": {
+      "0": {
+        "tl": 43,
+        "tlY": 217
+      }
+    }
+  },
+  "cornerLocks": {
+    "PG 3": {
+      "0": {
+        "tl": true,
+        "tr": true,
+        "bl": true,
+        "br": true
+      }
+    }
+  },
   "cornerAxisMode": {},
-  "cornerEnabled": {},
+  "cornerEnabled": {
+    "PG 3": {
+      "0": true
+    }
+  },
+  "splitOffsets": {
+    "PG 3": {
+      "0": {
+        "bY": -169,
+        "aY": 194
+      }
+    }
+  },
+  "splitLocks": {
+    "PG 3": {
+      "0": {
+        "all": true
+      }
+    }
+  },
   "pageBypageMode": false,
   "pbpCurrentPage": null,
   "globalSettings": {
