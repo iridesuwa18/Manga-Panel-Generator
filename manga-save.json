@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "savedAt": "2026-03-28T01:05:10.989Z",
+  "savedAt": "2026-03-28T01:11:31.718Z",
   "rows": [
     {
       "chp": "CHP 2",
@@ -1987,6 +1987,33 @@
         "color": "#111111"
       },
       {
+        "id": "b1774659777729yyl3",
+        "type": "circle",
+        "text": "As important as this meeting is for us, we took our time out for this",
+        "speaker": "Bond Bridge",
+        "x": 1627.5807164510097,
+        "y": 905.9997507731127,
+        "w": 722.6693827311196,
+        "h": 730.8908793131511,
+        "rotate": 0,
+        "font": "BubbleSans",
+        "fontSize": 60,
+        "bold": false,
+        "italic": false,
+        "tailAngle": 295.26820929076996,
+        "tailLen": 50,
+        "tailBreadth": 7,
+        "dotCount": 4,
+        "spikeCount": 16,
+        "dashCount": 7,
+        "lockMove": false,
+        "lockResize": false,
+        "lockRotate": false,
+        "zIndex": 3,
+        "color": "#111111",
+        "clipPanel": 2
+      },
+      {
         "id": "b1774481948288dwed",
         "type": "circle",
         "text": "They are out of your control but... this meeting is about them, isn't it?",
@@ -2009,19 +2036,19 @@
         "lockMove": false,
         "lockResize": false,
         "lockRotate": false,
-        "zIndex": 3,
+        "zIndex": 4,
         "color": "#111111",
         "clipPanel": 2
       },
       {
         "id": "b177448194828863wq",
         "type": "circle",
-        "text": "As important as this meeting is for us, we took our time out for this. \nI don't think we should be heavily criticized for our punctuality.",
+        "text": "I don't think we should be heavily criticized for our punctuality.",
         "speaker": "Bond Bridge",
-        "x": 2117.5812250773124,
-        "y": 1240.4450429280614,
-        "w": 1033.7803243001301,
-        "h": 780.8908793131511,
+        "x": 2300.9145584106445,
+        "y": 1007.1119639078793,
+        "w": 783.7803243001301,
+        "h": 630.8908793131511,
         "rotate": 0,
         "font": "BubbleSans",
         "fontSize": 60,
@@ -2036,9 +2063,9 @@
         "lockMove": false,
         "lockResize": false,
         "lockRotate": false,
-        "zIndex": 4,
+        "zIndex": 5,
         "color": "#111111",
-        "clipPanel": null
+        "clipPanel": 2
       },
       {
         "id": "b1774481948288etuu",
@@ -2063,7 +2090,7 @@
         "lockMove": true,
         "lockResize": true,
         "lockRotate": true,
-        "zIndex": 5,
+        "zIndex": 6,
         "color": "#111111",
         "clipPanel": null
       },
@@ -2090,7 +2117,7 @@
         "lockMove": true,
         "lockResize": true,
         "lockRotate": true,
-        "zIndex": 6,
+        "zIndex": 7,
         "color": "#111111",
         "clipPanel": null
       },
@@ -2117,7 +2144,7 @@
         "lockMove": true,
         "lockResize": true,
         "lockRotate": true,
-        "zIndex": 7,
+        "zIndex": 8,
         "color": "#111111",
         "clipPanel": null
       },
@@ -2144,7 +2171,7 @@
         "lockMove": true,
         "lockResize": true,
         "lockRotate": true,
-        "zIndex": 8,
+        "zIndex": 9,
         "color": "#111111"
       },
       {
@@ -2170,7 +2197,7 @@
         "lockMove": true,
         "lockResize": true,
         "lockRotate": true,
-        "zIndex": 9,
+        "zIndex": 10,
         "color": "#111111",
         "clipPanel": null
       },
@@ -2197,33 +2224,6 @@
         "lockMove": true,
         "lockResize": true,
         "lockRotate": true,
-        "zIndex": 10,
-        "color": "#111111",
-        "clipPanel": null
-      },
-      {
-        "id": "b1774659777729yyl3",
-        "type": "circle",
-        "text": "As important as this meeting is for us, we took our time out for this",
-        "speaker": "Bond Bridge",
-        "x": 1744.2473831176771,
-        "y": 1111.555475870769,
-        "w": 761.5584411621093,
-        "h": 625.3354085286459,
-        "rotate": 0,
-        "font": "BubbleSans",
-        "fontSize": 60,
-        "bold": false,
-        "italic": false,
-        "tailAngle": 259,
-        "tailLen": 50,
-        "tailBreadth": 7,
-        "dotCount": 4,
-        "spikeCount": 16,
-        "dashCount": 7,
-        "lockMove": false,
-        "lockResize": false,
-        "lockRotate": false,
         "zIndex": 11,
         "color": "#111111",
         "clipPanel": null
