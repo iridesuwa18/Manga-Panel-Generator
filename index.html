@@ -596,6 +596,17 @@
     display: none; transform: translate(-50%,-50%);
   }
   .bubble-wrap.selected .tail-handle { display: block; }
+  .bubble-wrap .extra-tail-handle {
+    position: absolute;
+    width:  calc(22px / var(--pg-scale, 0.06));
+    height: calc(22px / var(--pg-scale, 0.06));
+    background: #00ccff;
+    border: calc(2.5px / var(--pg-scale, 0.06)) solid #fff;
+    border-radius: 50%;
+    cursor: crosshair; pointer-events: all;
+    display: none; transform: translate(-50%,-50%);
+  }
+  .bubble-wrap.selected .extra-tail-handle { display: block; }
 
   /* ── BUBBLE EDITOR PANEL ── */
   #bubblePanel {
@@ -3260,13 +3271,22 @@ function duplicatePage(pg) {
       <div class="bp-row"><label>Rotate°</label><input id="bp-rot" type="number" value="0"><button class="btn small" onclick="bpUpdatePos()" style="margin-left:4px;">Set</button></div>
     </div>
     <div class="bp-section">
-      <div class="bp-title">Tail</div>
+      <div class="bp-title" style="display:flex;align-items:center;justify-content:space-between;">
+        <span>Tail #1 (Primary)</span>
+      </div>
       <div class="bp-row"><label>Angle°</label><input id="bp-tail-angle" type="number" value="225" min="0" max="360"><button class="btn small" onclick="bpUpdatePos()" style="margin-left:4px;">Set</button></div>
       <div class="bp-row"><label>Length</label><input id="bp-tail-len" type="number" value="150" min="0" max="9999"><button class="btn small" onclick="bpUpdatePos()" style="margin-left:4px;">Set</button></div>
       <div class="bp-row"><label>Breadth</label><input id="bp-tail-breadth" type="number" value="7" min="0.1" max="30" step="0.1"><button class="btn small" onclick="bpUpdatePos()" style="margin-left:4px;">Set</button></div>
       <div class="bp-row"><label>Dots</label><input id="bp-dot-count" type="number" value="4" min="1" max="12"><button class="btn small" onclick="bpUpdate('dotCount',+document.getElementById('bp-dot-count').value)" style="margin-left:4px;">Set</button></div>
       <div class="bp-row"><label>Spikes</label><input id="bp-spike-count" type="number" value="16" min="5" max="40"><button class="btn small" onclick="bpUpdate('spikeCount',+document.getElementById('bp-spike-count').value)" style="margin-left:4px;">Set</button></div>
       <div class="bp-row"><label>Dashes</label><input id="bp-dash-count" type="number" value="7" min="2" max="20"><button class="btn small" onclick="bpUpdate('dashCount',+document.getElementById('bp-dash-count').value)" style="margin-left:4px;">Set</button></div>
+    </div>
+    <div class="bp-section" id="bp-extra-tails-section">
+      <div class="bp-title" style="display:flex;align-items:center;justify-content:space-between;">
+        <span>Extra Tails</span>
+        <button class="btn small" onclick="bpAddExtraTail()" style="padding:2px 7px;font-size:10px;">＋ Add</button>
+      </div>
+      <div id="bp-extra-tails-list" style="display:flex;flex-direction:column;gap:6px;margin-top:4px;"></div>
     </div>
     <div class="bp-section" style="padding-top:8px;padding-bottom:8px;">
       <button class="btn primary" style="width:100%;padding:8px;font-size:11px;" onclick="bpUpdatePos()">✔ Apply All Settings</button>
@@ -3336,6 +3356,7 @@ function defaultBubble(type, text, speaker, index) {
     bold,
     italic: false,
     tailAngle: 225, tailLen: 150, tailBreadth: 7,
+    extraTails: [],   // [{angle,len,breadth}, ...]
     dotCount: 4,
     spikeCount: 16,
     dashCount: 7,
@@ -3543,6 +3564,7 @@ function renderBubblesOnPage(pg) {
         b.y = (PAGE_H - b.h) / 2;
       }
       b.zIndex = b.zIndex || (i+1);
+      if (!b.extraTails) b.extraTails = [];   // backward-compat for old saves
       const el = createBubbleEl(b, pg);
       overlay.appendChild(el);
     });
@@ -3604,12 +3626,15 @@ function createBubbleEl(b, pgKey) {
     setupTailDrag(tailH, b, pgKey, wrap);
   }
 
+  // Extra tail handles
+  syncExtraTailHandles(wrap, b, pgKey);
+
   setupDrag(wrap, b, pgKey);
   wrap.querySelectorAll('.sel-handle').forEach(h => setupResize(h, wrap, b, pgKey));
   setupRotate(rotH, wrap, b, pgKey);
 
   wrap.addEventListener('pointerdown', e => {
-    if (e.target.classList.contains('resize-handle') || e.target.classList.contains('rotate-handle') || e.target.classList.contains('tail-handle')) return;
+    if (e.target.classList.contains('resize-handle') || e.target.classList.contains('rotate-handle') || e.target.classList.contains('tail-handle') || e.target.classList.contains('extra-tail-handle')) return;
     e.stopPropagation();
     selectBubble(wrap, b, pgKey);
   });
@@ -3796,7 +3821,50 @@ function buildBubbleSVG(b) {
     case 'spiked':  svgSpikedBubble(svg,cx,cy,rx,ry,b); break;
     case 'lilypad': svgLilypad(svg,cx,cy,rx,ry,b); break;
   }
+
+  // Draw extra tails — each rendered as an independent triangle tail on top of the shape
+  if (b.extraTails && b.extraTails.length) {
+    b.extraTails.forEach(et => {
+      if (!et || (et.len||0) <= 0) return;
+      const fakeb = Object.assign({}, b, {
+        tailAngle: et.angle, tailLen: et.len, tailBreadth: et.breadth||1
+      });
+      svgExtraTail(svg, cx, cy, rx, ry, fakeb, sw, b.type);
+    });
+  }
+
   return svg;
+}
+
+// Draw a standalone extra tail (does not modify the main body outline).
+// Rendered as a filled & stroked closed triangle that blends over the body fill.
+function svgExtraTail(svg, cx, cy, rx, ry, b, sw, type) {
+  const tar = (b.tailAngle * Math.PI) / 180;
+  const baseGap = Math.min(0.28, 8 / Math.max(rx, ry));
+  const gapHalf = baseGap * (b.tailBreadth || 1.0);
+  const a1 = tar - gapHalf, a2 = tar + gapHalf;
+  const [x1, y1] = ep(cx, cy, rx, ry, a1);
+  const [x2, y2] = ep(cx, cy, rx, ry, a2);
+  const tipX = cx + (rx + b.tailLen) * Math.cos(tar);
+  const tipY = cy + (ry + b.tailLen) * Math.sin(tar);
+  // Filled white triangle (covers body edge), then stroked on outer sides only
+  const fillPath = `M ${x1} ${y1} L ${tipX} ${tipY} L ${x2} ${y2} Z`;
+  // White fill first so it paints over the body border
+  const fill = document.createElementNS('http://www.w3.org/2000/svg','path');
+  fill.setAttribute('d', fillPath);
+  fill.setAttribute('fill', '#fff');
+  fill.setAttribute('stroke', 'none');
+  svg.appendChild(fill);
+  // Stroke just the two outer edges (not the base)
+  const strokePath = `M ${x1} ${y1} L ${tipX} ${tipY} L ${x2} ${y2}`;
+  const stroke = document.createElementNS('http://www.w3.org/2000/svg','path');
+  stroke.setAttribute('d', strokePath);
+  stroke.setAttribute('fill', 'none');
+  stroke.setAttribute('stroke', '#111');
+  stroke.setAttribute('stroke-width', sw);
+  stroke.setAttribute('stroke-linejoin', 'round');
+  stroke.setAttribute('stroke-linecap', 'round');
+  svg.appendChild(stroke);
 }
 
 // ── Helpers ──
@@ -3996,6 +4064,14 @@ function positionTailHandle(handle,b) {
   handle.style.top=(b.h/2+b.h/2*Math.sin(a))+'px';
 }
 
+function positionExtraTailHandle(handle, b, idx) {
+  const et = b.extraTails && b.extraTails[idx];
+  if (!et) return;
+  const a = (et.angle * Math.PI) / 180;
+  handle.style.left = (b.w/2 + b.w/2 * Math.cos(a)) + 'px';
+  handle.style.top  = (b.h/2 + b.h/2 * Math.sin(a)) + 'px';
+}
+
 function setupTailDrag(handle,b,pgKey,wrap) {
   handle.addEventListener('pointerdown', e => {
     e.preventDefault(); e.stopPropagation();
@@ -4018,12 +4094,35 @@ function setupTailDrag(handle,b,pgKey,wrap) {
   });
 }
 
+function setupExtraTailDrag(handle, b, idx, wrap) {
+  handle.addEventListener('pointerdown', e => {
+    e.preventDefault(); e.stopPropagation();
+    handle.setPointerCapture(e.pointerId);
+    const onMove = ev => {
+      const wr = wrap.getBoundingClientRect();
+      const lx = (ev.clientX - wr.left) / scale - b.w/2;
+      const ly = (ev.clientY - wr.top)  / scale - b.h/2;
+      if (!b.extraTails[idx]) return;
+      b.extraTails[idx].angle = ((Math.atan2(ly, lx) * 180 / Math.PI) + 360) % 360;
+      positionExtraTailHandle(handle, b, idx);
+      rebuildSVG(wrap, b);
+      syncAllBPFields(b);
+    };
+    const onUp = () => {
+      handle.removeEventListener('pointermove', onMove);
+      handle.removeEventListener('pointerup', onUp);
+    };
+    handle.addEventListener('pointermove', onMove);
+    handle.addEventListener('pointerup', onUp);
+  });
+}
+
 // ── DRAG ──
 function setupDrag(wrap,b,pgKey) {
   let ox=0,oy=0;
   wrap.addEventListener('pointerdown', e => {
     if(b.lockMove) return;
-    if(['resize-handle','rotate-handle','tail-handle'].some(c=>e.target.classList.contains(c))) return;
+    if(['resize-handle','rotate-handle','tail-handle','extra-tail-handle'].some(c=>e.target.classList.contains(c))) return;
     e.preventDefault();
     e.stopPropagation();
     wrap.setPointerCapture(e.pointerId);
@@ -4107,6 +4206,22 @@ function setupRotate(handle,wrap,b,pgKey) {
   });
 }
 
+// Rebuild extra tail drag handles on a wrap to match b.extraTails
+function syncExtraTailHandles(wrap, b, pgKey) {
+  // Remove old extra tail handles
+  wrap.querySelectorAll('.extra-tail-handle').forEach(h => h.remove());
+  if (!b.extraTails) return;
+  b.extraTails.forEach((et, idx) => {
+    if (!et) return;
+    const h = document.createElement('div');
+    h.className = 'extra-tail-handle';
+    h.dataset.tailIdx = idx;
+    positionExtraTailHandle(h, b, idx);
+    wrap.appendChild(h);
+    setupExtraTailDrag(h, b, idx, wrap);
+  });
+}
+
 function rebuildSVG(wrap,b) {
   const old=wrap.querySelector('svg');
   if(old) old.remove();
@@ -4115,10 +4230,17 @@ function rebuildSVG(wrap,b) {
   wrap.insertBefore(newSvg,wrap.firstChild);
   // Re-apply clip directly after new SVG is in DOM (avoids full applyBubbleStyle re-run)
   applyBubbleClip(wrap, b);
+  // Re-sync extra tail handles in case extraTails changed
+  const pgKey = wrap.dataset.pgKey || selectedBubble?.pgKey;
+  syncExtraTailHandles(wrap, b, pgKey);
 }
 function positionTailHandleInWrap(wrap,b) {
   const th=wrap.querySelector('.tail-handle');
   if(th) positionTailHandle(th,b);
+  wrap.querySelectorAll('.extra-tail-handle').forEach(h => {
+    const idx = parseInt(h.dataset.tailIdx);
+    positionExtraTailHandle(h, b, idx);
+  });
 }
 
 // ── SELECT ──
@@ -4173,6 +4295,8 @@ function syncBPFields(b) {
   if(selectedBubble?.pgKey) refreshClipPanelSelect(selectedBubble.pgKey);
   const cpEl = document.getElementById('bp-clip-panel');
   if(cpEl) cpEl.value = (b.clipPanel !== null && b.clipPanel !== undefined) ? String(b.clipPanel) : '';
+  // Extra tails
+  renderExtraTailsUI(b);
 }
 
 // ── BP UPDATE FUNCTIONS ──
@@ -4260,6 +4384,112 @@ function bpUpdatePos() {
   b.tailBreadth = gm('bp-tail-breadth', b.tailBreadth||1.0);
   applyBubble(b, wrap, ab.pgKey);
 }
+
+// ── EXTRA TAILS ──
+
+function bpAddExtraTail() {
+  const ab = getActiveBubble(); if(!ab) return;
+  const b = ab.data;
+  if(!b.extraTails) b.extraTails = [];
+  // Default new tail at opposite angle to primary, same length/breadth
+  const newTail = { angle: (b.tailAngle + 90) % 360, len: b.tailLen||150, breadth: b.tailBreadth||7 };
+  b.extraTails.push(newTail);
+  snapshotState();
+  applyBubble(b, ab.el, ab.pgKey);
+  syncAllBPFields(b);
+}
+
+function bpRemoveExtraTail(idx) {
+  const ab = getActiveBubble(); if(!ab) return;
+  const b = ab.data;
+  if(!b.extraTails) return;
+  b.extraTails.splice(idx, 1);
+  snapshotState();
+  applyBubble(b, ab.el, ab.pgKey);
+  syncAllBPFields(b);
+}
+
+function bpUpdateExtraTail(idx, field, val) {
+  const ab = getActiveBubble(); if(!ab) return;
+  const b = ab.data;
+  if(!b.extraTails || !b.extraTails[idx]) return;
+  b.extraTails[idx][field] = val;
+  applyBubble(b, ab.el, ab.pgKey);
+  debouncedSnapshot();
+  // reposition that handle
+  const wrap = ab.el;
+  const h = wrap.querySelector(`.extra-tail-handle[data-tail-idx="${idx}"]`);
+  if(h) positionExtraTailHandle(h, b, idx);
+}
+
+// Render the extra tails editor rows into both desktop and mobile panels
+function renderExtraTailsUI(b) {
+  const tails = b.extraTails || [];
+
+  // Desktop
+  const desktopList = document.getElementById('bp-extra-tails-list');
+  if(desktopList) {
+    desktopList.innerHTML = '';
+    tails.forEach((et, idx) => {
+      const row = document.createElement('div');
+      row.style.cssText = 'background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:6px;display:flex;flex-direction:column;gap:4px;';
+      row.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;">
+          <span style="font-size:10px;color:var(--accent);font-family:'IBM Plex Mono',monospace;">Tail #${idx+2}</span>
+          <button class="btn small danger" onclick="bpRemoveExtraTail(${idx})" style="padding:1px 6px;font-size:9px;">✕</button>
+        </div>
+        <div class="bp-row"><label>Angle°</label>
+          <input type="number" value="${Math.round(et.angle)}" min="0" max="360" style="width:60px;"
+            oninput="bpUpdateExtraTail(${idx},'angle',+this.value)">
+        </div>
+        <div class="bp-row"><label>Length</label>
+          <input type="number" value="${Math.round(et.len)}" min="0" max="9999" style="width:60px;"
+            oninput="bpUpdateExtraTail(${idx},'len',+this.value)">
+        </div>
+        <div class="bp-row"><label>Breadth</label>
+          <input type="number" value="${(et.breadth||1).toFixed(1)}" min="0.1" max="30" step="0.1" style="width:60px;"
+            oninput="bpUpdateExtraTail(${idx},'breadth',+this.value)">
+        </div>`;
+      desktopList.appendChild(row);
+    });
+    if(tails.length === 0) {
+      desktopList.innerHTML = '<div style="font-size:10px;color:var(--text3);padding:2px 0;">No extra tails. Click ＋ Add.</div>';
+    }
+  }
+
+  // Mobile
+  const mobileList = document.getElementById('m-bp-extra-tails-list');
+  if(mobileList) {
+    mobileList.innerHTML = '';
+    const iStyle = 'background:var(--surface3);border:1px solid var(--border);color:var(--text);padding:2px;font-size:9px;width:100%;';
+    tails.forEach((et, idx) => {
+      const row = document.createElement('div');
+      row.style.cssText = 'background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:4px;';
+      row.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">
+          <span style="font-size:9px;color:var(--accent);font-family:'IBM Plex Mono',monospace;">Tail #${idx+2}</span>
+          <button class="btn small danger" onclick="bpRemoveExtraTail(${idx})" style="padding:0 5px;font-size:9px;">✕</button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:3px;">
+          <div><div style="font-size:8px;color:var(--text3);">ANGLE°</div>
+            <input type="number" value="${Math.round(et.angle)}" min="0" max="360" style="${iStyle}"
+              oninput="bpUpdateExtraTail(${idx},'angle',+this.value)"></div>
+          <div><div style="font-size:8px;color:var(--text3);">LEN</div>
+            <input type="number" value="${Math.round(et.len)}" min="0" max="9999" style="${iStyle}"
+              oninput="bpUpdateExtraTail(${idx},'len',+this.value)"></div>
+          <div><div style="font-size:8px;color:var(--text3);">BREADTH</div>
+            <input type="number" value="${(et.breadth||1).toFixed(1)}" min="0.1" max="30" step="0.1" style="${iStyle}"
+              oninput="bpUpdateExtraTail(${idx},'breadth',+this.value)"></div>
+        </div>`;
+      mobileList.appendChild(row);
+    });
+    if(tails.length === 0) {
+      mobileList.innerHTML = '<div style="font-size:9px;color:var(--text3);">None. Tap ＋ Add.</div>';
+    }
+  }
+}
+
+
 
 function bpToggle(field) {
   const ab = getActiveBubble(); if(!ab) return;
@@ -5265,6 +5495,13 @@ function getMobileTabContent(tab) {
             <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">BREADTH</div>
               <input id="m-bp-tail-breadth" type="number" min="0.1" max="30" step="0.1" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;"></div>
           </div>
+          <div id="m-bp-extra-tails-section" style="margin-bottom:4px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">
+              <div style="font-size:9px;color:var(--text3);">EXTRA TAILS</div>
+              <button class="btn small" onclick="bpAddExtraTail()" style="padding:1px 6px;font-size:9px;">＋ Add</button>
+            </div>
+            <div id="m-bp-extra-tails-list" style="display:flex;flex-direction:column;gap:4px;"></div>
+          </div>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:4px;">
             <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">DOTS</div>
               <input id="m-bp-dot-count" type="number" min="1" max="12" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;" oninput="bpUpdate('dotCount',+this.value)"></div>
@@ -5378,6 +5615,8 @@ function syncMobileBPFields(b) {
   const editor=document.getElementById('m-bp-editor');
   if(nosel) nosel.style.display='none';
   if(editor) editor.style.display='block';
+  // Extra tails
+  renderExtraTailsUI(b);
 }
 
 function syncMobileNoSel() {
