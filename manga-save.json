@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "savedAt": "2026-03-28T01:32:37.571Z",
+  "savedAt": "2026-03-28T01:33:30.892Z",
   "rows": [
     {
       "chp": "CHP 2",
@@ -1770,9 +1770,9 @@
         "dotCount": 4,
         "spikeCount": 16,
         "dashCount": 7,
-        "lockMove": false,
-        "lockResize": false,
-        "lockRotate": false,
+        "lockMove": true,
+        "lockResize": true,
+        "lockRotate": true,
         "zIndex": 1,
         "color": "#111111",
         "clipPanel": 0
@@ -1823,9 +1823,9 @@
         "dotCount": 4,
         "spikeCount": 16,
         "dashCount": 7,
-        "lockMove": false,
-        "lockResize": false,
-        "lockRotate": false,
+        "lockMove": true,
+        "lockResize": true,
+        "lockRotate": true,
         "zIndex": 3,
         "color": "#111111",
         "clipPanel": 2
@@ -1850,9 +1850,9 @@
         "dotCount": 4,
         "spikeCount": 16,
         "dashCount": 7,
-        "lockMove": false,
-        "lockResize": false,
-        "lockRotate": false,
+        "lockMove": true,
+        "lockResize": true,
+        "lockRotate": true,
         "zIndex": 4,
         "color": "#111111",
         "clipPanel": 3
@@ -1877,9 +1877,9 @@
         "dotCount": 4,
         "spikeCount": 16,
         "dashCount": 7,
-        "lockMove": false,
-        "lockResize": false,
-        "lockRotate": false,
+        "lockMove": true,
+        "lockResize": true,
+        "lockRotate": true,
         "zIndex": 5,
         "color": "#111111",
         "clipPanel": 4
