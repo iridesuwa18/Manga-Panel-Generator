@@ -500,7 +500,7 @@
     border: 3px solid #fff;
     box-shadow: 0 2px 8px rgba(0,0,0,.5);
     transform: translate(-50%, -50%);
-    cursor: ew-resize;
+    cursor: move;
     pointer-events: all;
     box-sizing: border-box;
     transition: background 0.15s;
@@ -1580,9 +1580,12 @@ function buildSVG(pg, pgNum, panelRects, fillColor, strokeColor, strokeW, forExp
     // Draw panel shape (polygon if corners, rect otherwise)
     if (co) {
       const x1 = r.x, y1 = r.y, x2 = r.x + r.w, y2 = r.y + r.h;
-      const tlx = (x1 + (co.tl||0)).toFixed(1), trx = (x2 + (co.tr||0)).toFixed(1);
-      const blx = (x1 + (co.bl||0)).toFixed(1), brx = (x2 + (co.br||0)).toFixed(1);
-      const pts = `${tlx},${y1.toFixed(1)} ${trx},${y1.toFixed(1)} ${brx},${y2.toFixed(1)} ${blx},${y2.toFixed(1)}`;
+      // Each corner can skew horizontally (dx) or vertically (dy)
+      const tlx = (x1 + (co.tl||0)).toFixed(1),  tly = (y1 + (co.tlY||0)).toFixed(1);
+      const trx = (x2 + (co.tr||0)).toFixed(1),   try_ = (y1 + (co.trY||0)).toFixed(1);
+      const brx = (x2 + (co.br||0)).toFixed(1),   bry = (y2 + (co.brY||0)).toFixed(1);
+      const blx = (x1 + (co.bl||0)).toFixed(1),   bly = (y2 + (co.blY||0)).toFixed(1);
+      const pts = `${tlx},${tly} ${trx},${try_} ${brx},${bry} ${blx},${bly}`;
       svg += `<polygon points="${pts}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeW}" stroke-linejoin="miter"/>`;
     } else {
       svg += `<rect x="${r.x.toFixed(1)}" y="${r.y.toFixed(1)}" width="${r.w.toFixed(1)}" height="${r.h.toFixed(1)}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeW}"/>`;
@@ -1596,20 +1599,23 @@ function buildSVG(pg, pgNum, panelRects, fillColor, strokeColor, strokeW, forExp
       const sty = sp.style || 'line';
       const dir = sp.dir || 'h';
       if (dir === 'h') {
-        // Horizontal split — line runs left→right at pct of height
         const sy = r.y + r.h * pct;
         if (sty === 'line') {
           svg += `<line x1="${r.x.toFixed(1)}" y1="${sy.toFixed(1)}" x2="${(r.x+r.w).toFixed(1)}" y2="${sy.toFixed(1)}" stroke="${strokeColor}" stroke-width="${strokeW}"/>`;
         } else {
-          // Gap: draw fill rect above and below to create gap
+          // Two separate bordered rectangles with a gap between them
+          // hollow = gap is empty (page bg), solid = gap filled same colour as panel
           const topH = sy - r.y - half;
           const botY = sy + half;
           const botH = r.y + r.h - botY;
-          if (topH > 0) svg += `<rect x="${r.x.toFixed(1)}" y="${r.y.toFixed(1)}" width="${r.w.toFixed(1)}" height="${topH.toFixed(1)}" fill="${sty==='solid'?fillColor:'white'}" stroke="${strokeColor}" stroke-width="${strokeW}"/>`;
-          if (botH > 0) svg += `<rect x="${r.x.toFixed(1)}" y="${botY.toFixed(1)}" width="${r.w.toFixed(1)}" height="${botH.toFixed(1)}" fill="${sty==='solid'?fillColor:'white'}" stroke="${strokeColor}" stroke-width="${strokeW}"/>`;
+          // Erase the original panel shape in this area first (hollow only)
+          if (sty !== 'solid') svg += `<rect x="${r.x.toFixed(1)}" y="${r.y.toFixed(1)}" width="${r.w.toFixed(1)}" height="${r.h.toFixed(1)}" fill="white" stroke="none"/>`;
+          if (topH > 0) svg += `<rect x="${r.x.toFixed(1)}" y="${r.y.toFixed(1)}" width="${r.w.toFixed(1)}" height="${topH.toFixed(1)}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeW}"/>`;
+          if (botH > 0) svg += `<rect x="${r.x.toFixed(1)}" y="${botY.toFixed(1)}" width="${r.w.toFixed(1)}" height="${botH.toFixed(1)}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeW}"/>`;
+          // Fill gap area for solid style
+          if (gap > 0 && sty === 'solid') svg += `<rect x="${r.x.toFixed(1)}" y="${(sy-half).toFixed(1)}" width="${r.w.toFixed(1)}" height="${gap.toFixed(1)}" fill="${fillColor}" stroke="none"/>`;
         }
       } else {
-        // Vertical split — line runs top→bottom at pct of width
         const sx = r.x + r.w * pct;
         if (sty === 'line') {
           svg += `<line x1="${sx.toFixed(1)}" y1="${r.y.toFixed(1)}" x2="${sx.toFixed(1)}" y2="${(r.y+r.h).toFixed(1)}" stroke="${strokeColor}" stroke-width="${strokeW}"/>`;
@@ -1617,8 +1623,10 @@ function buildSVG(pg, pgNum, panelRects, fillColor, strokeColor, strokeW, forExp
           const leftW = sx - r.x - half;
           const rightX = sx + half;
           const rightW = r.x + r.w - rightX;
-          if (leftW > 0) svg += `<rect x="${r.x.toFixed(1)}" y="${r.y.toFixed(1)}" width="${leftW.toFixed(1)}" height="${r.h.toFixed(1)}" fill="${sty==='solid'?fillColor:'white'}" stroke="${strokeColor}" stroke-width="${strokeW}"/>`;
-          if (rightW > 0) svg += `<rect x="${rightX.toFixed(1)}" y="${r.y.toFixed(1)}" width="${rightW.toFixed(1)}" height="${r.h.toFixed(1)}" fill="${sty==='solid'?fillColor:'white'}" stroke="${strokeColor}" stroke-width="${strokeW}"/>`;
+          if (sty !== 'solid') svg += `<rect x="${r.x.toFixed(1)}" y="${r.y.toFixed(1)}" width="${r.w.toFixed(1)}" height="${r.h.toFixed(1)}" fill="white" stroke="none"/>`;
+          if (leftW > 0)  svg += `<rect x="${r.x.toFixed(1)}" y="${r.y.toFixed(1)}" width="${leftW.toFixed(1)}" height="${r.h.toFixed(1)}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeW}"/>`;
+          if (rightW > 0) svg += `<rect x="${rightX.toFixed(1)}" y="${r.y.toFixed(1)}" width="${rightW.toFixed(1)}" height="${r.h.toFixed(1)}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeW}"/>`;
+          if (gap > 0 && sty === 'solid') svg += `<rect x="${(sx-half).toFixed(1)}" y="${r.y.toFixed(1)}" width="${gap.toFixed(1)}" height="${r.h.toFixed(1)}" fill="${fillColor}" stroke="none"/>`;
         }
       }
     }
@@ -2813,37 +2821,45 @@ function refreshCornerOverlay(pg) {
   const rects = _lastPanelRects[pg] || [];
   const pgCo  = cornerOffsets[pg] || {};
   const pgLk  = cornerLocks[pg]   || {};
+  const pgOvs = panelOverrides[pg] || {};
 
   rects.forEach((r, idx) => {
     if (r._hidden) return;
-    const co = pgCo[idx] || { tl:0, tr:0, bl:0, br:0 };
-    const lk = pgLk[idx] || { tl:false, tr:false, bl:false, br:false };
+    // Only show dots when this panel's corner editor is open
+    if (!pgOvs[idx]?._cornersOpen) return;
 
-    // 4 corners: tl=top-left, tr=top-right, bl=bottom-left, br=bottom-right
+    const co = pgCo[idx] || {};
+    const lk = pgLk[idx] || {};
+
     [
-      { key:'tl', baseX: r.x, baseY: r.y },
-      { key:'tr', baseX: r.x + r.w, baseY: r.y },
-      { key:'bl', baseX: r.x, baseY: r.y + r.h },
+      { key:'tl', baseX: r.x,       baseY: r.y       },
+      { key:'tr', baseX: r.x + r.w, baseY: r.y       },
+      { key:'bl', baseX: r.x,       baseY: r.y + r.h },
       { key:'br', baseX: r.x + r.w, baseY: r.y + r.h },
     ].forEach(({ key, baseX, baseY }) => {
+      const isLk = !!lk[key];
       const dot = document.createElement('div');
-      dot.className = 'corner-dot' + (lk[key] ? ' locked' : '');
-      dot.title = lk[key] ? `${key.toUpperCase()} (locked — tap to unlock)` : `Drag to move ${key.toUpperCase()} corner horizontally`;
-      const cx = baseX + (co[key] || 0);
+      dot.className = 'corner-dot' + (isLk ? ' locked' : '');
+      dot.title = isLk
+        ? `${CORNER_META[key].tip} (locked — click to unlock)`
+        : `Drag ${CORNER_META[key].tip} — ↔ horizontal · ↕ vertical`;
+      dot.style.cursor = isLk ? 'not-allowed' : 'move';
+      const cx = baseX + (co[key]  || 0);
+      const cy = baseY + (co[key+'Y'] || 0);
       dot.style.left = cx + 'px';
-      dot.style.top  = baseY + 'px';
+      dot.style.top  = cy + 'px';
       dot.dataset.pg  = pg;
       dot.dataset.idx = idx;
       dot.dataset.key = key;
-      dot.dataset.baseX = baseX;
 
-      if (lk[key]) {
+      if (isLk) {
         dot.addEventListener('pointerdown', e => {
           e.stopPropagation();
-          // Unlock on tap
           if (!cornerLocks[pg]) cornerLocks[pg] = {};
           cornerLocks[pg][idx] = { ...(cornerLocks[pg][idx]||{}), [key]: false };
           refreshCornerOverlay(pg);
+          if (document.getElementById('panelsPanel')?.classList.contains('open')) refreshPanelsPanel(pg);
+          renderMobilePanelsFor(pg);
         });
       } else {
         setupCornerDotDrag(dot, pg, idx, key, baseX, baseY);
@@ -2858,7 +2874,9 @@ function setupCornerDotDrag(dot, pg, idx, key, baseX, baseY) {
     e.preventDefault(); e.stopPropagation();
     dot.setPointerCapture(e.pointerId);
     const startClientX = e.clientX;
-    const startOffset  = (cornerOffsets[pg]?.[idx]?.[key]) || 0;
+    const startClientY = e.clientY;
+    const startOffX = (cornerOffsets[pg]?.[idx]?.[key])        || 0;
+    const startOffY = (cornerOffsets[pg]?.[idx]?.[key + 'Y'])  || 0;
 
     // Find scale of the svgWrap so we convert screen px → SVG px correctly
     const cont = document.querySelector(`.page-output[data-pg="${pg}"]`);
@@ -2866,14 +2884,19 @@ function setupCornerDotDrag(dot, pg, idx, key, baseX, baseY) {
     const wrapScale = svgWrap ? parseFloat(svgWrap.style.transform.replace('scale(','')) : scale;
 
     const onMove = ev => {
-      const dx = (ev.clientX - startClientX) / wrapScale;
+      const dx = Math.round((ev.clientX - startClientX) / wrapScale);
+      const dy = Math.round((ev.clientY - startClientY) / wrapScale);
       if (!cornerOffsets[pg]) cornerOffsets[pg] = {};
-      if (!cornerOffsets[pg][idx]) cornerOffsets[pg][idx] = { tl:0, tr:0, bl:0, br:0 };
-      cornerOffsets[pg][idx][key] = Math.round(startOffset + dx);
+      if (!cornerOffsets[pg][idx]) cornerOffsets[pg][idx] = {};
+      cornerOffsets[pg][idx][key]        = startOffX + dx;
+      cornerOffsets[pg][idx][key + 'Y'] = startOffY + dy;
       // Live-update dot position
-      dot.style.left = (baseX + cornerOffsets[pg][idx][key]) + 'px';
+      dot.style.left = (baseX + cornerOffsets[pg][idx][key])        + 'px';
+      dot.style.top  = (baseY + cornerOffsets[pg][idx][key + 'Y']) + 'px';
       // Redraw SVG inline
       rebuildPageSVG(pg);
+      // Sync panel editor number inputs live
+      _syncCornerInputs(pg, idx);
     };
     const onUp = () => {
       dot.removeEventListener('pointermove', onMove);
@@ -2891,9 +2914,34 @@ function setupCornerDotDrag(dot, pg, idx, key, baseX, baseY) {
     if (!cornerLocks[pg][idx]) cornerLocks[pg][idx] = {};
     cornerLocks[pg][idx][key] = true;
     refreshCornerOverlay(pg);
+    if (document.getElementById('panelsPanel')?.classList.contains('open')) refreshPanelsPanel(pg);
+    renderMobilePanelsFor(pg);
   }, 600); });
-  dot.addEventListener('pointerup',   () => clearTimeout(lockTimer));
-  dot.addEventListener('pointercancel',()=> clearTimeout(lockTimer));
+  dot.addEventListener('pointerup',    () => clearTimeout(lockTimer));
+  dot.addEventListener('pointercancel',() => clearTimeout(lockTimer));
+}
+
+// Sync corner number inputs in the panel editor card without a full re-render
+function _syncCornerInputs(pg, idx) {
+  const co = cornerOffsets[pg]?.[idx] || {};
+  // Desktop panel editor card
+  const card = document.getElementById('pp-card-' + idx);
+  if (card) {
+    ['tl','tr','bl','br'].forEach(k => {
+      // Each corner input group has ↔ and ↕ inputs in order
+      const inputs = card.querySelectorAll(`[onchange*="setCornerOffset"][onchange*="'${k}'"]`);
+      inputs.forEach(inp => {
+        const isY = inp.getAttribute('onchange')?.includes("'" + k + "Y'");
+        inp.value = Math.round(isY ? (co[k+'Y']||0) : (co[k]||0));
+      });
+    });
+  }
+  // Mobile panel body — live refresh is acceptable here (small DOM)
+  const mBody = document.getElementById('m-pp-body');
+  if (mBody) {
+    const sel = document.getElementById('m-pp-page-sel');
+    if (sel?.value === pg) renderMobilePanelsFor(pg);
+  }
 }
 
 function resetCorners(pg, idx) {
@@ -2914,7 +2962,7 @@ function resetAllCorners(pg) {
 
 function setCornerOffset(pg, idx, key, val) {
   if (!cornerOffsets[pg]) cornerOffsets[pg] = {};
-  if (!cornerOffsets[pg][idx]) cornerOffsets[pg][idx] = { tl:0, tr:0, bl:0, br:0 };
+  if (!cornerOffsets[pg][idx]) cornerOffsets[pg][idx] = { tl:0, tr:0, bl:0, br:0, tlY:0, trY:0, blY:0, brY:0 };
   cornerOffsets[pg][idx][key] = Math.round(val);
   rebuildPageSVG(pg);
   refreshCornerOverlay(pg);
@@ -4283,24 +4331,103 @@ function syncMobileLockBtn(pg) {
   btn.style.color = isLocked ? 'var(--danger)' : '';
 }
 
+// Corner labels with full tooltips
+const CORNER_META = {
+  tl: { label: 'TL', tip: 'Top-Left corner' },
+  tr: { label: 'TR', tip: 'Top-Right corner' },
+  bl: { label: 'BL', tip: 'Bottom-Left corner' },
+  br: { label: 'BR', tip: 'Bottom-Right corner' },
+};
+
 function ppCornerHTML(pg, idx) {
-  const co = (cornerOffsets[pg]||{})[idx] || {tl:0,tr:0,bl:0,br:0};
-  const lk = (cornerLocks[pg]||{})[idx] || {};
-  const ci = (key, label) => {
+  const co  = (cornerOffsets[pg]||{})[idx] || {};
+  const lk  = (cornerLocks[pg]||{})[idx]   || {};
+  const ov  = (panelOverrides[pg]||{})[idx] || {};
+  const open = !!ov._cornersOpen;
+
+  // Mini visual panel diagram showing 4 draggable-looking corner markers
+  const diagramSVG = `<svg viewBox="0 0 60 44" width="60" height="44" style="display:block;flex-shrink:0;">
+    <rect x="4" y="4" width="52" height="36" fill="var(--surface3)" stroke="var(--border2)" stroke-width="1.5" rx="1"/>
+    <circle cx="4"  cy="4"  r="4.5" fill="var(--accent2)" stroke="var(--surface)" stroke-width="1"/>
+    <circle cx="56" cy="4"  r="4.5" fill="var(--accent2)" stroke="var(--surface)" stroke-width="1"/>
+    <circle cx="4"  cy="40" r="4.5" fill="var(--accent2)" stroke="var(--surface)" stroke-width="1"/>
+    <circle cx="56" cy="40" r="4.5" fill="var(--accent2)" stroke="var(--surface)" stroke-width="1"/>
+    <text x="30" y="25" text-anchor="middle" font-size="7" fill="var(--text3)" font-family="monospace">drag</text>
+  </svg>`;
+
+  const anySet = ['tl','tr','bl','br'].some(k => co[k] || co[k+'Y']);
+
+  const cornerInput = (key) => {
     const isLk = !!lk[key];
-    return '<div style="display:flex;align-items:center;gap:2px;">'
-      + '<span style="font-size:9px;color:var(--text3);width:14px;text-align:right;">' + label + '</span>'
-      + '<input type="number" value="' + Math.round(co[key]||0) + '" ' + (isLk?'disabled':'') + ' style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:2px 4px;font-size:10px;border-radius:2px;opacity:' + (isLk?'0.4':'1') + ';"'
-      + ' onchange="setCornerOffset(\'' + pg + '\',' + idx + ',\'' + key + '\',+this.value)">'
-      + '<button onclick="toggleCornerLock(\'' + pg + '\',' + idx + ',\'' + key + '\')" style="background:none;border:none;cursor:pointer;font-size:10px;padding:1px 2px;" title="' + (isLk?'Unlock':'Lock') + ' corner">' + (isLk?'🔒':'🔓') + '</button>'
+    const xVal = Math.round(co[key]||0);
+    const yVal = Math.round(co[key+'Y']||0);
+    const { label, tip } = CORNER_META[key];
+    const dis = isLk ? 'disabled' : '';
+    const op  = isLk ? '0.45' : '1';
+    const lockIcon = isLk ? '🔒' : '🔓';
+    return '<div style="background:var(--surface3);border:1px solid var(--border);border-radius:3px;padding:4px 5px;">'
+      // Header row: label + tooltip + lock
+      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">'
+      + '<span title="' + tip + '" style="font-size:10px;color:var(--accent2);font-family:\'IBM Plex Mono\',monospace;cursor:help;border-bottom:1px dashed var(--accent2);">' + label + '</span>'
+      + '<span title="' + tip + '" style="font-size:9px;color:var(--text3);flex:1;margin-left:4px;cursor:help;">' + tip + '</span>'
+      + '<button onclick="toggleCornerLock(\'' + pg + '\',' + idx + ',\'' + key + '\')" title="' + (isLk?'Unlock this corner':'Lock this corner to prevent accidental changes') + '" style="background:none;border:none;cursor:pointer;font-size:10px;padding:0 1px;color:' + (isLk?'var(--danger)':'var(--text3)') + ';">' + lockIcon + '</button>'
+      + '</div>'
+      // X row
+      + '<div style="display:flex;align-items:center;gap:3px;margin-bottom:2px;opacity:' + op + ';">'
+      + '<span title="Horizontal skew — shifts this corner left (−) or right (+)" style="font-size:9px;color:var(--text3);width:12px;cursor:help;">↔</span>'
+      + '<input type="number" value="' + xVal + '" ' + dis + ' style="flex:1;min-width:0;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:2px 3px;font-size:10px;border-radius:2px;font-family:\'IBM Plex Mono\',monospace;"'
+      + ' onchange="setCornerOffset(\'' + pg + '\',' + idx + ',\'' + key + '\',+this.value)" title="Horizontal (X) skew for ' + tip + '">'
+      + '</div>'
+      // Y row
+      + '<div style="display:flex;align-items:center;gap:3px;opacity:' + op + ';">'
+      + '<span title="Vertical skew — shifts this corner up (−) or down (+)" style="font-size:9px;color:var(--text3);width:12px;cursor:help;">↕</span>'
+      + '<input type="number" value="' + yVal + '" ' + dis + ' style="flex:1;min-width:0;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:2px 3px;font-size:10px;border-radius:2px;font-family:\'IBM Plex Mono\',monospace;"'
+      + ' onchange="setCornerOffset(\'' + pg + '\',' + idx + ',\'' + (key+'Y') + '\',+this.value)" title="Vertical (Y) skew for ' + tip + '">'
+      + '</div>'
       + '</div>';
   };
-  return '<div style="margin-top:5px;">'
-    + '<div style="font-size:9px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;margin-bottom:3px;">CORNERS (X skew)</div>'
-    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;">'
-    + ci('tl','TL') + ci('tr','TR')
-    + ci('bl','BL') + ci('br','BR')
-    + '</div></div>';
+
+  let html = '<div style="margin-top:6px;border-top:1px solid var(--border);padding-top:5px;">'
+    // Section header with checkbox toggle
+    + '<div style="display:flex;align-items:center;gap:6px;margin-bottom:' + (open?'6':'0') + 'px;">'
+    + '<label style="display:flex;align-items:center;gap:5px;cursor:pointer;flex:1;">'
+    + '<input type="checkbox" ' + (open?'checked':'') + ' style="accent-color:var(--accent2);" onchange="ppToggleCornersOpen(\'' + pg + '\',' + idx + ',this.checked)">'
+    + '<span style="font-size:9px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;text-transform:uppercase;letter-spacing:0.5px;">Edit Corners</span>'
+    + (anySet ? '<span style="font-size:8px;background:var(--accent2);color:var(--ink);border-radius:2px;padding:0 3px;font-family:\'IBM Plex Mono\',monospace;">active</span>' : '')
+    + '</label>'
+    + (anySet ? '<button onclick="resetCorners(\'' + pg + '\',' + idx + ')" title="Reset all corner offsets for this panel" style="background:none;border:1px solid var(--border);border-radius:2px;cursor:pointer;font-size:9px;color:var(--text3);padding:1px 5px;">↺ Reset</button>' : '')
+    + '</div>';
+
+  if (open) {
+    html += '<div style="display:flex;gap:6px;align-items:flex-start;margin-bottom:5px;">'
+      + diagramSVG
+      + '<div style="font-size:9px;color:var(--text3);line-height:1.5;">'
+      + '↔ shifts the corner <b style="color:var(--text2);">left / right</b><br>'
+      + '↕ shifts the corner <b style="color:var(--text2);">up / down</b><br>'
+      + 'Negative = left/up &nbsp; Positive = right/down'
+      + '</div>'
+      + '</div>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">'
+      + cornerInput('tl') + cornerInput('tr')
+      + cornerInput('bl') + cornerInput('br')
+      + '</div>';
+  }
+
+  html += '</div>';
+  return html;
+}
+
+function ppToggleCornersOpen(pg, idx, open) {
+  ppEnsure(pg, idx);
+  panelOverrides[pg][idx]._cornersOpen = open;
+  // When any panel's corner editor opens, activate cornerEditMode for this page
+  // so the canvas overlay dots become visible. Turn it off only when ALL panels are closed.
+  const anyOpen = Object.values(panelOverrides[pg]||{}).some(v => v?._cornersOpen);
+  cornerEditMode[pg] = anyOpen;
+  refreshCornerOverlay(pg);
+  // Refresh whichever panel UI is visible
+  if (document.getElementById('panelsPanel')?.classList.contains('open')) refreshPanelsPanel(pg);
+  renderMobilePanelsFor(pg);
 }
 
 function ppSplitHTML(pg, idx) {
@@ -4512,9 +4639,6 @@ function getMobilePanelsHTML(pg) {
   const ovs = panelOverrides[pg] || {};
   if (!baseRects.length) return '<div style="color:var(--text3);font-size:11px;font-family:\'IBM Plex Mono\',monospace;">Generate pages first.</div>';
 
-  const pgCo = cornerOffsets[pg] || {};
-  const pgLk = cornerLocks[pg]   || {};
-
   return baseRects.map((r, idx) => {
     const ov = ovs[idx] || {};
     const x = ov.x !== undefined ? ov.x : r.x;
@@ -4524,41 +4648,25 @@ function getMobilePanelsHTML(pg) {
     const visible = ov.visible !== false;
     const locked  = ov.locked  === true;
     const hasOv   = Object.keys(ov).some(k => k !== 'locked');
-    const co = pgCo[idx] || { tl:0, tr:0, bl:0, br:0 };
-    const lk = pgLk[idx] || {};
-    const hasCorners = co.tl||co.tr||co.bl||co.br;
     const inp = (field, val) =>
       `<input type="number" value="${Math.round(val)}" ${locked?'disabled':''} style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;border-radius:2px;opacity:${locked?'0.4':'1'};"
         onchange="ppSet('${pg}',${idx},'${field}',+this.value);renderMobilePanelsFor('${pg}')">`;
-    const cornerInp = (key, label) => {
-      const isLocked = !!lk[key];
-      return `<div style="display:flex;align-items:center;gap:3px;">
-        <span style="font-size:9px;color:var(--text3);width:18px;text-align:right;">${label}</span>
-        <input type="number" value="${Math.round(co[key]||0)}" ${isLocked?'disabled':''} style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:2px;font-size:10px;border-radius:2px;opacity:${isLocked?'0.4':'1'};"
-          onchange="setCornerOffset('${pg}',${idx},'${key}',+this.value)">
-        <button onclick="toggleCornerLock('${pg}',${idx},'${key}')" title="${isLocked?'Unlock':'Lock'} corner" style="background:none;border:none;cursor:pointer;font-size:11px;padding:1px 3px;">${isLocked?'🔒':'🔓'}</button>
-      </div>`;
-    };
-    return `<div style="border:1px solid var(--border);border-radius:3px;padding:7px;margin-bottom:6px;background:var(--surface2);">
-      <div style="display:flex;align-items:center;gap:4px;margin-bottom:5px;">
-        <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--accent2);flex:1;">PNL ${r.pnl} <span style="color:var(--text3);font-size:9px;">row ${r.row||'?'}</span></span>
-        <button style="background:none;border:1px solid transparent;border-radius:3px;cursor:pointer;font-size:13px;padding:1px 5px;opacity:${visible?'1':'0.4'};" title="${visible?'Hide':'Show'}" onclick="ppToggleVisible('${pg}',${idx});renderMobilePanelsFor('${pg}')">${visible?'👁':'🚫'}</button>
-        <button style="background:none;border:1px solid transparent;border-radius:3px;cursor:pointer;font-size:13px;padding:1px 5px;${locked?'color:var(--danger);':''}" title="${locked?'Unlock':'Lock'}" onclick="ppToggleLock('${pg}',${idx});renderMobilePanelsFor('${pg}')">${locked?'🔒':'🔓'}</button>
-        ${hasOv?`<button style="background:none;border:1px solid transparent;border-radius:3px;cursor:pointer;font-size:11px;padding:1px 5px;color:var(--text3);" title="Reset" onclick="ppReset('${pg}',${idx});renderMobilePanelsFor('${pg}')">↺</button>`:''}
-      </div>
-      <div style="display:grid;grid-template-columns:14px 1fr 14px 1fr;gap:3px 5px;align-items:center;margin-bottom:6px;">
-        <span style="font-size:10px;color:var(--text3);text-align:right;">X</span>${inp('x',x)}
-        <span style="font-size:10px;color:var(--text3);text-align:right;">Y</span>${inp('y',y)}
-        <span style="font-size:10px;color:var(--text3);text-align:right;">W</span>${inp('w',w)}
-        <span style="font-size:10px;color:var(--text3);text-align:right;">H</span>${inp('h',h)}
-      </div>
-      <div style="font-size:9px;color:var(--text3);margin-bottom:3px;font-family:'IBM Plex Mono',monospace;">CORNERS (X offset)</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-bottom:3px;">
-        ${cornerInp('tl','TL')}${cornerInp('tr','TR')}
-        ${cornerInp('bl','BL')}${cornerInp('br','BR')}
-      </div>
-      ${hasCorners?`<button style="background:none;border:1px solid var(--border);border-radius:3px;cursor:pointer;font-size:10px;padding:2px 6px;color:var(--text3);width:100%;" onclick="resetCorners('${pg}',${idx});renderMobilePanelsFor('${pg}')">↺ Reset Corners</button>`:''}
-    </div>`;
+    return '<div style="border:1px solid var(--border);border-radius:3px;padding:7px;margin-bottom:6px;background:var(--surface2);">'
+      + '<div style="display:flex;align-items:center;gap:4px;margin-bottom:5px;">'
+      + '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;color:var(--accent2);flex:1;">PNL ' + r.pnl + ' <span style="color:var(--text3);font-size:9px;">row ' + (r.row||'?') + '</span></span>'
+      + '<button style="background:none;border:1px solid transparent;border-radius:3px;cursor:pointer;font-size:13px;padding:1px 5px;opacity:' + (visible?'1':'0.4') + ';" title="' + (visible?'Hide':'Show') + '" onclick="ppToggleVisible(\'' + pg + '\',' + idx + ');renderMobilePanelsFor(\'' + pg + '\')">' + (visible?'👁':'🚫') + '</button>'
+      + '<button style="background:none;border:1px solid transparent;border-radius:3px;cursor:pointer;font-size:13px;padding:1px 5px;' + (locked?'color:var(--danger);':'') + '" title="' + (locked?'Unlock':'Lock') + '" onclick="ppToggleLock(\'' + pg + '\',' + idx + ');renderMobilePanelsFor(\'' + pg + '\')">' + (locked?'🔒':'🔓') + '</button>'
+      + (hasOv ? '<button style="background:none;border:1px solid transparent;border-radius:3px;cursor:pointer;font-size:11px;padding:1px 5px;color:var(--text3);" title="Reset" onclick="ppReset(\'' + pg + '\',' + idx + ');renderMobilePanelsFor(\'' + pg + '\')">↺</button>' : '')
+      + '</div>'
+      + '<div style="display:grid;grid-template-columns:14px 1fr 14px 1fr;gap:3px 5px;align-items:center;margin-bottom:4px;">'
+      + '<span style="font-size:10px;color:var(--text3);text-align:right;">X</span>' + inp('x',x)
+      + '<span style="font-size:10px;color:var(--text3);text-align:right;">Y</span>' + inp('y',y)
+      + '<span style="font-size:10px;color:var(--text3);text-align:right;">W</span>' + inp('w',w)
+      + '<span style="font-size:10px;color:var(--text3);text-align:right;">H</span>' + inp('h',h)
+      + '</div>'
+      + ppCornerHTML(pg, idx)
+      + ppSplitHTML(pg, idx)
+      + '</div>';
   }).join('');
 }
 
@@ -4566,13 +4674,6 @@ function renderMobilePanelsFor(pg) {
   const body = document.getElementById('m-pp-body');
   if (body) body.innerHTML = getMobilePanelsHTML(pg);
   syncMobileLockBtn(pg);
-  // Sync Edit Corners button label to reflect current mode
-  const btn = document.querySelector('.corner-edit-btn');
-  if (btn) {
-    btn.dataset.pg = pg;
-    btn.textContent = cornerEditMode[pg] ? '🔒 Lock Corners' : '✏ Edit Corners';
-    btn.classList.toggle('active', !!cornerEditMode[pg]);
-  }
 }
 
 // ── LAYERS PANEL ──
@@ -4979,10 +5080,6 @@ function getMobileTabContent(tab) {
           </select>
           <button class="btn small" onclick="ppResetAll(document.getElementById('m-pp-page-sel').value);renderMobilePanelsFor(document.getElementById('m-pp-page-sel').value)">↺ All</button>
           <button class="btn small" id="m-pp-lock-btn" onclick="mPpToggleLockAll()" title="Lock/unlock layout"></button>
-        </div>
-        <div style="display:flex;gap:4px;margin-bottom:6px;">
-          <button class="btn small corner-edit-btn" data-pg="" onclick="toggleCornerEditMode(document.getElementById('m-pp-page-sel').value);this.dataset.pg=document.getElementById('m-pp-page-sel').value;" style="flex:1;">✏ Edit Corners</button>
-          <button class="btn small" onclick="resetAllCorners(document.getElementById('m-pp-page-sel').value);renderMobilePanelsFor(document.getElementById('m-pp-page-sel').value)" style="flex:1;" title="Reset all corner offsets">↺ Corners</button>
         </div>
         <div id="m-pp-body">${getMobilePanelsHTML(firstPg)}</div>
       </div>`;
