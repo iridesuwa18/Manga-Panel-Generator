@@ -2937,51 +2937,72 @@ function refreshCornerOverlay(pg) {
       const axis = pgAxis[idx] || 'free';
       const allLocked = ['tl','tr','bl','br'].every(k => !!lk[k]);
 
-      [
-        { key:'tl', baseX: r.x,       baseY: r.y       },
-        { key:'tr', baseX: r.x + r.w, baseY: r.y       },
-        { key:'bl', baseX: r.x,       baseY: r.y + r.h },
-        { key:'br', baseX: r.x + r.w, baseY: r.y + r.h },
-      ].forEach(({ key, baseX, baseY }) => {
-        const isLk = allLocked || !!lk[key];
-        const dot = document.createElement('div');
-        dot.className = 'corner-dot' + (isLk ? ' locked' : '');
-        dot.textContent = key.toUpperCase();
-        dot.dataset.pg  = pg;
-        dot.dataset.idx = idx;
-        dot.dataset.key = key;
+      // Issue 2: if all corners locked, skip entirely — don't render dots at all
+      if (!allLocked) {
+        [
+          { key:'tl', baseX: r.x,       baseY: r.y       },
+          { key:'tr', baseX: r.x + r.w, baseY: r.y       },
+          { key:'bl', baseX: r.x,       baseY: r.y + r.h },
+          { key:'br', baseX: r.x + r.w, baseY: r.y + r.h },
+        ].forEach(({ key, baseX, baseY }) => {
+          const isLk = !!lk[key];
+          if (isLk) return; // Issue 2: skip locked individual corners too
+          const dot = document.createElement('div');
+          dot.className = 'corner-dot';
+          dot.textContent = key.toUpperCase();
+          dot.dataset.pg  = pg;
+          dot.dataset.idx = idx;
+          dot.dataset.key = key;
 
-        const cx = baseX + (co[key]   || 0);
-        const cy = baseY + (co[key+'Y'] || 0);
-        dot.style.left = cx + 'px';
-        dot.style.top  = cy + 'px';
+          const cx = baseX + (co[key]   || 0);
+          const cy = baseY + (co[key+'Y'] || 0);
+          dot.style.left = cx + 'px';
+          dot.style.top  = cy + 'px';
 
-        if (!isLk) {
           setupCornerDotDrag(dot, pg, idx, key, baseX, baseY, axis);
-        }
-        ov.appendChild(dot);
-      });
+          ov.appendChild(dot);
+        });
+      }
     }
 
     // ── Split endpoint dots (shown whenever split is enabled) ──
     const sp = pgOvs[idx]?.split;
     if (sp) {
+      const isLocked = !!(splitLocks[pg]?.[idx]?.all);
+      // Issue 2: if split is locked, skip rendering dots entirely
+      if (isLocked) return;
+
       const pct  = Math.max(5, Math.min(95, sp.pos || 50)) / 100;
       const dir  = sp.dir || 'h';
       const so   = pgSo[idx] || {};
 
-      // Compute base positions of the two split endpoints on the panel edges
+      // Issue 1: compute base positions using corner-adjusted endpoints,
+      // matching exactly what buildSVG does with lp(corners.tl, corners.bl, pct).
+      const co      = pgCo[idx];
+      const isEna   = pgEna[idx] !== false;
+      const hasCorners = co && isEna;
+      const x1 = r.x, y1 = r.y, x2 = r.x + r.w, y2 = r.y + r.h;
+      const corners = hasCorners ? {
+        tl: { x: x1 + (co.tl||0),  y: y1 + (co.tlY||0) },
+        tr: { x: x2 + (co.tr||0),  y: y1 + (co.trY||0) },
+        br: { x: x2 + (co.br||0),  y: y2 + (co.brY||0) },
+        bl: { x: x1 + (co.bl||0),  y: y2 + (co.blY||0) },
+      } : {
+        tl: { x: x1, y: y1 }, tr: { x: x2, y: y1 },
+        br: { x: x2, y: y2 }, bl: { x: x1, y: y2 },
+      };
+      // Linear interpolate between two corner points
+      const lp = (a, b, t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+
       let aBase, bBase, aCursor, bCursor;
       if (dir === 'h') {
-        // A = left edge, B = right edge; moveable up/down
-        aBase   = { x: r.x,         y: r.y + r.h * pct };
-        bBase   = { x: r.x + r.w,   y: r.y + r.h * pct };
+        aBase   = lp(corners.tl, corners.bl, pct);
+        bBase   = lp(corners.tr, corners.br, pct);
         aCursor = 'ns-resize';
         bCursor = 'ns-resize';
       } else {
-        // A = top edge, B = bottom edge; moveable left/right
-        aBase   = { x: r.x + r.w * pct, y: r.y         };
-        bBase   = { x: r.x + r.w * pct, y: r.y + r.h   };
+        aBase   = lp(corners.tl, corners.tr, pct);
+        bBase   = lp(corners.bl, corners.br, pct);
         aCursor = 'ew-resize';
         bCursor = 'ew-resize';
       }
@@ -2990,11 +3011,10 @@ function refreshCornerOverlay(pg) {
         { key: 'a', base: aBase, label: 'A', cursor: aCursor },
         { key: 'b', base: bBase, label: 'B', cursor: bCursor },
       ].forEach(({ key, base, label, cursor }) => {
-        const isLocked = !!(splitLocks[pg]?.[idx]?.all);
         const dot = document.createElement('div');
-        dot.className = 'split-dot' + (isLocked ? ' locked' : '');
+        dot.className = 'split-dot';
         dot.textContent = label;
-        dot.style.cursor = isLocked ? 'not-allowed' : cursor;
+        dot.style.cursor = cursor;
         dot.dataset.pg  = pg;
         dot.dataset.idx = idx;
         dot.dataset.key = key;
