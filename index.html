@@ -3756,9 +3756,9 @@ function setupDrag(wrap,b,pgKey) {
     ox=e.clientX/scale-b.x; oy=e.clientY/scale-b.y;
     const onMove=ev=>{
       b.x=getSnapX(ev.clientX/scale-ox, pgKey); b.y=getSnapY(ev.clientY/scale-oy, pgKey);
-      // Re-apply clip in real time during drag
-      if (b.clipPanel !== null && b.clipPanel !== undefined) applyBubbleStyle(wrap, b);
       wrap.style.left=b.x+'px'; wrap.style.top=b.y+'px';
+      // Re-apply clip in real time during drag (clip rect is in page coords so must update)
+      if (b.clipPanel !== null && b.clipPanel !== undefined) applyBubbleClip(wrap, b);
       syncAllBPFields(b);
     };
     const onUp=()=>{
@@ -3797,8 +3797,7 @@ function setupResize(handle,wrap,b,pgKey) {
       const td=wrap.querySelector('.bubble-text');
       if(td) updateTextStyle(td,b);
       positionTailHandleInWrap(wrap,b);
-      // Re-apply clip in real time during resize
-      if (b.clipPanel !== null && b.clipPanel !== undefined) applyBubbleStyle(wrap, b);
+      // rebuildSVG already calls applyBubbleClip so clip is updated in real time
       syncAllBPFields(b);
     };
     const onUp=()=>{
