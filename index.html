@@ -494,19 +494,24 @@
   }
   .corner-dot {
     position: absolute;
-    width: 28px; height: 28px;
+    width: 44px; height: 44px;
     border-radius: 50%;
     background: var(--accent);
-    border: 3px solid #fff;
-    box-shadow: 0 2px 8px rgba(0,0,0,.5);
+    border: 4px solid #fff;
+    box-shadow: 0 2px 12px rgba(0,0,0,.6), 0 0 0 2px rgba(0,0,0,.3);
     transform: translate(-50%, -50%);
     cursor: move;
     pointer-events: all;
     box-sizing: border-box;
-    transition: background 0.15s;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; color: var(--ink);
+    font-family: 'IBM Plex Mono', monospace;
+    transition: background 0.1s, transform 0.1s;
+    touch-action: none;
   }
-  .corner-dot:active { background: #fff; }
-  .corner-dot.locked { background: #888; cursor: not-allowed; }
+  .corner-dot:hover { transform: translate(-50%, -50%) scale(1.15); }
+  .corner-dot:active { background: #fff; transform: translate(-50%, -50%) scale(1.2); }
+  .corner-dot.locked { background: #666; cursor: not-allowed; border-color: #999; }
   .bubble-wrap {
     position: absolute;
     pointer-events: all;
@@ -1571,62 +1576,90 @@ function buildSVG(pg, pgNum, panelRects, fillColor, strokeColor, strokeW, forExp
   }
 
   const pgCorners = cornerOffsets[pg] || {};
+  const pgCornerEnabled = cornerEnabled[pg] || {};
+
+  // Helper: get the 4 effective corner points of a panel
+  function getPanelCornerPts(r, co, isEnabled) {
+    const x1 = r.x, y1 = r.y, x2 = r.x + r.w, y2 = r.y + r.h;
+    if (!co || !isEnabled) return { tl:{x:x1,y:y1}, tr:{x:x2,y:y1}, br:{x:x2,y:y2}, bl:{x:x1,y:y2} };
+    return {
+      tl: { x: x1 + (co.tl||0),  y: y1 + (co.tlY||0) },
+      tr: { x: x2 + (co.tr||0),  y: y1 + (co.trY||0) },
+      br: { x: x2 + (co.br||0),  y: y2 + (co.brY||0) },
+      bl: { x: x1 + (co.bl||0),  y: y2 + (co.blY||0) },
+    };
+  }
+  function lp(a, b, t) { return { x: a.x + (b.x-a.x)*t, y: a.y + (b.y-a.y)*t }; }
+  function pp(p) { return p.x.toFixed(1)+','+p.y.toFixed(1); }
+  function polyAttr(...pts) { return pts.map(pp).join(' '); }
 
   const _ovs = ovs || panelOverrides[pg] || {};
   panelRects.filter(r => !r._hidden).forEach((r, idx) => {
     const co = pgCorners[idx];
+    const isEnabled = pgCornerEnabled[idx] !== false; // default true if set, but default off if never set
+    const hasCorners = co && isEnabled;
     const sp = _ovs[idx]?.split || null;
+    const corners = getPanelCornerPts(r, co, isEnabled);
+    const isSkewed = hasCorners && (co.tl||co.tr||co.bl||co.br||co.tlY||co.trY||co.blY||co.brY);
 
-    // Draw panel shape (polygon if corners, rect otherwise)
-    if (co) {
-      const x1 = r.x, y1 = r.y, x2 = r.x + r.w, y2 = r.y + r.h;
-      // Each corner can skew horizontally (dx) or vertically (dy)
-      const tlx = (x1 + (co.tl||0)).toFixed(1),  tly = (y1 + (co.tlY||0)).toFixed(1);
-      const trx = (x2 + (co.tr||0)).toFixed(1),   try_ = (y1 + (co.trY||0)).toFixed(1);
-      const brx = (x2 + (co.br||0)).toFixed(1),   bry = (y2 + (co.brY||0)).toFixed(1);
-      const blx = (x1 + (co.bl||0)).toFixed(1),   bly = (y2 + (co.blY||0)).toFixed(1);
-      const pts = `${tlx},${tly} ${trx},${try_} ${brx},${bry} ${blx},${bly}`;
-      svg += `<polygon points="${pts}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeW}" stroke-linejoin="miter"/>`;
-    } else {
-      svg += `<rect x="${r.x.toFixed(1)}" y="${r.y.toFixed(1)}" width="${r.w.toFixed(1)}" height="${r.h.toFixed(1)}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeW}"/>`;
+    const hasGapSplit = sp && sp.style === 'gap';
+
+    // ── Draw base panel shape (skip for hollow gap-split — sub-polys draw it) ──
+    if (!hasGapSplit) {
+      if (isSkewed) {
+        svg += `<polygon points="${polyAttr(corners.tl,corners.tr,corners.br,corners.bl)}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeW}" stroke-linejoin="miter"/>`;
+      } else {
+        svg += `<rect x="${r.x.toFixed(1)}" y="${r.y.toFixed(1)}" width="${r.w.toFixed(1)}" height="${r.h.toFixed(1)}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeW}"/>`;
+      }
     }
 
-    // Draw split line/gap if configured
+    // ── Draw split line/gap ──
     if (sp) {
-      const pct = Math.max(5, Math.min(95, sp.pos || 50)) / 100;
-      const gap = sp.gap || 0;
+      const pct  = Math.max(5, Math.min(95, sp.pos || 50)) / 100;
+      const gap  = sp.gap || 0;
       const half = gap / 2;
-      const sty = sp.style || 'line';
-      const dir = sp.dir || 'h';
+      const sty  = sp.style || 'line';
+      const dir  = sp.dir || 'h';
+
       if (dir === 'h') {
-        const sy = r.y + r.h * pct;
+        const splitL = lp(corners.tl, corners.bl, pct);
+        const splitR = lp(corners.tr, corners.br, pct);
+
         if (sty === 'line') {
-          svg += `<line x1="${r.x.toFixed(1)}" y1="${sy.toFixed(1)}" x2="${(r.x+r.w).toFixed(1)}" y2="${sy.toFixed(1)}" stroke="${strokeColor}" stroke-width="${strokeW}"/>`;
+          svg += `<line x1="${splitL.x.toFixed(1)}" y1="${splitL.y.toFixed(1)}" x2="${splitR.x.toFixed(1)}" y2="${splitR.y.toFixed(1)}" stroke="${strokeColor}" stroke-width="${strokeW}"/>`;
         } else {
-          // Two separate bordered rectangles with a gap between them
-          // hollow = gap is empty (page bg), solid = gap filled same colour as panel
-          const topH = sy - r.y - half;
-          const botY = sy + half;
-          const botH = r.y + r.h - botY;
-          // Erase the original panel shape in this area first (hollow only)
-          if (sty !== 'solid') svg += `<rect x="${r.x.toFixed(1)}" y="${r.y.toFixed(1)}" width="${r.w.toFixed(1)}" height="${r.h.toFixed(1)}" fill="white" stroke="none"/>`;
-          if (topH > 0) svg += `<rect x="${r.x.toFixed(1)}" y="${r.y.toFixed(1)}" width="${r.w.toFixed(1)}" height="${topH.toFixed(1)}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeW}"/>`;
-          if (botH > 0) svg += `<rect x="${r.x.toFixed(1)}" y="${botY.toFixed(1)}" width="${r.w.toFixed(1)}" height="${botH.toFixed(1)}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeW}"/>`;
-          // Fill gap area for solid style
-          if (gap > 0 && sty === 'solid') svg += `<rect x="${r.x.toFixed(1)}" y="${(sy-half).toFixed(1)}" width="${r.w.toFixed(1)}" height="${gap.toFixed(1)}" fill="${fillColor}" stroke="none"/>`;
+          const hRatio = r.h > 0 ? half / r.h : 0;
+          const tpct = Math.max(0.001, pct - hRatio);
+          const bpct = Math.min(0.999, pct + hRatio);
+          const topBL = lp(corners.tl, corners.bl, tpct);
+          const topBR = lp(corners.tr, corners.br, tpct);
+          const botTL = lp(corners.tl, corners.bl, bpct);
+          const botTR = lp(corners.tr, corners.br, bpct);
+          if (sty === 'gap') {
+            svg += `<polygon points="${polyAttr(corners.tl,corners.tr,corners.br,corners.bl)}" fill="white" stroke="none"/>`;
+          }
+          svg += `<polygon points="${polyAttr(corners.tl,corners.tr,topBR,topBL)}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeW}" stroke-linejoin="miter"/>`;
+          svg += `<polygon points="${polyAttr(botTL,botTR,corners.br,corners.bl)}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeW}" stroke-linejoin="miter"/>`;
         }
       } else {
-        const sx = r.x + r.w * pct;
+        const splitT = lp(corners.tl, corners.tr, pct);
+        const splitB = lp(corners.bl, corners.br, pct);
+
         if (sty === 'line') {
-          svg += `<line x1="${sx.toFixed(1)}" y1="${r.y.toFixed(1)}" x2="${sx.toFixed(1)}" y2="${(r.y+r.h).toFixed(1)}" stroke="${strokeColor}" stroke-width="${strokeW}"/>`;
+          svg += `<line x1="${splitT.x.toFixed(1)}" y1="${splitT.y.toFixed(1)}" x2="${splitB.x.toFixed(1)}" y2="${splitB.y.toFixed(1)}" stroke="${strokeColor}" stroke-width="${strokeW}"/>`;
         } else {
-          const leftW = sx - r.x - half;
-          const rightX = sx + half;
-          const rightW = r.x + r.w - rightX;
-          if (sty !== 'solid') svg += `<rect x="${r.x.toFixed(1)}" y="${r.y.toFixed(1)}" width="${r.w.toFixed(1)}" height="${r.h.toFixed(1)}" fill="white" stroke="none"/>`;
-          if (leftW > 0)  svg += `<rect x="${r.x.toFixed(1)}" y="${r.y.toFixed(1)}" width="${leftW.toFixed(1)}" height="${r.h.toFixed(1)}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeW}"/>`;
-          if (rightW > 0) svg += `<rect x="${rightX.toFixed(1)}" y="${r.y.toFixed(1)}" width="${rightW.toFixed(1)}" height="${r.h.toFixed(1)}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeW}"/>`;
-          if (gap > 0 && sty === 'solid') svg += `<rect x="${(sx-half).toFixed(1)}" y="${r.y.toFixed(1)}" width="${gap.toFixed(1)}" height="${r.h.toFixed(1)}" fill="${fillColor}" stroke="none"/>`;
+          const wRatio = r.w > 0 ? half / r.w : 0;
+          const lpct = Math.max(0.001, pct - wRatio);
+          const rpct = Math.min(0.999, pct + wRatio);
+          const leftTR = lp(corners.tl, corners.tr, lpct);
+          const leftBR = lp(corners.bl, corners.br, lpct);
+          const rightTL = lp(corners.tl, corners.tr, rpct);
+          const rightBL = lp(corners.bl, corners.br, rpct);
+          if (sty === 'gap') {
+            svg += `<polygon points="${polyAttr(corners.tl,corners.tr,corners.br,corners.bl)}" fill="white" stroke="none"/>`;
+          }
+          svg += `<polygon points="${polyAttr(corners.tl,leftTR,leftBR,corners.bl)}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeW}" stroke-linejoin="miter"/>`;
+          svg += `<polygon points="${polyAttr(rightTL,corners.tr,corners.br,rightBL)}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeW}" stroke-linejoin="miter"/>`;
         }
       }
     }
@@ -2250,6 +2283,8 @@ function _cloneState() {
     panelOverrides,
     cornerOffsets,
     cornerLocks,
+    cornerAxisMode,
+    cornerEnabled,
   });
 }
 
@@ -2265,6 +2300,10 @@ function _applyStateObj(d) {
   Object.assign(cornerOffsets, d.cornerOffsets || {});
   Object.keys(cornerLocks).forEach(k => delete cornerLocks[k]);
   Object.assign(cornerLocks, d.cornerLocks || {});
+  Object.keys(cornerAxisMode).forEach(k => delete cornerAxisMode[k]);
+  Object.assign(cornerAxisMode, d.cornerAxisMode || {});
+  Object.keys(cornerEnabled).forEach(k => delete cornerEnabled[k]);
+  Object.assign(cornerEnabled, d.cornerEnabled || {});
 }
 
 // Call this after any programmatic mutation (import, delete, type change…)
@@ -2780,9 +2819,11 @@ function getSnapY(y, pg) {
 const _lastPanelRects = {};
 const _lastBaseRects  = {};          // pre-override rects, used by panel editor
 const panelOverrides  = {};          // panelOverrides[pg][idx] = {x,y,w,h,visible,locked}
-const cornerOffsets   = {};          // cornerOffsets[pg][idx] = {tl,tr,bl,br} x-offsets only
+const cornerOffsets   = {};          // cornerOffsets[pg][idx] = {tl,tr,bl,br,tlY,trY,blY,brY}
 const cornerEditMode  = {};          // cornerEditMode[pg] = true/false
 const cornerLocks     = {};          // cornerLocks[pg][idx] = {tl,tr,bl,br} booleans
+const cornerAxisMode  = {};          // cornerAxisMode[pg][idx] = 'free'|'h'|'v'
+const cornerEnabled   = {};          // cornerEnabled[pg][idx] = true/false (are offsets applied?)
 
 // ── CORNER EDITING ────────────────────────────────────────────────────────────
 
@@ -2818,18 +2859,21 @@ function refreshCornerOverlay(pg) {
   ov.innerHTML = '';
   if (!cornerEditMode[pg]) return;
 
-  const rects = _lastPanelRects[pg] || [];
-  const pgCo  = cornerOffsets[pg] || {};
-  const pgLk  = cornerLocks[pg]   || {};
-  const pgOvs = panelOverrides[pg] || {};
+  const rects  = _lastPanelRects[pg] || [];
+  const pgCo   = cornerOffsets[pg]   || {};
+  const pgLk   = cornerLocks[pg]     || {};
+  const pgEna  = cornerEnabled[pg]   || {};
+  const pgAxis = cornerAxisMode[pg]  || {};
 
   rects.forEach((r, idx) => {
     if (r._hidden) return;
-    // Only show dots when this panel's corner editor is open
-    if (!pgOvs[idx]?._cornersOpen) return;
+    // Only show dots for panels where corner editing is enabled
+    if (!pgEna[idx]) return;
 
-    const co = pgCo[idx] || {};
-    const lk = pgLk[idx] || {};
+    const co   = pgCo[idx]  || {};
+    const lk   = pgLk[idx]  || {};
+    const axis = pgAxis[idx] || 'free';
+    const allLocked = ['tl','tr','bl','br'].every(k => !!lk[k]);
 
     [
       { key:'tl', baseX: r.x,       baseY: r.y       },
@@ -2837,106 +2881,94 @@ function refreshCornerOverlay(pg) {
       { key:'bl', baseX: r.x,       baseY: r.y + r.h },
       { key:'br', baseX: r.x + r.w, baseY: r.y + r.h },
     ].forEach(({ key, baseX, baseY }) => {
-      const isLk = !!lk[key];
+      const isLk = allLocked || !!lk[key];
       const dot = document.createElement('div');
       dot.className = 'corner-dot' + (isLk ? ' locked' : '');
-      dot.title = isLk
-        ? `${CORNER_META[key].tip} (locked — click to unlock)`
-        : `Drag ${CORNER_META[key].tip} — ↔ horizontal · ↕ vertical`;
-      dot.style.cursor = isLk ? 'not-allowed' : 'move';
-      const cx = baseX + (co[key]  || 0);
-      const cy = baseY + (co[key+'Y'] || 0);
-      dot.style.left = cx + 'px';
-      dot.style.top  = cy + 'px';
+      dot.textContent = key.toUpperCase();
       dot.dataset.pg  = pg;
       dot.dataset.idx = idx;
       dot.dataset.key = key;
 
-      if (isLk) {
-        dot.addEventListener('pointerdown', e => {
-          e.stopPropagation();
-          if (!cornerLocks[pg]) cornerLocks[pg] = {};
-          cornerLocks[pg][idx] = { ...(cornerLocks[pg][idx]||{}), [key]: false };
-          refreshCornerOverlay(pg);
-          if (document.getElementById('panelsPanel')?.classList.contains('open')) refreshPanelsPanel(pg);
-          renderMobilePanelsFor(pg);
-        });
-      } else {
-        setupCornerDotDrag(dot, pg, idx, key, baseX, baseY);
+      const cx = baseX + (co[key]   || 0);
+      const cy = baseY + (co[key+'Y'] || 0);
+      dot.style.left = cx + 'px';
+      dot.style.top  = cy + 'px';
+
+      if (!isLk) {
+        setupCornerDotDrag(dot, pg, idx, key, baseX, baseY, axis);
       }
       ov.appendChild(dot);
     });
   });
 }
 
-function setupCornerDotDrag(dot, pg, idx, key, baseX, baseY) {
-  dot.addEventListener('pointerdown', e => {
-    e.preventDefault(); e.stopPropagation();
-    dot.setPointerCapture(e.pointerId);
-    const startClientX = e.clientX;
-    const startClientY = e.clientY;
-    const startOffX = (cornerOffsets[pg]?.[idx]?.[key])        || 0;
-    const startOffY = (cornerOffsets[pg]?.[idx]?.[key + 'Y'])  || 0;
+function setupCornerDotDrag(dot, pg, idx, key, baseX, baseY, axis) {
+  let dragging = false;
+  let startClientX, startClientY, startOffX, startOffY, wrapScale;
 
-    // Find scale of the svgWrap so we convert screen px → SVG px correctly
+  dot.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    dot.setPointerCapture(e.pointerId);
+    dragging = true;
+    startClientX = e.clientX;
+    startClientY = e.clientY;
+    startOffX = (cornerOffsets[pg]?.[idx]?.[key])       || 0;
+    startOffY = (cornerOffsets[pg]?.[idx]?.[key + 'Y']) || 0;
+
+    // Compute the combined scale: SVG internal scale × canvas zoom
     const cont = document.querySelector(`.page-output[data-pg="${pg}"]`);
     const svgWrap = cont?.querySelector('div[style*="transform-origin"]');
-    const wrapScale = svgWrap ? parseFloat(svgWrap.style.transform.replace('scale(','')) : scale;
-
-    const onMove = ev => {
-      const dx = Math.round((ev.clientX - startClientX) / wrapScale);
-      const dy = Math.round((ev.clientY - startClientY) / wrapScale);
-      if (!cornerOffsets[pg]) cornerOffsets[pg] = {};
-      if (!cornerOffsets[pg][idx]) cornerOffsets[pg][idx] = {};
-      cornerOffsets[pg][idx][key]        = startOffX + dx;
-      cornerOffsets[pg][idx][key + 'Y'] = startOffY + dy;
-      // Live-update dot position
-      dot.style.left = (baseX + cornerOffsets[pg][idx][key])        + 'px';
-      dot.style.top  = (baseY + cornerOffsets[pg][idx][key + 'Y']) + 'px';
-      // Redraw SVG inline
-      rebuildPageSVG(pg);
-      // Sync panel editor number inputs live
-      _syncCornerInputs(pg, idx);
-    };
-    const onUp = () => {
-      dot.removeEventListener('pointermove', onMove);
-      dot.removeEventListener('pointerup', onUp);
-      snapshotState();
-    };
-    dot.addEventListener('pointermove', onMove);
-    dot.addEventListener('pointerup', onUp);
+    const svgScale = svgWrap ? parseFloat(svgWrap.style.transform.replace('scale(','')) || scale : scale;
+    wrapScale = svgScale * (canvasZoom || 1);
   });
 
-  // Long-press to lock
-  let lockTimer;
-  dot.addEventListener('pointerdown', () => { lockTimer = setTimeout(() => {
-    if (!cornerLocks[pg]) cornerLocks[pg] = {};
-    if (!cornerLocks[pg][idx]) cornerLocks[pg][idx] = {};
-    cornerLocks[pg][idx][key] = true;
-    refreshCornerOverlay(pg);
-    if (document.getElementById('panelsPanel')?.classList.contains('open')) refreshPanelsPanel(pg);
-    renderMobilePanelsFor(pg);
-  }, 600); });
-  dot.addEventListener('pointerup',    () => clearTimeout(lockTimer));
-  dot.addEventListener('pointercancel',() => clearTimeout(lockTimer));
+  dot.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    e.preventDefault();
+
+    const rawDx = (e.clientX - startClientX) / wrapScale;
+    const rawDy = (e.clientY - startClientY) / wrapScale;
+
+    // Apply axis constraint
+    const dx = (axis === 'h') ? 0 : Math.round(rawDx); // 'h' = horizontal split = up/down only = no X
+    const dy = (axis === 'v') ? 0 : Math.round(rawDy); // 'v' = vertical split   = left/right   = no Y
+
+    if (!cornerOffsets[pg]) cornerOffsets[pg] = {};
+    if (!cornerOffsets[pg][idx]) cornerOffsets[pg][idx] = {};
+
+    if (axis !== 'h') cornerOffsets[pg][idx][key]        = startOffX + dx;
+    if (axis !== 'v') cornerOffsets[pg][idx][key + 'Y']  = startOffY + dy;
+
+    // Live-update dot position
+    dot.style.left = (baseX + (cornerOffsets[pg][idx][key]       || 0)) + 'px';
+    dot.style.top  = (baseY + (cornerOffsets[pg][idx][key + 'Y'] || 0)) + 'px';
+
+    rebuildPageSVG(pg);
+    _syncCornerInputs(pg, idx);
+
+    // Refresh bubble clips for this page
+    const pgKey = pg;
+    document.querySelectorAll(`.page-output[data-pg="${pgKey}"] .bubble-wrap`).forEach(wrap => {
+      const b = (bubbles[pgKey]||[]).find(x => x.id === wrap.dataset.id);
+      if (b && b.clipPanel === idx) applyBubbleClip(wrap, b);
+    });
+  });
+
+  dot.addEventListener('pointerup', () => {
+    dragging = false;
+    snapshotState();
+  });
+  dot.addEventListener('pointercancel', () => { dragging = false; });
 }
 
 // Sync corner number inputs in the panel editor card without a full re-render
 function _syncCornerInputs(pg, idx) {
-  const co = cornerOffsets[pg]?.[idx] || {};
-  // Desktop panel editor card
-  const card = document.getElementById('pp-card-' + idx);
-  if (card) {
-    ['tl','tr','bl','br'].forEach(k => {
-      // Each corner input group has ↔ and ↕ inputs in order
-      const inputs = card.querySelectorAll(`[onchange*="setCornerOffset"][onchange*="'${k}'"]`);
-      inputs.forEach(inp => {
-        const isY = inp.getAttribute('onchange')?.includes("'" + k + "Y'");
-        inp.value = Math.round(isY ? (co[k+'Y']||0) : (co[k]||0));
-      });
-    });
+  // Since the corner section is rebuilt per-card, we just refresh the panels panel if open
+  if (document.getElementById('panelsPanel')?.classList.contains('open')) {
+    refreshPanelsPanel(pg);
   }
-  // Mobile panel body — live refresh is acceptable here (small DOM)
+  // Mobile panel body
   const mBody = document.getElementById('m-pp-body');
   if (mBody) {
     const sel = document.getElementById('m-pp-page-sel');
@@ -2947,16 +2979,26 @@ function _syncCornerInputs(pg, idx) {
 function resetCorners(pg, idx) {
   if (cornerOffsets[pg]) delete cornerOffsets[pg][idx];
   if (cornerLocks[pg])   delete cornerLocks[pg][idx];
+  if (cornerAxisMode[pg]) delete cornerAxisMode[pg][idx];
+  if (cornerEnabled[pg]) delete cornerEnabled[pg][idx];
+  // Update cornerEditMode
+  const anyEnabled = Object.values(cornerEnabled[pg]||{}).some(v => v === true);
+  cornerEditMode[pg] = anyEnabled;
   rebuildPageSVG(pg);
   refreshCornerOverlay(pg);
+  if (document.getElementById('panelsPanel')?.classList.contains('open')) refreshPanelsPanel(pg);
   snapshotState();
 }
 
 function resetAllCorners(pg) {
   delete cornerOffsets[pg];
   delete cornerLocks[pg];
+  delete cornerAxisMode[pg];
+  delete cornerEnabled[pg];
+  cornerEditMode[pg] = false;
   rebuildPageSVG(pg);
   refreshCornerOverlay(pg);
+  if (document.getElementById('panelsPanel')?.classList.contains('open')) refreshPanelsPanel(pg);
   snapshotState();
 }
 
@@ -2966,14 +3008,21 @@ function setCornerOffset(pg, idx, key, val) {
   cornerOffsets[pg][idx][key] = Math.round(val);
   rebuildPageSVG(pg);
   refreshCornerOverlay(pg);
+  // Refresh bubble clips
+  document.querySelectorAll(`.page-output[data-pg="${pg}"] .bubble-wrap`).forEach(wrap => {
+    const b = (bubbles[pg]||[]).find(x => x.id === wrap.dataset.id);
+    if (b && b.clipPanel === idx) applyBubbleClip(wrap, b);
+  });
   snapshotState();
 }
 
 function toggleCornerLock(pg, idx, key) {
+  // Legacy: kept for compatibility. Now just delegates to all-corners lock.
   if (!cornerLocks[pg]) cornerLocks[pg] = {};
   if (!cornerLocks[pg][idx]) cornerLocks[pg][idx] = {};
   cornerLocks[pg][idx][key] = !cornerLocks[pg][idx][key];
   refreshCornerOverlay(pg);
+  if (document.getElementById('panelsPanel')?.classList.contains('open')) refreshPanelsPanel(pg);
   renderMobilePanelsFor(pg);
 }
 
@@ -3000,6 +3049,12 @@ function rebuildPageSVG(pg) {
   }
   // Also update stored svgStr on container
   cont.dataset.svg = newSvg;
+
+  // Re-apply bubble clips so they conform to new panel shapes
+  document.querySelectorAll(`.page-output[data-pg="${pg}"] .bubble-wrap`).forEach(wrap => {
+    const b = (bubbles[pg]||[]).find(x => x.id === wrap.dataset.id);
+    if (b && b.clipPanel != null) applyBubbleClip(wrap, b);
+  });
 }
 
 // ─────────────────────────────────────────────
@@ -3570,7 +3625,6 @@ function applyBubbleClip(wrap, b) {
   // Clear clip
   const clearClip = () => {
     if (svgEl) {
-      // Remove injected defs/clipPath
       svgEl.querySelector('defs.bubble-clip-defs')?.remove();
       svgEl.querySelectorAll(':scope > path, :scope > ellipse, :scope > rect, :scope > g')
            .forEach(el => el.removeAttribute('clip-path'));
@@ -3590,24 +3644,14 @@ function applyBubbleClip(wrap, b) {
   if (!r) { clearClip(); return; }
 
   const sw = (parseInt(document.getElementById('strokeWidth')?.value) || 8) / 2;
-  // Clip rect in bubble-local SVG coordinates
-  const cx = r.x - b.x + sw;
-  const cy = r.y - b.y + sw;
-  const cw = Math.max(0, r.w - sw * 2);
-  const ch = Math.max(0, r.h - sw * 2);
 
-  // Text: plain inset (text never overflows bubble box)
-  if (txtEl) {
-    const top    = Math.max(0, cy);
-    const left   = Math.max(0, cx);
-    const bottom = Math.max(0, b.h - (cy + ch));
-    const right  = Math.max(0, b.w - (cx + cw));
-    txtEl.style.clipPath = `inset(${top}px ${right}px ${bottom}px ${left}px)`;
-    wrap._lastClipVal    = txtEl.style.clipPath;
-  }
+  // Check if this panel has active corner offsets → use polygon clip
+  const co  = (cornerOffsets[pgKey]||{})[b.clipPanel];
+  const ena = (cornerEnabled[pgKey]||{})[b.clipPanel];
+  const hasCorners = co && ena !== false &&
+    (co.tl||co.tr||co.bl||co.br||co.tlY||co.trY||co.blY||co.brY);
 
-  // SVG: use a <clipPath> with a unique ID per bubble so multiple clipped
-  // bubbles on the same page don't interfere with each other.
+  // SVG clip via <clipPath>
   if (svgEl) {
     svgEl.style.clipPath = '';
     const clipId = 'bclip-' + b.id;
@@ -3618,25 +3662,59 @@ function applyBubbleClip(wrap, b) {
       const cp = document.createElementNS('http://www.w3.org/2000/svg', 'clipPath');
       cp.id = clipId;
       cp.setAttribute('clipPathUnits', 'userSpaceOnUse');
-      const cr = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      cr.classList.add('bclip-rect');
-      cp.appendChild(cr);
       defs.appendChild(cp);
       svgEl.insertBefore(defs, svgEl.firstChild);
     } else {
-      // Ensure the clipPath id is current (bubble id may have changed after duplicate)
       const cp = defs.querySelector('clipPath');
       if (cp) cp.id = clipId;
     }
-    const clipRect = defs.querySelector('.bclip-rect');
-    if (clipRect) {
-      clipRect.setAttribute('x', cx);
-      clipRect.setAttribute('y', cy);
-      clipRect.setAttribute('width',  cw);
-      clipRect.setAttribute('height', ch);
+    const cp = defs.querySelector('clipPath');
+    // Remove old clip shape
+    while (cp.firstChild) cp.removeChild(cp.firstChild);
+
+    if (hasCorners) {
+      // Polygon clip — transform corner points into bubble-local space
+      const x1 = r.x, y1 = r.y, x2 = r.x + r.w, y2 = r.y + r.h;
+      const pts = [
+        { x: x1 + (co.tl||0)  - b.x + sw, y: y1 + (co.tlY||0) - b.y + sw },
+        { x: x2 + (co.tr||0)  - b.x - sw, y: y1 + (co.trY||0) - b.y + sw },
+        { x: x2 + (co.br||0)  - b.x - sw, y: y2 + (co.brY||0) - b.y - sw },
+        { x: x1 + (co.bl||0)  - b.x + sw, y: y2 + (co.blY||0) - b.y - sw },
+      ];
+      const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+      poly.setAttribute('points', pts.map(p => `${p.x},${p.y}`).join(' '));
+      cp.appendChild(poly);
+    } else {
+      // Rect clip
+      const cx = r.x - b.x + sw;
+      const cy = r.y - b.y + sw;
+      const cw = Math.max(0, r.w - sw * 2);
+      const ch = Math.max(0, r.h - sw * 2);
+      const cr = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      cr.setAttribute('x', cx); cr.setAttribute('y', cy);
+      cr.setAttribute('width', cw); cr.setAttribute('height', ch);
+      cp.appendChild(cr);
     }
     svgEl.querySelectorAll(':scope > path, :scope > ellipse, :scope > rect, :scope > g')
          .forEach(el => el.setAttribute('clip-path', `url(#${clipId})`));
+
+    // Text element: use CSS clip-path for rect (polygon not well-supported in CSS)
+    if (txtEl) {
+      if (hasCorners) {
+        txtEl.style.clipPath = '';
+      } else {
+        const cx = r.x - b.x + sw;
+        const cy = r.y - b.y + sw;
+        const cw = Math.max(0, r.w - sw * 2);
+        const ch = Math.max(0, r.h - sw * 2);
+        const top    = Math.max(0, cy);
+        const left   = Math.max(0, cx);
+        const bottom = Math.max(0, b.h - (cy + ch));
+        const right  = Math.max(0, b.w - (cx + cw));
+        txtEl.style.clipPath = `inset(${top}px ${right}px ${bottom}px ${left}px)`;
+      }
+      wrap._lastClipVal = txtEl.style.clipPath;
+    }
   }
 }
 
@@ -4340,94 +4418,118 @@ const CORNER_META = {
 };
 
 function ppCornerHTML(pg, idx) {
-  const co  = (cornerOffsets[pg]||{})[idx] || {};
-  const lk  = (cornerLocks[pg]||{})[idx]   || {};
-  const ov  = (panelOverrides[pg]||{})[idx] || {};
-  const open = !!ov._cornersOpen;
-
-  // Mini visual panel diagram showing 4 draggable-looking corner markers
-  const diagramSVG = `<svg viewBox="0 0 60 44" width="60" height="44" style="display:block;flex-shrink:0;">
-    <rect x="4" y="4" width="52" height="36" fill="var(--surface3)" stroke="var(--border2)" stroke-width="1.5" rx="1"/>
-    <circle cx="4"  cy="4"  r="4.5" fill="var(--accent2)" stroke="var(--surface)" stroke-width="1"/>
-    <circle cx="56" cy="4"  r="4.5" fill="var(--accent2)" stroke="var(--surface)" stroke-width="1"/>
-    <circle cx="4"  cy="40" r="4.5" fill="var(--accent2)" stroke="var(--surface)" stroke-width="1"/>
-    <circle cx="56" cy="40" r="4.5" fill="var(--accent2)" stroke="var(--surface)" stroke-width="1"/>
-    <text x="30" y="25" text-anchor="middle" font-size="7" fill="var(--text3)" font-family="monospace">drag</text>
-  </svg>`;
-
+  const co   = (cornerOffsets[pg]||{})[idx] || {};
+  const lk   = (cornerLocks[pg]||{})[idx]   || {};
+  const axis = (cornerAxisMode[pg]||{})[idx] || 'free';
+  const ena  = (cornerEnabled[pg]||{})[idx];
+  // enabled = true if ever explicitly set true, OR if there are any non-zero offsets
   const anySet = ['tl','tr','bl','br'].some(k => co[k] || co[k+'Y']);
+  const isEnabled = ena === true || (ena === undefined && anySet);
+  const allLocked = ['tl','tr','bl','br'].every(k => !!lk[k]);
 
   const cornerInput = (key) => {
-    const isLk = !!lk[key];
     const xVal = Math.round(co[key]||0);
     const yVal = Math.round(co[key+'Y']||0);
-    const { label, tip } = CORNER_META[key];
-    const dis = isLk ? 'disabled' : '';
-    const op  = isLk ? '0.45' : '1';
-    const lockIcon = isLk ? '🔒' : '🔓';
-    return '<div style="background:var(--surface3);border:1px solid var(--border);border-radius:3px;padding:4px 5px;">'
-      // Header row: label + tooltip + lock
-      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">'
-      + '<span title="' + tip + '" style="font-size:10px;color:var(--accent2);font-family:\'IBM Plex Mono\',monospace;cursor:help;border-bottom:1px dashed var(--accent2);">' + label + '</span>'
-      + '<span title="' + tip + '" style="font-size:9px;color:var(--text3);flex:1;margin-left:4px;cursor:help;">' + tip + '</span>'
-      + '<button onclick="toggleCornerLock(\'' + pg + '\',' + idx + ',\'' + key + '\')" title="' + (isLk?'Unlock this corner':'Lock this corner to prevent accidental changes') + '" style="background:none;border:none;cursor:pointer;font-size:10px;padding:0 1px;color:' + (isLk?'var(--danger)':'var(--text3)') + ';">' + lockIcon + '</button>'
-      + '</div>'
-      // X row
-      + '<div style="display:flex;align-items:center;gap:3px;margin-bottom:2px;opacity:' + op + ';">'
-      + '<span title="Horizontal skew — shifts this corner left (−) or right (+)" style="font-size:9px;color:var(--text3);width:12px;cursor:help;">↔</span>'
-      + '<input type="number" value="' + xVal + '" ' + dis + ' style="flex:1;min-width:0;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:2px 3px;font-size:10px;border-radius:2px;font-family:\'IBM Plex Mono\',monospace;"'
-      + ' onchange="setCornerOffset(\'' + pg + '\',' + idx + ',\'' + key + '\',+this.value)" title="Horizontal (X) skew for ' + tip + '">'
-      + '</div>'
-      // Y row
-      + '<div style="display:flex;align-items:center;gap:3px;opacity:' + op + ';">'
-      + '<span title="Vertical skew — shifts this corner up (−) or down (+)" style="font-size:9px;color:var(--text3);width:12px;cursor:help;">↕</span>'
-      + '<input type="number" value="' + yVal + '" ' + dis + ' style="flex:1;min-width:0;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:2px 3px;font-size:10px;border-radius:2px;font-family:\'IBM Plex Mono\',monospace;"'
-      + ' onchange="setCornerOffset(\'' + pg + '\',' + idx + ',\'' + (key+'Y') + '\',+this.value)" title="Vertical (Y) skew for ' + tip + '">'
-      + '</div>'
-      + '</div>';
+    const { label } = CORNER_META[key];
+    const disabled = allLocked ? 'disabled' : '';
+    const showX = axis === 'free' || axis === 'v'; // vertical split = left/right movement = X
+    const showY = axis === 'free' || axis === 'h'; // horizontal split = up/down movement = Y
+
+    let inp = `<div style="background:var(--surface3);border:1px solid var(--border);border-radius:3px;padding:4px 6px;opacity:${allLocked?0.5:1};">`;
+    inp += `<div style="font-size:10px;color:var(--accent2);font-family:'IBM Plex Mono',monospace;margin-bottom:3px;">${label}</div>`;
+    if (showX) {
+      inp += `<div style="display:flex;align-items:center;gap:3px;${showY?'margin-bottom:2px;':''}">`;
+      inp += `<span style="font-size:9px;color:var(--text3);width:10px;">↔</span>`;
+      inp += `<input type="number" value="${xVal}" ${disabled} style="flex:1;min-width:0;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:2px 3px;font-size:10px;border-radius:2px;font-family:'IBM Plex Mono',monospace;"`;
+      inp += ` onchange="setCornerOffset('${pg}',${idx},'${key}',+this.value)">`;
+      inp += `</div>`;
+    }
+    if (showY) {
+      inp += `<div style="display:flex;align-items:center;gap:3px;">`;
+      inp += `<span style="font-size:9px;color:var(--text3);width:10px;">↕</span>`;
+      inp += `<input type="number" value="${yVal}" ${disabled} style="flex:1;min-width:0;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:2px 3px;font-size:10px;border-radius:2px;font-family:'IBM Plex Mono',monospace;"`;
+      inp += ` onchange="setCornerOffset('${pg}',${idx},'${key+'Y'}',+this.value)">`;
+      inp += `</div>`;
+    }
+    inp += `</div>`;
+    return inp;
   };
 
-  let html = '<div style="margin-top:6px;border-top:1px solid var(--border);padding-top:5px;">'
-    // Section header with checkbox toggle
-    + '<div style="display:flex;align-items:center;gap:6px;margin-bottom:' + (open?'6':'0') + 'px;">'
-    + '<label style="display:flex;align-items:center;gap:5px;cursor:pointer;flex:1;">'
-    + '<input type="checkbox" ' + (open?'checked':'') + ' style="accent-color:var(--accent2);" onchange="ppToggleCornersOpen(\'' + pg + '\',' + idx + ',this.checked)">'
-    + '<span style="font-size:9px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;text-transform:uppercase;letter-spacing:0.5px;">Edit Corners</span>'
-    + (anySet ? '<span style="font-size:8px;background:var(--accent2);color:var(--ink);border-radius:2px;padding:0 3px;font-family:\'IBM Plex Mono\',monospace;">active</span>' : '')
-    + '</label>'
-    + (anySet ? '<button onclick="resetCorners(\'' + pg + '\',' + idx + ')" title="Reset all corner offsets for this panel" style="background:none;border:1px solid var(--border);border-radius:2px;cursor:pointer;font-size:9px;color:var(--text3);padding:1px 5px;">↺ Reset</button>' : '')
-    + '</div>';
+  let html = `<div style="margin-top:6px;border-top:1px solid var(--border);padding-top:5px;">`;
 
-  if (open) {
-    html += '<div style="display:flex;gap:6px;align-items:flex-start;margin-bottom:5px;">'
-      + diagramSVG
-      + '<div style="font-size:9px;color:var(--text3);line-height:1.5;">'
-      + '↔ shifts the corner <b style="color:var(--text2);">left / right</b><br>'
-      + '↕ shifts the corner <b style="color:var(--text2);">up / down</b><br>'
-      + 'Negative = left/up &nbsp; Positive = right/down'
-      + '</div>'
-      + '</div>'
-      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">'
-      + cornerInput('tl') + cornerInput('tr')
-      + cornerInput('bl') + cornerInput('br')
-      + '</div>';
+  // Row 1: Checkbox + label + lock button
+  html += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:${isEnabled?'6':'0'}px;">`;
+  html += `<label style="display:flex;align-items:center;gap:5px;cursor:pointer;flex:1;">`;
+  html += `<input type="checkbox" ${isEnabled?'checked':''} style="accent-color:var(--accent2);" onchange="ppToggleCornersEnabled('${pg}',${idx},this.checked)">`;
+  html += `<span style="font-size:9px;color:var(--text3);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.5px;">Edit Corners</span>`;
+  if (anySet) html += `<span style="font-size:8px;background:var(--accent2);color:var(--ink);border-radius:2px;padding:0 3px;font-family:'IBM Plex Mono',monospace;">active</span>`;
+  html += `</label>`;
+  // Lock all button
+  html += `<button onclick="ppToggleCornersLocked('${pg}',${idx})" title="${allLocked?'Unlock all corners':'Lock all corners to prevent dragging'}" style="background:none;border:1px solid ${allLocked?'var(--danger)':'var(--border)'};border-radius:3px;cursor:pointer;font-size:10px;padding:1px 6px;color:${allLocked?'var(--danger)':'var(--text3)'};">${allLocked?'🔒':'🔓'}</button>`;
+  if (anySet) html += `<button onclick="resetCorners('${pg}',${idx})" title="Reset all corner offsets" style="background:none;border:1px solid var(--border);border-radius:2px;cursor:pointer;font-size:9px;color:var(--text3);padding:1px 5px;">↺</button>`;
+  html += `</div>`;
+
+  if (isEnabled) {
+    // Row 2: Axis constraint selector
+    html += `<div style="display:flex;gap:3px;margin-bottom:5px;">`;
+    html += `<span style="font-size:9px;color:var(--text3);align-self:center;margin-right:3px;">Axis:</span>`;
+    ['free','h','v'].forEach(m => {
+      const label = m === 'free' ? 'Free' : m === 'h' ? 'H (↕ only)' : 'V (↔ only)';
+      html += `<button onclick="ppSetCornerAxis('${pg}',${idx},'${m}')" style="padding:2px 6px;font-size:9px;border-radius:2px;border:1px solid ${axis===m?'var(--accent2)':'var(--border)'};background:${axis===m?'var(--accent2)':'var(--surface2)'};color:${axis===m?'var(--ink)':'var(--text2)'};cursor:pointer;font-family:'IBM Plex Mono',monospace;">${label}</button>`;
+    });
+    html += `</div>`;
+
+    // Row 3: 2x2 corner inputs
+    html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">`;
+    html += cornerInput('tl') + cornerInput('tr');
+    html += cornerInput('bl') + cornerInput('br');
+    html += `</div>`;
   }
 
-  html += '</div>';
+  html += `</div>`;
   return html;
 }
 
-function ppToggleCornersOpen(pg, idx, open) {
-  ppEnsure(pg, idx);
-  panelOverrides[pg][idx]._cornersOpen = open;
-  // When any panel's corner editor opens, activate cornerEditMode for this page
-  // so the canvas overlay dots become visible. Turn it off only when ALL panels are closed.
-  const anyOpen = Object.values(panelOverrides[pg]||{}).some(v => v?._cornersOpen);
-  cornerEditMode[pg] = anyOpen;
+function ppToggleCornersEnabled(pg, idx, enabled) {
+  if (!cornerEnabled[pg]) cornerEnabled[pg] = {};
+  cornerEnabled[pg][idx] = enabled;
+  // Update cornerEditMode for this page so overlay dots show/hide
+  const anyEnabled = Object.values(cornerEnabled[pg]||{}).some(v => v === true);
+  cornerEditMode[pg] = anyEnabled;
+  rebuildPageSVG(pg);
   refreshCornerOverlay(pg);
-  // Refresh whichever panel UI is visible
   if (document.getElementById('panelsPanel')?.classList.contains('open')) refreshPanelsPanel(pg);
   renderMobilePanelsFor(pg);
+  // Re-apply bubble clips that reference this page's panels
+  const pgKey = pg;
+  document.querySelectorAll(`.bubble-overlay[data-pg="${pgKey}"] .bubble-wrap`).forEach(wrap => {
+    const b = (bubbles[pgKey]||[]).find(x => x.id === wrap.dataset.id);
+    if (b && b.clipPanel != null) applyBubbleClip(wrap, b);
+  });
+  scheduleAutoSave();
+}
+
+function ppToggleCornersLocked(pg, idx) {
+  if (!cornerLocks[pg]) cornerLocks[pg] = {};
+  if (!cornerLocks[pg][idx]) cornerLocks[pg][idx] = {};
+  const allLocked = ['tl','tr','bl','br'].every(k => !!cornerLocks[pg][idx][k]);
+  ['tl','tr','bl','br'].forEach(k => { cornerLocks[pg][idx][k] = !allLocked; });
+  refreshCornerOverlay(pg);
+  if (document.getElementById('panelsPanel')?.classList.contains('open')) refreshPanelsPanel(pg);
+  renderMobilePanelsFor(pg);
+}
+
+function ppSetCornerAxis(pg, idx, mode) {
+  if (!cornerAxisMode[pg]) cornerAxisMode[pg] = {};
+  cornerAxisMode[pg][idx] = mode;
+  refreshCornerOverlay(pg);
+  if (document.getElementById('panelsPanel')?.classList.contains('open')) refreshPanelsPanel(pg);
+  renderMobilePanelsFor(pg);
+}
+
+// Legacy compat — old code called ppToggleCornersOpen
+function ppToggleCornersOpen(pg, idx, open) {
+  ppToggleCornersEnabled(pg, idx, open);
 }
 
 function ppSplitHTML(pg, idx) {
@@ -4581,6 +4683,15 @@ function rerenderPageSVG(pg) {
   if (!newSvg) return;
   if (oldSvg) svgWrap.replaceChild(newSvg, oldSvg);
   else svgWrap.insertBefore(newSvg, svgWrap.firstChild);
+
+  // Refresh corner overlay (panel shape changed)
+  refreshCornerOverlay(pg);
+
+  // Re-apply bubble clips (panel shape may have changed)
+  document.querySelectorAll(`.page-output[data-pg="${pg}"] .bubble-wrap`).forEach(wrap => {
+    const b = (bubbles[pg]||[]).find(x => x.id === wrap.dataset.id);
+    if (b && b.clipPanel != null) applyBubbleClip(wrap, b);
+  });
 }
 
 function ppEnsure(pg, idx) {
@@ -5572,7 +5683,7 @@ async function confirmSaveLoad() {
 
 function buildSaveData() {
   return {
-    version: 1,
+    version: 2,
     savedAt: new Date().toISOString(),
     rows,
     pageSettings,
@@ -5580,6 +5691,8 @@ function buildSaveData() {
     panelOverrides,
     cornerOffsets,
     cornerLocks,
+    cornerAxisMode,
+    cornerEnabled,
     pageBypageMode,
     pbpCurrentPage: _pbpCurrentPage,
     globalSettings: {
@@ -5696,6 +5809,8 @@ function restoreSaveData(data) {
   if (data.panelOverrides){ Object.assign(panelOverrides, data.panelOverrides); }
   if (data.cornerOffsets) { Object.assign(cornerOffsets,  data.cornerOffsets);  }
   if (data.cornerLocks)   { Object.assign(cornerLocks,    data.cornerLocks);    }
+  if (data.cornerAxisMode){ Object.assign(cornerAxisMode, data.cornerAxisMode); }
+  if (data.cornerEnabled) { Object.assign(cornerEnabled,  data.cornerEnabled);  }
   // Restore page-by-page view preference
   if (data.pageBypageMode !== undefined) {
     pageBypageMode = data.pageBypageMode;
