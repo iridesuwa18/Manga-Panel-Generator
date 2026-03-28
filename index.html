@@ -3383,64 +3383,78 @@ function createBubbleEl(b, pgKey) {
 function applyBubbleClip(wrap, b) {
   const svgEl = wrap.querySelector('svg.bubble-svg');
   const txtEl = wrap.querySelector('.bubble-text');
-  if (b.clipPanel !== null && b.clipPanel !== undefined) {
-    const pgKey = wrap.dataset.pgKey
-               || wrap.closest('[data-pg]')?.dataset?.pg
-               || selectedBubble?.pgKey;
-    const rects = pgKey ? (_lastPanelRects[pgKey] || []) : [];
-    const r = rects[b.clipPanel];
-    if (r) {
-      const sw = (parseInt(document.getElementById('strokeWidth')?.value)||8) / 2;
-      const cx = r.x - b.x + sw;
-      const cy = r.y - b.y + sw;
-      const cw = r.w - sw * 2;
-      const ch = r.h - sw * 2;
-      // Text layer — simple inset
-      const top    = Math.max(0, cy);
-      const left   = Math.max(0, cx);
-      const bottom = Math.max(0, b.h - (cy + ch));
-      const right  = Math.max(0, b.w - (cx + cw));
-      if (txtEl) txtEl.style.clipPath = `inset(${top}px ${right}px ${bottom}px ${left}px)`;
-      // SVG layer — inject native <clipPath> so tail is clipped correctly
-      if (svgEl) {
-        svgEl.style.clipPath = '';
-        svgEl.style.overflow = 'visible';
-        let cp = svgEl.querySelector('clipPath#bubble-clip');
-        if (!cp) {
-          const defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
-          cp = document.createElementNS('http://www.w3.org/2000/svg','clipPath');
-          cp.id = 'bubble-clip';
-          cp.setAttribute('clipPathUnits','userSpaceOnUse');
-          const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
-          rect.id = 'bubble-clip-rect';
-          cp.appendChild(rect);
-          defs.appendChild(cp);
-          svgEl.insertBefore(defs, svgEl.firstChild);
-        }
-        const clipRect = cp.querySelector('#bubble-clip-rect');
-        clipRect.setAttribute('x', cx);
-        clipRect.setAttribute('y', cy);
-        clipRect.setAttribute('width',  Math.max(0, cw));
-        clipRect.setAttribute('height', Math.max(0, ch));
-        svgEl.querySelectorAll(':scope > path, :scope > ellipse, :scope > rect, :scope > g').forEach(el => {
-          el.setAttribute('clip-path', 'url(#bubble-clip)');
-        });
-      }
-      wrap._lastClipVal = `inset(${top}px ${right}px ${bottom}px ${left}px)`;
-      return;
+
+  // Clear clip
+  const clearClip = () => {
+    if (svgEl) {
+      // Remove injected defs/clipPath
+      svgEl.querySelector('defs.bubble-clip-defs')?.remove();
+      svgEl.querySelectorAll(':scope > path, :scope > ellipse, :scope > rect, :scope > g')
+           .forEach(el => el.removeAttribute('clip-path'));
+      svgEl.style.clipPath = '';
     }
+    if (txtEl) txtEl.style.clipPath = '';
+    wrap._lastClipVal = '';
+  };
+
+  if (b.clipPanel == null) { clearClip(); return; }
+
+  const pgKey = wrap.dataset.pgKey
+             || wrap.closest('[data-pg]')?.dataset?.pg
+             || selectedBubble?.pgKey;
+  const rects = pgKey ? (_lastPanelRects[pgKey] || []) : [];
+  const r = rects[b.clipPanel];
+  if (!r) { clearClip(); return; }
+
+  const sw = (parseInt(document.getElementById('strokeWidth')?.value) || 8) / 2;
+  // Clip rect in bubble-local SVG coordinates
+  const cx = r.x - b.x + sw;
+  const cy = r.y - b.y + sw;
+  const cw = Math.max(0, r.w - sw * 2);
+  const ch = Math.max(0, r.h - sw * 2);
+
+  // Text: plain inset (text never overflows bubble box)
+  if (txtEl) {
+    const top    = Math.max(0, cy);
+    const left   = Math.max(0, cx);
+    const bottom = Math.max(0, b.h - (cy + ch));
+    const right  = Math.max(0, b.w - (cx + cw));
+    txtEl.style.clipPath = `inset(${top}px ${right}px ${bottom}px ${left}px)`;
+    wrap._lastClipVal    = txtEl.style.clipPath;
   }
-  // No clip — remove everything
+
+  // SVG: use a <clipPath> with a unique ID per bubble so multiple clipped
+  // bubbles on the same page don't interfere with each other.
   if (svgEl) {
-    svgEl.querySelectorAll(':scope > path, :scope > ellipse, :scope > rect, :scope > g').forEach(el => {
-      el.removeAttribute('clip-path');
-    });
-    const cp = svgEl.querySelector('clipPath#bubble-clip');
-    if (cp) cp.parentElement?.remove();
     svgEl.style.clipPath = '';
+    const clipId = 'bclip-' + b.id;
+    let defs = svgEl.querySelector('defs.bubble-clip-defs');
+    if (!defs) {
+      defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+      defs.classList.add('bubble-clip-defs');
+      const cp = document.createElementNS('http://www.w3.org/2000/svg', 'clipPath');
+      cp.id = clipId;
+      cp.setAttribute('clipPathUnits', 'userSpaceOnUse');
+      const cr = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      cr.classList.add('bclip-rect');
+      cp.appendChild(cr);
+      defs.appendChild(cp);
+      svgEl.insertBefore(defs, svgEl.firstChild);
+    } else {
+      // Ensure the clipPath id is current (bubble id may have changed after duplicate)
+      const cp = defs.querySelector('clipPath');
+      if (cp) cp.id = clipId;
+    }
+    const clipRect = defs.querySelector('.bclip-rect');
+    if (clipRect) {
+      clipRect.setAttribute('x', cx);
+      clipRect.setAttribute('y', cy);
+      clipRect.setAttribute('width',  cw);
+      clipRect.setAttribute('height', ch);
+    }
+    svgEl.querySelectorAll(':scope > path, :scope > ellipse, :scope > rect, :scope > g')
+         .forEach(el => el.setAttribute('clip-path', `url(#${clipId})`));
   }
-  if (txtEl) txtEl.style.clipPath = '';
-  wrap._lastClipVal = '';
 }
 
 function applyBubbleStyle(wrap, b) {
