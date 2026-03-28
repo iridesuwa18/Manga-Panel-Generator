@@ -2990,7 +2990,7 @@ function refreshCornerOverlay(pg) {
         { key: 'a', base: aBase, label: 'A', cursor: aCursor },
         { key: 'b', base: bBase, label: 'B', cursor: bCursor },
       ].forEach(({ key, base, label, cursor }) => {
-        const isLocked = !!(splitLocks[pg]?.[idx]?.[key]);
+        const isLocked = !!(splitLocks[pg]?.[idx]?.all);
         const dot = document.createElement('div');
         dot.className = 'split-dot' + (isLocked ? ' locked' : '');
         dot.textContent = label;
@@ -3016,8 +3016,8 @@ function setupSplitDotDrag(dot, pg, idx, key, baseX, baseY, dir) {
   let startClientX, startClientY, startOffX, startOffY, wrapScale;
 
   dot.addEventListener('pointerdown', e => {
-    // Respect split lock for this endpoint
-    if ((splitLocks[pg]?.[idx]?.[key])) return;
+    // Respect split lock for this panel
+    if (splitLocks[pg]?.[idx]?.all) return;
     e.preventDefault();
     e.stopPropagation();
     dot.setPointerCapture(e.pointerId);
@@ -3978,7 +3978,10 @@ function buildBubbleSVG(b) {
     b.extraTails.forEach(et => {
       if (!et || (et.len||0) <= 0) return;
       const fakeb = Object.assign({}, b, {
-        tailAngle: et.angle, tailLen: et.len, tailBreadth: et.breadth||1
+        tailAngle: et.angle, tailLen: et.len, tailBreadth: et.breadth||1,
+        dotCount:  et.dotCount  != null ? et.dotCount  : b.dotCount,
+        spikeCount:et.spikeCount!= null ? et.spikeCount: b.spikeCount,
+        dashCount: et.dashCount != null ? et.dashCount : b.dashCount,
       });
       svgExtraTail(svg, cx, cy, rx, ry, fakeb, sw, b.type);
     });
@@ -3988,16 +3991,51 @@ function buildBubbleSVG(b) {
 }
 
 // Draw a standalone extra tail (does not modify the main body outline).
-// Rendered as a filled & stroked closed triangle that blends over the body fill.
+// Tail style matches the bubble type: dots for thought, wavy ribbon for fading, triangle for all others.
 function svgExtraTail(svg, cx, cy, rx, ry, b, sw, type) {
   const tar = (b.tailAngle * Math.PI) / 180;
+  const tipX = cx + (rx + b.tailLen) * Math.cos(tar);
+  const tipY = cy + (ry + b.tailLen) * Math.sin(tar);
+
+  // ── THOUGHT: shrinking dot chain ──
+  if (type === 'thought') {
+    const bx = cx + rx * Math.cos(tar), by_ = cy + ry * Math.sin(tar);
+    const dots = Math.max(1, b.dotCount || 4);
+    for (let i = 0; i < dots; i++) {
+      const t = (i + 1) / (dots + 1);
+      const px = bx + (tipX - bx) * t, py = by_ + (tipY - by_) * t;
+      const r = Math.max(1, 5.5 * (b.tailBreadth || 1) * (1 - t * 0.6));
+      const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      c.setAttribute('cx', px); c.setAttribute('cy', py); c.setAttribute('r', r);
+      c.setAttribute('stroke', '#111'); c.setAttribute('stroke-width', 1.5); c.setAttribute('fill', '#fff');
+      svg.appendChild(c);
+    }
+    return;
+  }
+
+  // ── FADING: wavy ribbon tail ──
+  if (type === 'fading') {
+    const bx = cx + rx * Math.cos(tar), by_ = cy + ry * Math.sin(tar);
+    const perp = tar + Math.PI / 2;
+    const baseW = Math.min(rx, ry) * 0.3 * (b.tailBreadth || 1.0);
+    const s1x = bx + baseW * Math.cos(perp), s1y = by_ + baseW * Math.sin(perp);
+    const s2x = bx - baseW * Math.cos(perp), s2y = by_ - baseW * Math.sin(perp);
+    const m1 = 0.35, m2 = 0.65, amp = baseW * 0.8;
+    const cp1x = (bx + (tipX - bx) * m1) + amp * Math.cos(perp), cp1y = (by_ + (tipY - by_) * m1) + amp * Math.sin(perp);
+    const cp2x = (bx + (tipX - bx) * m2) - amp * Math.cos(perp), cp2y = (by_ + (tipY - by_) * m2) - amp * Math.sin(perp);
+    const cp3x = (bx + (tipX - bx) * m1) - amp * Math.cos(perp), cp3y = (by_ + (tipY - by_) * m1) - amp * Math.sin(perp);
+    const cp4x = (bx + (tipX - bx) * m2) + amp * Math.cos(perp), cp4y = (by_ + (tipY - by_) * m2) + amp * Math.sin(perp);
+    const td = `M ${s1x} ${s1y} Q ${cp1x} ${cp1y} ${bx+(tipX-bx)*m2} ${by_+(tipY-by_)*m2} Q ${cp2x} ${cp2y} ${tipX} ${tipY} Q ${cp3x} ${cp3y} ${bx+(tipX-bx)*m1} ${by_+(tipY-by_)*m1} Q ${cp4x} ${cp4y} ${s2x} ${s2y} Z`;
+    mkPath(svg, td, '#111', '#fff', 1.5);
+    return;
+  }
+
+  // ── ALL OTHER TYPES: pointed triangle tail ──
   const baseGap = Math.min(0.28, 8 / Math.max(rx, ry));
   const gapHalf = baseGap * (b.tailBreadth || 1.0);
   const a1 = tar - gapHalf, a2 = tar + gapHalf;
   const [x1, y1] = ep(cx, cy, rx, ry, a1);
   const [x2, y2] = ep(cx, cy, rx, ry, a2);
-  const tipX = cx + (rx + b.tailLen) * Math.cos(tar);
-  const tipY = cy + (ry + b.tailLen) * Math.sin(tar);
   // White fill first so it paints over the body border
   const fillPath = `M ${x1} ${y1} L ${tipX} ${tipY} L ${x2} ${y2} Z`;
   const fill = document.createElementNS('http://www.w3.org/2000/svg','path');
@@ -4255,12 +4293,14 @@ function setupExtraTailDrag(handle, b, idx, wrap) {
       if (!b.extraTails[idx]) return;
       b.extraTails[idx].angle = ((Math.atan2(ly, lx) * 180 / Math.PI) + 360) % 360;
       positionExtraTailHandle(handle, b, idx);
-      rebuildSVG(wrap, b);
+      // Rebuild SVG directly without recreating handles (preserves pointer capture)
+      _rebuildSVGOnly(wrap, b);
       syncAllBPFields(b);
     };
     const onUp = () => {
       handle.removeEventListener('pointermove', onMove);
       handle.removeEventListener('pointerup', onUp);
+      snapshotState();
     };
     handle.addEventListener('pointermove', onMove);
     handle.addEventListener('pointerup', onUp);
@@ -4382,6 +4422,16 @@ function rebuildSVG(wrap,b) {
   // Re-sync extra tail handles in case extraTails changed
   const pgKey = wrap.dataset.pgKey || selectedBubble?.pgKey;
   syncExtraTailHandles(wrap, b, pgKey);
+}
+
+// Lightweight SVG-only rebuild — does NOT recreate handles (safe during active pointer drag)
+function _rebuildSVGOnly(wrap, b) {
+  const old = wrap.querySelector('svg');
+  if (old) old.remove();
+  const newSvg = buildBubbleSVG(b);
+  newSvg.classList.add('bubble-svg');
+  wrap.insertBefore(newSvg, wrap.firstChild);
+  applyBubbleClip(wrap, b);
 }
 function positionTailHandleInWrap(wrap,b) {
   const th=wrap.querySelector('.tail-handle');
@@ -4948,7 +4998,7 @@ function ppSplitHTML(pg, idx) {
   const spGap   = sp?.gap   !== undefined ? sp.gap   : 0;
   const spStyle = sp?.style || 'line';
   const so      = (splitOffsets[pg]||{})[idx] || {};
-  const sl      = (splitLocks[pg]||{})[idx]   || {};
+  const allLocked = !!(splitLocks[pg]?.[idx]?.all);
   const hasOffsets = !!(so.aX || so.aY || so.bX || so.bY);
   const endLabel = spDir === 'h'
     ? 'A = left &nbsp;\u00b7&nbsp; B = right &mdash; drag up/down on canvas'
@@ -4957,17 +5007,20 @@ function ppSplitHTML(pg, idx) {
   const bVal = Math.round(spDir === 'h' ? (so.bY||0) : (so.bX||0));
   const aField = spDir === 'h' ? 'aY' : 'aX';
   const bField = spDir === 'h' ? 'bY' : 'bX';
-  const aLocked = !!sl.a;
-  const bLocked = !!sl.b;
-  const lockBtnStyle = 'padding:1px 5px;font-size:9px;background:none;border:1px solid var(--border);border-radius:2px;cursor:pointer;color:var(--text3);';
-  const lockBtnActiveStyle = 'padding:1px 5px;font-size:9px;background:var(--accent2);border:1px solid var(--accent2);border-radius:2px;cursor:pointer;color:var(--ink);font-weight:600;';
+  const dis = allLocked ? 'disabled' : '';
+  const opq = allLocked ? 'opacity:0.45;' : '';
+
   return '<div style="margin-top:5px;border-top:1px solid var(--border);padding-top:5px;">'
-    + '<div style="font-size:9px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;margin-bottom:3px;display:flex;align-items:center;justify-content:space-between;">'
-    + 'SPLIT PANEL'
+    // Header row: label + lock btn + enable checkbox
+    + '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">'
+    + '<span style="font-size:9px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;flex:1;">SPLIT PANEL</span>'
+    + '<button onclick="ppToggleSplitLock(\'' + pg + '\',' + idx + ')" title="' + (allLocked?'Unlock split settings':'Lock split settings to prevent changes') + '" style="background:none;border:1px solid ' + (allLocked?'var(--danger)':'var(--border)') + ';border-radius:3px;cursor:pointer;font-size:10px;padding:1px 6px;color:' + (allLocked?'var(--danger)':'var(--text3)') + ';">' + (allLocked?'🔒':'🔓') + '</button>'
     + '<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:9px;color:var(--text2);">'
-    + '<input type="checkbox" ' + (sp?'checked':'') + ' style="accent-color:var(--accent2);"'
+    + '<input type="checkbox" ' + (sp?'checked':'') + ' ' + (allLocked?'disabled':'') + ' style="accent-color:var(--accent2);"'
     + ' onchange="ppSetSplit(\'' + pg + '\',' + idx + ',this.checked)"> Enable'
     + '</label></div>'
+    // All settings greyed when locked
+    + '<div style="' + opq + (allLocked?'pointer-events:none;':'') + '">'
     + '<div style="opacity:' + (sp?1:0.35) + ';pointer-events:' + (sp?'all':'none') + ';">'
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-bottom:3px;">'
     + '<div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">Direction</div>'
@@ -4993,19 +5046,17 @@ function ppSplitHTML(pg, idx) {
     + '</div>'
     + (sp
       ? '<div style="font-size:8px;color:var(--text3);margin-bottom:3px;line-height:1.5;">\ud83d\udd35 ' + endLabel + '</div>'
-        + '<div style="display:grid;grid-template-columns:1fr auto 1fr auto;gap:3px;align-items:end;margin-bottom:3px;">'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-bottom:3px;">'
         + '<div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">A offset ' + (spDir==='h'?'(Y)':'(X)') + '</div>'
-        + '<input type="number" value="' + aVal + '" ' + (aLocked?'disabled':'') + ' style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:2px 4px;font-size:10px;border-radius:2px;opacity:' + (aLocked?'0.5':'1') + ';"'
+        + '<input type="number" value="' + aVal + '" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:2px 4px;font-size:10px;border-radius:2px;"'
         + ' onchange="ppSetSplitOffset(\'' + pg + '\',' + idx + ',\'a\',\'' + aField + '\',+this.value)"></div>'
-        + '<button style="' + (aLocked ? lockBtnActiveStyle : lockBtnStyle) + 'margin-bottom:0;align-self:end;" title="' + (aLocked?'Unlock A endpoint':'Lock A endpoint') + '" onclick="ppToggleSplitLock(\'' + pg + '\',' + idx + ',\'a\')">' + (aLocked?'🔒':'🔓') + '</button>'
         + '<div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">B offset ' + (spDir==='h'?'(Y)':'(X)') + '</div>'
-        + '<input type="number" value="' + bVal + '" ' + (bLocked?'disabled':'') + ' style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:2px 4px;font-size:10px;border-radius:2px;opacity:' + (bLocked?'0.5':'1') + ';"'
+        + '<input type="number" value="' + bVal + '" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:2px 4px;font-size:10px;border-radius:2px;"'
         + ' onchange="ppSetSplitOffset(\'' + pg + '\',' + idx + ',\'b\',\'' + bField + '\',+this.value)"></div>'
-        + '<button style="' + (bLocked ? lockBtnActiveStyle : lockBtnStyle) + 'margin-bottom:0;align-self:end;" title="' + (bLocked?'Unlock B endpoint':'Lock B endpoint') + '" onclick="ppToggleSplitLock(\'' + pg + '\',' + idx + ',\'b\')">' + (bLocked?'🔒':'🔓') + '</button>'
         + '</div>'
         + (hasOffsets ? '<button style="width:100%;background:none;border:1px solid var(--border);color:var(--text3);font-size:9px;padding:2px;border-radius:2px;cursor:pointer;margin-bottom:2px;" onclick="ppResetSplitOffsets(\'' + pg + '\',' + idx + ')">&#8635; Reset endpoints</button>' : '')
       : '')
-    + '</div></div>';
+    + '</div></div></div>';
 }
 
 function ppSetSplitOffset(pg, idx, _end, field, val) {
@@ -5023,12 +5074,13 @@ function ppResetSplitOffsets(pg, idx) {
   scheduleAutoSave();
 }
 
-function ppToggleSplitLock(pg, idx, key) {
+function ppToggleSplitLock(pg, idx) {
   if (!splitLocks[pg])      splitLocks[pg]      = {};
   if (!splitLocks[pg][idx]) splitLocks[pg][idx] = {};
-  splitLocks[pg][idx][key] = !splitLocks[pg][idx][key];
+  splitLocks[pg][idx].all = !splitLocks[pg][idx].all;
   refreshCornerOverlay(pg);
   if (document.getElementById('panelsPanel')?.classList.contains('open')) refreshPanelsPanel(pg);
+  renderMobilePanelsFor(pg);
   scheduleAutoSave();
 }
 
@@ -5036,6 +5088,7 @@ function ppResetSplitLocks(pg, idx) {
   if (splitLocks[pg]) delete splitLocks[pg][idx];
   refreshCornerOverlay(pg);
   if (document.getElementById('panelsPanel')?.classList.contains('open')) refreshPanelsPanel(pg);
+  renderMobilePanelsFor(pg);
   scheduleAutoSave();
 }
 
