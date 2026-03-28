@@ -638,9 +638,36 @@
     cursor:pointer; font-size:11px;
   }
   .layer-row:hover { background:var(--surface2); }
-  .layer-row.active { background:var(--surface3); border-left:2px solid var(--accent2); }
+  .layer-row.active { background:rgba(210,195,140,0.18); border-left:2px solid var(--accent2); color:var(--accent); }
   .layer-icon { font-size:14px; flex-shrink:0; }
-  .layer-label { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text2); }
+  .layer-label { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text2); cursor:default; }
+  .layer-dialogue-popup {
+    position:fixed;
+    background:var(--surface3);
+    border:1px solid var(--accent2);
+    border-radius:5px;
+    padding:10px 13px;
+    max-width:220px;
+    z-index:9999;
+    box-shadow:0 4px 16px rgba(0,0,0,.5);
+    pointer-events:none;
+  }
+  .layer-dialogue-popup .ldp-speaker {
+    font-family:'IBM Plex Mono',monospace;
+    font-size:9px;
+    color:var(--accent2);
+    text-transform:uppercase;
+    letter-spacing:1px;
+    margin-bottom:4px;
+  }
+  .layer-dialogue-popup .ldp-text {
+    font-family:'IBM Plex Sans',sans-serif;
+    font-size:11px;
+    color:var(--text);
+    line-height:1.5;
+    white-space:pre-wrap;
+    word-break:break-word;
+  }
   .layer-btns { display:flex; gap:2px; }
   .layer-btns button {
     background:var(--surface3); border:1px solid var(--border); color:var(--text2);
@@ -3099,6 +3126,9 @@ function duplicatePage(pg) {
       <div class="bp-row"><label>Spikes</label><input id="bp-spike-count" type="number" value="16" min="5" max="40"><button class="btn small" onclick="bpUpdate('spikeCount',+document.getElementById('bp-spike-count').value)" style="margin-left:4px;">Set</button></div>
       <div class="bp-row"><label>Dashes</label><input id="bp-dash-count" type="number" value="7" min="2" max="20"><button class="btn small" onclick="bpUpdate('dashCount',+document.getElementById('bp-dash-count').value)" style="margin-left:4px;">Set</button></div>
     </div>
+    <div class="bp-section" style="padding-top:8px;padding-bottom:8px;">
+      <button class="btn primary" style="width:100%;padding:8px;font-size:11px;" onclick="bpUpdatePos()">✔ Apply All Settings</button>
+    </div>
     <div class="bp-section">
       <div class="bp-title">Clip to Panel</div>
       <div class="bp-row">
@@ -3292,6 +3322,7 @@ function createBubbleEl(b, pgKey) {
   wrap.className = 'bubble-wrap';
   wrap.dataset.id = b.id;
   wrap.dataset.pgKey = pgKey;   // needed by applyBubbleStyle for clip-path lookup
+  // Apply wrap positioning styles early (clip will be re-applied below after SVG is added)
   applyBubbleStyle(wrap, b);
 
   const svg = buildBubbleSVG(b);
@@ -3302,6 +3333,9 @@ function createBubbleEl(b, pgKey) {
   textDiv.className = 'bubble-text';
   updateTextStyle(textDiv, b);
   wrap.appendChild(textDiv);
+
+  // Re-apply after SVG+text are in DOM so clip injection finds svg.bubble-svg
+  applyBubbleStyle(wrap, b);
 
   // Dashed selection box
   const selBox = document.createElement('div');
@@ -3345,6 +3379,70 @@ function createBubbleEl(b, pgKey) {
   return wrap;
 }
 
+// Standalone clip applier — safe to call any time after SVG is in the DOM
+function applyBubbleClip(wrap, b) {
+  const svgEl = wrap.querySelector('svg.bubble-svg');
+  const txtEl = wrap.querySelector('.bubble-text');
+  if (b.clipPanel !== null && b.clipPanel !== undefined) {
+    const pgKey = wrap.dataset.pgKey
+               || wrap.closest('[data-pg]')?.dataset?.pg
+               || selectedBubble?.pgKey;
+    const rects = pgKey ? (_lastPanelRects[pgKey] || []) : [];
+    const r = rects[b.clipPanel];
+    if (r) {
+      const sw = (parseInt(document.getElementById('strokeWidth')?.value)||8) / 2;
+      const cx = r.x - b.x + sw;
+      const cy = r.y - b.y + sw;
+      const cw = r.w - sw * 2;
+      const ch = r.h - sw * 2;
+      // Text layer — simple inset
+      const top    = Math.max(0, cy);
+      const left   = Math.max(0, cx);
+      const bottom = Math.max(0, b.h - (cy + ch));
+      const right  = Math.max(0, b.w - (cx + cw));
+      if (txtEl) txtEl.style.clipPath = `inset(${top}px ${right}px ${bottom}px ${left}px)`;
+      // SVG layer — inject native <clipPath> so tail is clipped correctly
+      if (svgEl) {
+        svgEl.style.clipPath = '';
+        svgEl.style.overflow = 'visible';
+        let cp = svgEl.querySelector('clipPath#bubble-clip');
+        if (!cp) {
+          const defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
+          cp = document.createElementNS('http://www.w3.org/2000/svg','clipPath');
+          cp.id = 'bubble-clip';
+          cp.setAttribute('clipPathUnits','userSpaceOnUse');
+          const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
+          rect.id = 'bubble-clip-rect';
+          cp.appendChild(rect);
+          defs.appendChild(cp);
+          svgEl.insertBefore(defs, svgEl.firstChild);
+        }
+        const clipRect = cp.querySelector('#bubble-clip-rect');
+        clipRect.setAttribute('x', cx);
+        clipRect.setAttribute('y', cy);
+        clipRect.setAttribute('width',  Math.max(0, cw));
+        clipRect.setAttribute('height', Math.max(0, ch));
+        svgEl.querySelectorAll(':scope > path, :scope > ellipse, :scope > rect, :scope > g').forEach(el => {
+          el.setAttribute('clip-path', 'url(#bubble-clip)');
+        });
+      }
+      wrap._lastClipVal = `inset(${top}px ${right}px ${bottom}px ${left}px)`;
+      return;
+    }
+  }
+  // No clip — remove everything
+  if (svgEl) {
+    svgEl.querySelectorAll(':scope > path, :scope > ellipse, :scope > rect, :scope > g').forEach(el => {
+      el.removeAttribute('clip-path');
+    });
+    const cp = svgEl.querySelector('clipPath#bubble-clip');
+    if (cp) cp.parentElement?.remove();
+    svgEl.style.clipPath = '';
+  }
+  if (txtEl) txtEl.style.clipPath = '';
+  wrap._lastClipVal = '';
+}
+
 function applyBubbleStyle(wrap, b) {
   // Always position the wrap without clip so UI handles remain fully visible.
   // We apply clip to the inner SVG + text layers only, keeping handles outside.
@@ -3361,31 +3459,8 @@ function applyBubbleStyle(wrap, b) {
     overflow:visible;
   `;
 
-  // Apply clip to the inner content layer (SVG + text) so the bubble body is
-  // masked to the panel, but selection handles / rotate / tail handles stay visible.
-  let clipVal = '';
-  if (b.clipPanel !== null && b.clipPanel !== undefined) {
-    const pgKey = wrap.dataset.pgKey
-               || wrap.closest('[data-pg]')?.dataset?.pg
-               || selectedBubble?.pgKey;
-    const rects = pgKey ? (_lastPanelRects[pgKey] || []) : [];
-    const r = rects[b.clipPanel];
-    if (r) {
-      const sw = (parseInt(document.getElementById('strokeWidth')?.value)||8) / 2;
-      const top    = Math.max(0, r.y - b.y + sw);
-      const left   = Math.max(0, r.x - b.x + sw);
-      const bottom = Math.max(0, b.y + b.h - (r.y + r.h) + sw);
-      const right  = Math.max(0, b.x + b.w - (r.x + r.w) + sw);
-      clipVal = `inset(${top}px ${right}px ${bottom}px ${left}px)`;
-    }
-  }
-  // Apply/remove clip on the SVG and text layers independently
-  const svgEl = wrap.querySelector('svg.bubble-svg');
-  const txtEl = wrap.querySelector('.bubble-text');
-  if (svgEl)  svgEl.style.clipPath  = clipVal;
-  if (txtEl)  txtEl.style.clipPath  = clipVal;
-  // Store last clip for resize/drag re-apply
-  wrap._lastClipVal = clipVal;
+  // Delegate clip logic to applyBubbleClip (works after SVG is in DOM)
+  applyBubbleClip(wrap, b);
 }
 
 function updateTextStyle(textDiv, b) {
@@ -3763,9 +3838,9 @@ function rebuildSVG(wrap,b) {
   if(old) old.remove();
   const newSvg = buildBubbleSVG(b);
   newSvg.classList.add('bubble-svg');
-  // Re-apply clip-path on the SVG if active
-  if (wrap._lastClipVal) newSvg.style.clipPath = wrap._lastClipVal;
   wrap.insertBefore(newSvg,wrap.firstChild);
+  // Re-apply clip directly after new SVG is in DOM (avoids full applyBubbleStyle re-run)
+  applyBubbleClip(wrap, b);
 }
 function positionTailHandleInWrap(wrap,b) {
   const th=wrap.querySelector('.tail-handle');
@@ -4323,7 +4398,7 @@ function refreshLayersPanel(pg) {
         style="accent-color:var(--accent2);flex-shrink:0;cursor:pointer;"
         onclick="event.stopPropagation();layerToggleSelect('${pg}','${b.id}',this.checked)">
       <span class="layer-icon">${layerIcon(b.type)}</span>
-      <span class="layer-label" style="flex:1;">${b.speaker ? b.speaker+': ' : ''}${b.text.slice(0,16)}${b.text.length>16?'…':''}</span>
+      <span class="layer-label" style="flex:1;" onclick="layerLabelInteract(event,(bubbles['${pg}']||[]).find(x=>x.id==='${b.id}')||{},this)" ondblclick="layerLabelInteract(event,(bubbles['${pg}']||[]).find(x=>x.id==='${b.id}')||{},this)" ontouchend="layerLabelTouch(event,(bubbles['${pg}']||[]).find(x=>x.id==='${b.id}')||{},this)">${b.text.slice(0,22)}${b.text.length>22?'…':''}</span>
       <div class="layer-btns" style="flex-shrink:0;display:flex;gap:1px;flex-wrap:nowrap;">
         <button title="Lock/Unlock Move" onclick="event.stopPropagation();layerToggleLock('${pg}','${b.id}','move')"
           style="padding:1px 4px;font-size:9px;${lockMActive}">${mIcon}M</button>
@@ -4387,6 +4462,74 @@ function layerBulkLock(pg, field, lockVal) {
   showToast(`${lockVal?'Locked':'Unlocked'} ${field} for ${_layerSelected.size} bubble(s)`);
 }
 
+// ── LAYER DIALOGUE POPUP ──
+let _ldpEl = null;
+let _ldpTimer = null;
+
+function showLayerPopup(b, anchorEl) {
+  hideLayerPopup();
+  _ldpEl = document.createElement('div');
+  _ldpEl.className = 'layer-dialogue-popup';
+  if (b.speaker) {
+    const sp = document.createElement('div');
+    sp.className = 'ldp-speaker';
+    sp.textContent = b.speaker;
+    _ldpEl.appendChild(sp);
+  }
+  const tx = document.createElement('div');
+  tx.className = 'ldp-text';
+  tx.textContent = b.text || '(no text)';
+  _ldpEl.appendChild(tx);
+  document.body.appendChild(_ldpEl);
+  // Position near the row
+  const rect = anchorEl.getBoundingClientRect();
+  const popW = 220;
+  let left = rect.right + 8;
+  if (left + popW > window.innerWidth) left = rect.left - popW - 8;
+  let top = rect.top;
+  if (top + _ldpEl.offsetHeight > window.innerHeight) top = window.innerHeight - _ldpEl.offsetHeight - 8;
+  _ldpEl.style.left = Math.max(4, left) + 'px';
+  _ldpEl.style.top  = Math.max(4, top)  + 'px';
+}
+
+function hideLayerPopup() {
+  if (_ldpEl) { _ldpEl.remove(); _ldpEl = null; }
+  clearTimeout(_ldpTimer);
+}
+
+// Double-click / double-tap handler for layer label
+function layerLabelInteract(e, b, anchorEl) {
+  e.stopPropagation();
+  // Double-click: toggle popup
+  if (e.detail === 2 || e.type === 'dblclick') {
+    if (_ldpEl) { hideLayerPopup(); return; }
+    showLayerPopup(b, anchorEl);
+    // Auto-hide after 4s
+    _ldpTimer = setTimeout(hideLayerPopup, 4000);
+    return;
+  }
+}
+
+// Touch double-tap detection
+const _ldpTapTimes = new WeakMap();
+function layerLabelTouch(e, b, anchorEl) {
+  e.stopPropagation();
+  const now = Date.now();
+  const last = _ldpTapTimes.get(anchorEl) || 0;
+  _ldpTapTimes.set(anchorEl, now);
+  if (now - last < 350) {
+    // Double tap
+    if (_ldpEl) { hideLayerPopup(); return; }
+    showLayerPopup(b, anchorEl);
+    _ldpTimer = setTimeout(hideLayerPopup, 4000);
+  }
+}
+
+// Hide popup when clicking anywhere else
+document.addEventListener('pointerdown', e => {
+  if (_ldpEl && !e.target.closest('.layer-dialogue-popup')) hideLayerPopup();
+}, { capture: true });
+
 function layerIcon(type) {
   return {circle:'💬',bold:'💬',square:'📦',rectangle:'🏷️',thought:'💭',fading:'💭',dashed:'🔇',spiked:'💥',lilypad:'🌀'}[type]||'💬';
 }
@@ -4421,7 +4564,7 @@ function getMobileLayers(pg) {
     return `<div class="layer-row ${isSel?'active':''}" data-id="${b.id}" style="border-radius:3px;margin-bottom:2px;"
       onclick="selectLayerById('${pg}','${b.id}');setTimeout(()=>syncMobileBPFields(selectedBubble?.data||b),30)">
       <span class="layer-icon">${layerIcon(b.type)}</span>
-      <span class="layer-label">${b.speaker?b.speaker+': ':''}${b.text.slice(0,20)}${b.text.length>20?'…':''}</span>
+      <span class="layer-label" onclick="layerLabelInteract(event,b,this)" ontouchend="layerLabelTouch(event,b,this)">${b.text.slice(0,22)}${b.text.length>22?'…':''}</span>
       <div class="layer-btns">
         <button onclick="event.stopPropagation();layerMove('${pg}','${b.id}',1);refreshMobileLayers('${pg}')">↑</button>
         <button onclick="event.stopPropagation();layerMove('${pg}','${b.id}',-1);refreshMobileLayers('${pg}')">↓</button>
@@ -4836,11 +4979,11 @@ function refreshMobileLayersDrawer(pg) {
     const lockMSt  = b.lockMove   ? 'color:var(--danger);border-color:var(--danger);' : '';
     const lockRsSt = b.lockResize ? 'color:var(--danger);border-color:var(--danger);' : '';
     const lockRtSt = b.lockRotate ? 'color:var(--danger);border-color:var(--danger);' : '';
-    return `<div style="border-radius:3px;margin-bottom:4px;background:${isSel?'var(--surface3)':'var(--surface2)'};border:1px solid ${isSel?'var(--accent2)':'var(--border)'};padding:5px 7px;">
+    return `<div style="border-radius:3px;margin-bottom:4px;background:${isSel?'rgba(210,195,140,0.18)':'var(--surface2)'};border:1px solid ${isSel?'var(--accent2)':'var(--border)'};padding:5px 7px;">
       <div class="layer-row ${isSel?'active':''}" data-id="${b.id}" style="padding:0;border:none;background:none;margin-bottom:4px;"
         onclick="selectLayerById('${pg}','${b.id}');closeMobileLayers();openMobileTab('bubbles');setTimeout(()=>syncMobileBPFields(selectedBubble?.data||b),60)">
         <span class="layer-icon">${layerIcon(b.type)}</span>
-        <span class="layer-label">${b.speaker?b.speaker+': ':''}${b.text.slice(0,22)}${b.text.length>22?'…':''}</span>
+        <span class="layer-label" onclick="layerLabelInteract(event,b,this)" ontouchend="layerLabelTouch(event,b,this)">${b.text.slice(0,24)}${b.text.length>24?'…':''}</span>
         <div class="layer-btns">
           <button onclick="event.stopPropagation();layerMove('${pg}','${b.id}',1);refreshMobileLayersDrawer('${pg}')">↑</button>
           <button onclick="event.stopPropagation();layerMove('${pg}','${b.id}',-1);refreshMobileLayersDrawer('${pg}')">↓</button>
