@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "savedAt": "2026-03-28T02:00:31.692Z",
+  "version": 2,
+  "savedAt": "2026-03-28T06:23:15.686Z",
   "rows": [
     {
       "chp": "CHP 2",
@@ -1674,7 +1674,7 @@
       "layoutLocked": true
     },
     "PG 3": {
-      "mode": "safe",
+      "mode": "frame",
       "gutter": 40
     },
     "PG 4": {
@@ -1775,7 +1775,8 @@
         "lockRotate": true,
         "zIndex": 1,
         "color": "#111111",
-        "clipPanel": 0
+        "clipPanel": 0,
+        "extraTails": []
       },
       {
         "id": "b1773703663213vw41",
@@ -1801,7 +1802,8 @@
         "lockResize": true,
         "lockRotate": true,
         "zIndex": 2,
-        "color": "#111111"
+        "color": "#111111",
+        "extraTails": []
       },
       {
         "id": "b17737036632134v5e",
@@ -1828,7 +1830,8 @@
         "lockRotate": true,
         "zIndex": 3,
         "color": "#111111",
-        "clipPanel": 2
+        "clipPanel": 2,
+        "extraTails": []
       },
       {
         "id": "b177370366321483qk",
@@ -1855,7 +1858,8 @@
         "lockRotate": true,
         "zIndex": 4,
         "color": "#111111",
-        "clipPanel": 3
+        "clipPanel": 3,
+        "extraTails": []
       },
       {
         "id": "b1773703663214zg9i",
@@ -1882,7 +1886,8 @@
         "lockRotate": true,
         "zIndex": 5,
         "color": "#111111",
-        "clipPanel": 4
+        "clipPanel": 4,
+        "extraTails": []
       },
       {
         "id": "b1773703663214s1lb",
@@ -1909,7 +1914,8 @@
         "lockRotate": true,
         "zIndex": 6,
         "color": "#111111",
-        "clipPanel": 5
+        "clipPanel": 5,
+        "extraTails": []
       },
       {
         "id": "b17737036632145wly",
@@ -1936,7 +1942,8 @@
         "lockRotate": true,
         "zIndex": 7,
         "color": "#111111",
-        "clipPanel": 6
+        "clipPanel": 6,
+        "extraTails": []
       }
     ],
     "PG 2": [
@@ -1964,7 +1971,8 @@
         "lockResize": true,
         "lockRotate": true,
         "zIndex": 1,
-        "color": "#111111"
+        "color": "#111111",
+        "extraTails": []
       },
       {
         "id": "b1774481948287hc7l",
@@ -1990,7 +1998,8 @@
         "lockResize": true,
         "lockRotate": true,
         "zIndex": 2,
-        "color": "#111111"
+        "color": "#111111",
+        "extraTails": []
       },
       {
         "id": "b1774659777729yyl3",
@@ -2017,7 +2026,8 @@
         "lockRotate": true,
         "zIndex": 3,
         "color": "#111111",
-        "clipPanel": 2
+        "clipPanel": 2,
+        "extraTails": []
       },
       {
         "id": "b1774481948288dwed",
@@ -2044,7 +2054,8 @@
         "lockRotate": true,
         "zIndex": 4,
         "color": "#111111",
-        "clipPanel": 2
+        "clipPanel": 2,
+        "extraTails": []
       },
       {
         "id": "b177448194828863wq",
@@ -2071,7 +2082,8 @@
         "lockRotate": true,
         "zIndex": 5,
         "color": "#111111",
-        "clipPanel": 2
+        "clipPanel": 2,
+        "extraTails": []
       },
       {
         "id": "b1774481948288etuu",
@@ -2098,7 +2110,8 @@
         "lockRotate": true,
         "zIndex": 6,
         "color": "#111111",
-        "clipPanel": null
+        "clipPanel": null,
+        "extraTails": []
       },
       {
         "id": "b17744819482881sm9",
@@ -2125,7 +2138,8 @@
         "lockRotate": true,
         "zIndex": 7,
         "color": "#111111",
-        "clipPanel": null
+        "clipPanel": null,
+        "extraTails": []
       },
       {
         "id": "b17744819482884wxp",
@@ -2152,7 +2166,8 @@
         "lockRotate": true,
         "zIndex": 8,
         "color": "#111111",
-        "clipPanel": null
+        "clipPanel": null,
+        "extraTails": []
       },
       {
         "id": "b17744819482885xem",
@@ -2179,7 +2194,8 @@
         "lockRotate": true,
         "zIndex": 9,
         "color": "#111111",
-        "clipPanel": 5
+        "clipPanel": 5,
+        "extraTails": []
       },
       {
         "id": "b17744819482887h9q",
@@ -2206,7 +2222,8 @@
         "lockRotate": true,
         "zIndex": 10,
         "color": "#111111",
-        "clipPanel": null
+        "clipPanel": null,
+        "extraTails": []
       },
       {
         "id": "b177448194828820yz",
@@ -2233,7 +2250,8 @@
         "lockRotate": true,
         "zIndex": 11,
         "color": "#111111",
-        "clipPanel": 6
+        "clipPanel": 6,
+        "extraTails": []
       }
     ],
     "PG 3": [
@@ -2262,7 +2280,8 @@
         "lockRotate": false,
         "zIndex": 1,
         "color": "#111111",
-        "clipPanel": null
+        "clipPanel": null,
+        "extraTails": []
       },
       {
         "id": "b17746624472416ju1",
@@ -2289,7 +2308,8 @@
         "lockRotate": false,
         "zIndex": 3,
         "color": "#111111",
-        "clipPanel": null
+        "clipPanel": null,
+        "extraTails": []
       },
       {
         "id": "b1774662447241p0mx",
@@ -2316,7 +2336,8 @@
         "lockRotate": false,
         "zIndex": 4,
         "color": "#111111",
-        "clipPanel": null
+        "clipPanel": null,
+        "extraTails": []
       },
       {
         "id": "b1774662447241k4bz",
@@ -2343,7 +2364,8 @@
         "lockRotate": false,
         "zIndex": 5,
         "color": "#111111",
-        "clipPanel": null
+        "clipPanel": null,
+        "extraTails": []
       },
       {
         "id": "b1774662447241lw8b",
@@ -2370,7 +2392,8 @@
         "lockRotate": false,
         "zIndex": 6,
         "color": "#111111",
-        "clipPanel": null
+        "clipPanel": null,
+        "extraTails": []
       },
       {
         "id": "b17746624472414wb4",
@@ -2397,7 +2420,8 @@
         "lockRotate": false,
         "zIndex": 7,
         "color": "#111111",
-        "clipPanel": null
+        "clipPanel": null,
+        "extraTails": []
       },
       {
         "id": "b1774662447241cuim",
@@ -2424,7 +2448,8 @@
         "lockRotate": false,
         "zIndex": 8,
         "color": "#111111",
-        "clipPanel": null
+        "clipPanel": null,
+        "extraTails": []
       },
       {
         "id": "b1774662447241s73f",
@@ -2451,7 +2476,8 @@
         "lockRotate": false,
         "zIndex": 9,
         "color": "#111111",
-        "clipPanel": null
+        "clipPanel": null,
+        "extraTails": []
       }
     ]
   },
@@ -2579,10 +2605,106 @@
           "h": 1410
         }
       ]
+    },
+    "PG 3": {
+      "0": {
+        "x": 250,
+        "y": 368.5,
+        "w": 1220,
+        "h": 1930,
+        "locked": true
+      },
+      "1": {
+        "x": 1510,
+        "y": 368.5,
+        "w": 1220,
+        "h": 1930,
+        "locked": true
+      },
+      "2": {
+        "x": 250,
+        "y": 2338.5,
+        "w": 968,
+        "h": 1930,
+        "locked": true
+      },
+      "3": {
+        "x": 1258,
+        "y": 2338.5,
+        "w": 716,
+        "h": 1930,
+        "locked": true
+      },
+      "4": {
+        "x": 2014,
+        "y": 2338.5,
+        "w": 716,
+        "h": 945,
+        "locked": true
+      },
+      "5": {
+        "x": 2014,
+        "y": 3323.5,
+        "w": 716,
+        "h": 945,
+        "locked": true
+      },
+      "_lockedRects": [
+        {
+          "pnl": "PNL 1",
+          "pg": "PG 3",
+          "x": 250,
+          "y": 368.5,
+          "w": 1220,
+          "h": 1930
+        },
+        {
+          "pnl": "PNL 2",
+          "pg": "PG 3",
+          "x": 1510,
+          "y": 368.5,
+          "w": 1220,
+          "h": 1930
+        },
+        {
+          "pnl": "PNL 3",
+          "pg": "PG 3",
+          "x": 250,
+          "y": 2338.5,
+          "w": 968,
+          "h": 1930
+        },
+        {
+          "pnl": "PNL 4",
+          "pg": "PG 3",
+          "x": 1258,
+          "y": 2338.5,
+          "w": 716,
+          "h": 1930
+        },
+        {
+          "pnl": "PNL 5",
+          "pg": "PG 3",
+          "x": 2014,
+          "y": 2338.5,
+          "w": 716,
+          "h": 945
+        },
+        {
+          "pnl": "PNL 6",
+          "pg": "PG 3",
+          "x": 2014,
+          "y": 3323.5,
+          "w": 716,
+          "h": 945
+        }
+      ]
     }
   },
   "cornerOffsets": {},
   "cornerLocks": {},
+  "cornerAxisMode": {},
+  "cornerEnabled": {},
   "pageBypageMode": false,
   "pbpCurrentPage": null,
   "globalSettings": {
