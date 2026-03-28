@@ -1553,7 +1553,7 @@ function computePanelRects(pageRows, mode, gutter, flow='v-first') {
 // ─────────────────────────────────────────────
 // SVG GENERATION
 // ─────────────────────────────────────────────
-function buildSVG(pg, pgNum, panelRects, fillColor, strokeColor, strokeW, forExport=false) {
+function buildSVG(pg, pgNum, panelRects, fillColor, strokeColor, strokeW, forExport=false, ovs=null) {
   const isOdd = pgNum % 2 !== 0;
   const drawX = getDrawX(isOdd);
   const safe = getSafeRect(isOdd);
@@ -1572,10 +1572,13 @@ function buildSVG(pg, pgNum, panelRects, fillColor, strokeColor, strokeW, forExp
 
   const pgCorners = cornerOffsets[pg] || {};
 
+  const _ovs = ovs || panelOverrides[pg] || {};
   panelRects.filter(r => !r._hidden).forEach((r, idx) => {
     const co = pgCorners[idx];
+    const sp = _ovs[idx]?.split || null;
+
+    // Draw panel shape (polygon if corners, rect otherwise)
     if (co) {
-      // Draw as polygon using per-corner x-offsets (y stays fixed)
       const x1 = r.x, y1 = r.y, x2 = r.x + r.w, y2 = r.y + r.h;
       const tlx = (x1 + (co.tl||0)).toFixed(1), trx = (x2 + (co.tr||0)).toFixed(1);
       const blx = (x1 + (co.bl||0)).toFixed(1), brx = (x2 + (co.br||0)).toFixed(1);
@@ -1584,6 +1587,42 @@ function buildSVG(pg, pgNum, panelRects, fillColor, strokeColor, strokeW, forExp
     } else {
       svg += `<rect x="${r.x.toFixed(1)}" y="${r.y.toFixed(1)}" width="${r.w.toFixed(1)}" height="${r.h.toFixed(1)}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeW}"/>`;
     }
+
+    // Draw split line/gap if configured
+    if (sp) {
+      const pct = Math.max(5, Math.min(95, sp.pos || 50)) / 100;
+      const gap = sp.gap || 0;
+      const half = gap / 2;
+      const sty = sp.style || 'line';
+      const dir = sp.dir || 'h';
+      if (dir === 'h') {
+        // Horizontal split — line runs left→right at pct of height
+        const sy = r.y + r.h * pct;
+        if (sty === 'line') {
+          svg += `<line x1="${r.x.toFixed(1)}" y1="${sy.toFixed(1)}" x2="${(r.x+r.w).toFixed(1)}" y2="${sy.toFixed(1)}" stroke="${strokeColor}" stroke-width="${strokeW}"/>`;
+        } else {
+          // Gap: draw fill rect above and below to create gap
+          const topH = sy - r.y - half;
+          const botY = sy + half;
+          const botH = r.y + r.h - botY;
+          if (topH > 0) svg += `<rect x="${r.x.toFixed(1)}" y="${r.y.toFixed(1)}" width="${r.w.toFixed(1)}" height="${topH.toFixed(1)}" fill="${sty==='solid'?fillColor:'white'}" stroke="${strokeColor}" stroke-width="${strokeW}"/>`;
+          if (botH > 0) svg += `<rect x="${r.x.toFixed(1)}" y="${botY.toFixed(1)}" width="${r.w.toFixed(1)}" height="${botH.toFixed(1)}" fill="${sty==='solid'?fillColor:'white'}" stroke="${strokeColor}" stroke-width="${strokeW}"/>`;
+        }
+      } else {
+        // Vertical split — line runs top→bottom at pct of width
+        const sx = r.x + r.w * pct;
+        if (sty === 'line') {
+          svg += `<line x1="${sx.toFixed(1)}" y1="${r.y.toFixed(1)}" x2="${sx.toFixed(1)}" y2="${(r.y+r.h).toFixed(1)}" stroke="${strokeColor}" stroke-width="${strokeW}"/>`;
+        } else {
+          const leftW = sx - r.x - half;
+          const rightX = sx + half;
+          const rightW = r.x + r.w - rightX;
+          if (leftW > 0) svg += `<rect x="${r.x.toFixed(1)}" y="${r.y.toFixed(1)}" width="${leftW.toFixed(1)}" height="${r.h.toFixed(1)}" fill="${sty==='solid'?fillColor:'white'}" stroke="${strokeColor}" stroke-width="${strokeW}"/>`;
+          if (rightW > 0) svg += `<rect x="${rightX.toFixed(1)}" y="${r.y.toFixed(1)}" width="${rightW.toFixed(1)}" height="${r.h.toFixed(1)}" fill="${sty==='solid'?fillColor:'white'}" stroke="${strokeColor}" stroke-width="${strokeW}"/>`;
+        }
+      }
+    }
+
     if (!forExport) {
       const cx = r.x + r.w/2, cy = r.y + r.h/2;
       svg += `<text x="${cx.toFixed(1)}" y="${cy.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="80" fill="${strokeColor}" opacity="0.3">${r.pnl}</text>`;
@@ -1640,7 +1679,7 @@ function generateAll() {
     console.log('PAGE:', pg, '| Raw rows ('+pageRows.length+'):', pageRows.map(r => r.pnl+'@'+r.row+' lh='+r.lh));
     console.log('PAGE:', pg, '| Rects ('+panelRects.length+'):', panelRects.map(r => r.pnl+' x='+r.x.toFixed(0)+' y='+r.y.toFixed(0)+' w='+r.w.toFixed(0)+' h='+r.h.toFixed(0)));
 
-    const svgStr = buildSVG(pg, pgNum, panelRects, fillColor, strokeColor, strokeW);
+    const svgStr = buildSVG(pg, pgNum, panelRects, fillColor, strokeColor, strokeW, false, _pgOvs);
 
     const w = Math.round(PAGE_W * scale);
     const h = Math.round(PAGE_H * scale);
@@ -1860,7 +1899,7 @@ function buildExportSVGString(pg, fontDefsStr) {
     };
   });
 
-  let exportSvg = buildSVG(pg, pgNum, panelRects, fillColor, strokeColor, strokeW, true);
+  let exportSvg = buildSVG(pg, pgNum, panelRects, fillColor, strokeColor, strokeW, true, panelOverrides[pg]||{});
 
   // Inject base64 font defs (replaces the placeholder defs from buildSVG)
   exportSvg = exportSvg.replace(/<defs>.*?<\/defs>/s, fontDefsStr);
@@ -3180,15 +3219,18 @@ let customFontCount = 0;
 function defaultBubble(type, text, speaker, index) {
   const isRect = type === 'rectangle';
   const isYell = type === 'spiked';
-  return {
+  const fontSize = 60;
+  const font = isRect ? 'TGLEngschrift' : 'BubbleSans';
+  const bold = isYell;
+  const b = {
     id: 'b' + Date.now() + Math.random().toString(36).slice(2,6),
     type, text, speaker: speaker||'',
     x: -9999, y: -9999,   // sentinel — will be placed on import
-    w: 1000, h: 700,
+    w: 600, h: 400,        // fallback — overwritten by sizeBubbleToText
     rotate: 0,
-    font: isRect ? 'TGLEngschrift' : 'BubbleSans',
-    fontSize: isRect ? 100 : 70,
-    bold: isYell,
+    font,
+    fontSize,
+    bold,
     italic: false,
     tailAngle: 225, tailLen: 150, tailBreadth: 7,
     dotCount: 4,
@@ -3199,6 +3241,99 @@ function defaultBubble(type, text, speaker, index) {
     color: '#111111',
     clipPanel: null,   // index into page's panel rects, or null = no clip
   };
+  sizeBubbleToText(b);
+  return b;
+}
+
+// Measure the bubble's text and resize w/h to snugly fit it with a small padding.
+// Uses OffscreenCanvas for accurate per-font measurement.
+// The bubble is allowed to grow freely in width (up to MAX_W) then wraps.
+function sizeBubbleToText(b) {
+  const PAD_RATIO = 0.28;   // padding = 28% of min(w,h) — matches .bubble-text CSS
+  const MAX_W     = 3000;   // hard cap so single-line text doesn't go off-page
+  const MIN_W     = 300;
+  const MIN_H     = 240;
+  const LINE_H    = b.fontSize * 1.25;
+
+  const fontFamily = BUBBLE_FONTS[b.font] || BUBBLE_FONTS['BubbleSans'];
+  const weight = b.bold   ? 'bold'   : 'normal';
+  const fstyle = b.italic ? 'italic' : 'normal';
+  const text   = (b.text || '').trim();
+
+  // Measure a string in canvas units
+  let ctx = null;
+  try {
+    const oc = new OffscreenCanvas(1, 1);
+    ctx = oc.getContext('2d');
+    ctx.font = `${fstyle} ${weight} ${b.fontSize}px ${fontFamily}`;
+  } catch(e) { ctx = null; }
+
+  function measureStr(s) {
+    if (ctx) { try { return ctx.measureText(s).width; } catch(e) {} }
+    // Fallback char-width approximation
+    const ratio = /XLTight|TGL|Engschrift/i.test(fontFamily) ? 0.42
+                : /Bangers/i.test(fontFamily)                 ? 0.52
+                : /Permanent|Marker/i.test(fontFamily)        ? 0.65
+                : /Caveat/i.test(fontFamily)                  ? 0.50
+                : 0.55;
+    return s.length * b.fontSize * ratio;
+  }
+
+  if (!text) {
+    b.w = Math.max(MIN_W, b.w);
+    b.h = Math.max(MIN_H, b.h);
+    return;
+  }
+
+  // Split on hard newlines first, then word-wrap each segment to MAX_W - 2*pad
+  // We do two passes: pass 1 finds natural single-line width of the whole text
+  // to set our content width, capped at MAX_W minus padding.
+  const hardLines = text.split('\n');
+
+  // Find the widest natural (non-wrapped) line to use as the preferred width
+  let naturalW = 0;
+  hardLines.forEach(seg => { naturalW = Math.max(naturalW, measureStr(seg)); });
+
+  // Content width = naturalW, but cap so very long lines wrap
+  const contentW = Math.min(naturalW, MAX_W * 0.72); // leave room for padding
+
+  // Word-wrap each hard line into display lines
+  const displayLines = [];
+  hardLines.forEach(seg => {
+    const words = seg.split(' ');
+    let cur = '', curW = 0;
+    words.forEach(word => {
+      const ww = measureStr(word);
+      const spW = cur ? measureStr(' ') : 0;
+      if (cur && curW + spW + ww > contentW) {
+        displayLines.push(cur);
+        cur = word; curW = ww;
+      } else {
+        cur = cur ? cur + ' ' + word : word;
+        curW += spW + ww;
+      }
+    });
+    if (cur) displayLines.push(cur);
+  });
+
+  // Actual content dimensions
+  const textW = Math.min(contentW, Math.max(...displayLines.map(l => measureStr(l))));
+  const textH = displayLines.length * LINE_H;
+
+  // Back-calculate bubble size from content size + padding
+  // pad = PAD_RATIO * min(w,h)  →  if we assume w >= h then pad ≈ PAD_RATIO*h
+  // textW = w - 2*pad,  textH = h - 2*pad
+  // Solve for w and h (assuming square-ish pad):
+  // Let pad = PAD_RATIO * min(w,h). Iterate once: start with rough estimate.
+  let w = textW / (1 - 2 * PAD_RATIO) + 1;
+  let h = textH / (1 - 2 * PAD_RATIO) + 1;
+  // Refine using actual min(w,h)
+  const pad = PAD_RATIO * Math.min(w, h);
+  w = textW + pad * 2;
+  h = textH + pad * 2;
+
+  b.w = Math.round(Math.max(MIN_W, w));
+  b.h = Math.round(Math.max(MIN_H, h));
 }
 
 function parseType(raw) {
@@ -4148,6 +4283,64 @@ function syncMobileLockBtn(pg) {
   btn.style.color = isLocked ? 'var(--danger)' : '';
 }
 
+function ppCornerHTML(pg, idx) {
+  const co = (cornerOffsets[pg]||{})[idx] || {tl:0,tr:0,bl:0,br:0};
+  const lk = (cornerLocks[pg]||{})[idx] || {};
+  const ci = (key, label) => {
+    const isLk = !!lk[key];
+    return '<div style="display:flex;align-items:center;gap:2px;">'
+      + '<span style="font-size:9px;color:var(--text3);width:14px;text-align:right;">' + label + '</span>'
+      + '<input type="number" value="' + Math.round(co[key]||0) + '" ' + (isLk?'disabled':'') + ' style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:2px 4px;font-size:10px;border-radius:2px;opacity:' + (isLk?'0.4':'1') + ';"'
+      + ' onchange="setCornerOffset(\'' + pg + '\',' + idx + ',\'' + key + '\',+this.value)">'
+      + '<button onclick="toggleCornerLock(\'' + pg + '\',' + idx + ',\'' + key + '\')" style="background:none;border:none;cursor:pointer;font-size:10px;padding:1px 2px;" title="' + (isLk?'Unlock':'Lock') + ' corner">' + (isLk?'🔒':'🔓') + '</button>'
+      + '</div>';
+  };
+  return '<div style="margin-top:5px;">'
+    + '<div style="font-size:9px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;margin-bottom:3px;">CORNERS (X skew)</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;">'
+    + ci('tl','TL') + ci('tr','TR')
+    + ci('bl','BL') + ci('br','BR')
+    + '</div></div>';
+}
+
+function ppSplitHTML(pg, idx) {
+  const sp = (panelOverrides[pg]||{})[idx]?.split || null;
+  const spDir   = sp?.dir   || 'h';
+  const spPos   = sp?.pos   !== undefined ? sp.pos   : 50;
+  const spGap   = sp?.gap   !== undefined ? sp.gap   : 0;
+  const spStyle = sp?.style || 'line';
+  return '<div style="margin-top:5px;border-top:1px solid var(--border);padding-top:5px;">'
+    + '<div style="font-size:9px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;margin-bottom:3px;display:flex;align-items:center;justify-content:space-between;">'
+    + 'SPLIT PANEL'
+    + '<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:9px;color:var(--text2);">'
+    + '<input type="checkbox" ' + (sp?'checked':'') + ' style="accent-color:var(--accent2);"'
+    + ' onchange="ppSetSplit(\'' + pg + '\',' + idx + ',this.checked)"> Enable'
+    + '</label></div>'
+    + '<div style="opacity:' + (sp?1:0.35) + ';pointer-events:' + (sp?'all':'none') + ';">'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-bottom:3px;">'
+    + '<div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">Direction</div>'
+    + '<select style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:2px;font-size:10px;border-radius:2px;"'
+    + ' onchange="ppUpdateSplit(\'' + pg + '\',' + idx + ',\'dir\',this.value)">'
+    + '<option value="h" ' + (spDir==='h'?'selected':'') + '>Horizontal ─</option>'
+    + '<option value="v" ' + (spDir==='v'?'selected':'') + '>Vertical │</option>'
+    + '</select></div>'
+    + '<div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">Style</div>'
+    + '<select style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:2px;font-size:10px;border-radius:2px;"'
+    + ' onchange="ppUpdateSplit(\'' + pg + '\',' + idx + ',\'style\',this.value)">'
+    + '<option value="line" ' + (spStyle==='line'?'selected':'') + '>Line only</option>'
+    + '<option value="gap" ' + (spStyle==='gap'?'selected':'') + '>Gap (hollow)</option>'
+    + '<option value="solid" ' + (spStyle==='solid'?'selected':'') + '>Gap (solid fill)</option>'
+    + '</select></div></div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;">'
+    + '<div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">Position %</div>'
+    + '<input type="number" min="5" max="95" value="' + spPos + '" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:2px 4px;font-size:10px;border-radius:2px;"'
+    + ' onchange="ppUpdateSplit(\'' + pg + '\',' + idx + ',\'pos\',+this.value)"></div>'
+    + '<div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">Gap (px)</div>'
+    + '<input type="number" min="0" max="200" value="' + spGap + '" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:2px 4px;font-size:10px;border-radius:2px;"'
+    + ' onchange="ppUpdateSplit(\'' + pg + '\',' + idx + ',\'gap\',+this.value)"></div>'
+    + '</div></div></div>';
+}
+
 function refreshPanelsPanel(pg) {
   const body = document.getElementById('pp-body');
   if (!body) return;
@@ -4190,8 +4383,33 @@ function refreshPanelsPanel(pg) {
         <span class="pp-lbl">H</span>
         <input type="number" value="${Math.round(h)}" ${locked ? 'disabled' : ''} onchange="ppSet('${pg}',${idx},'h',+this.value)">
       </div>
+      ${ppCornerHTML(pg, idx)}
+      ${ppSplitHTML(pg, idx)}
     </div>`;
   }).join('');
+}
+
+// ── PANEL SPLIT ──
+function ppSetSplit(pg, idx, enabled) {
+  ppEnsure(pg, idx);
+  if (enabled) {
+    if (!panelOverrides[pg][idx].split) {
+      panelOverrides[pg][idx].split = { dir:'h', pos:50, gap:0, style:'line' };
+    }
+  } else {
+    delete panelOverrides[pg][idx].split;
+  }
+  rerenderPageSVG(pg);
+  if (document.getElementById('panelsPanel')?.classList.contains('open')) refreshPanelsPanel(pg);
+  scheduleAutoSave();
+}
+
+function ppUpdateSplit(pg, idx, field, val) {
+  ppEnsure(pg, idx);
+  if (!panelOverrides[pg][idx].split) panelOverrides[pg][idx].split = { dir:'h', pos:50, gap:0, style:'line' };
+  panelOverrides[pg][idx].split[field] = val;
+  rerenderPageSVG(pg);
+  scheduleAutoSave();
 }
 
 // Targeted SVG-only re-render for a single page (preserves bubble overlay)
@@ -4223,7 +4441,7 @@ function rerenderPageSVG(pg) {
     };
   });
 
-  const svgStr = buildSVG(pg, pgNum, finalRects, fillColor, strokeColor, strokeW);
+  const svgStr = buildSVG(pg, pgNum, finalRects, fillColor, strokeColor, strokeW, false, _pgOvs);
   cont.dataset.svg = svgStr;
 
   // Swap just the SVG element, leaving bubble overlay untouched
