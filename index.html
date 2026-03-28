@@ -1879,7 +1879,7 @@ function buildBubbleTextSVG(b) {
     .replace(/>/g,'&gt;').replace(/\n/g,'<br/>');
 
   // Use XHTML namespace div inside foreignObject — all attribute values must be XML-safe
-  return `<foreignObject x="0" y="0" width="${b.w}" height="${b.h}"><div xmlns="http://www.w3.org/1999/xhtml" style="width:${b.w}px;height:${b.h}px;display:flex;align-items:center;justify-content:center;text-align:center;font-family:${family};font-size:${b.fontSize}px;font-weight:${weight};font-style:${fstyle};color:${color};padding:${pad}px;line-height:1.25;word-break:break-word;overflow:hidden;box-sizing:border-box;">${text}</div></foreignObject>`;
+  return `<foreignObject x="0" y="0" width="${b.w}" height="${b.h}"><div xmlns="http://www.w3.org/1999/xhtml" style="width:${b.w}px;height:${b.h}px;display:flex;align-items:center;justify-content:center;text-align:center;font-family:${family};font-size:${b.fontSize}px;font-weight:${weight};font-style:${fstyle};color:${color};padding:${pad}px;line-height:1.3;word-break:break-word;overflow:hidden;box-sizing:border-box;">${text}</div></foreignObject>`;
 }
 
 // Build bubble text as native SVG <text>/<tspan> — used for PNG export to avoid canvas taint from foreignObject.
@@ -3524,11 +3524,14 @@ function defaultBubble(type, text, speaker, index) {
 // Uses OffscreenCanvas for accurate per-font measurement.
 // The bubble is allowed to grow freely in width (up to MAX_W) then wraps.
 function sizeBubbleToText(b) {
-  const PAD_RATIO = 0.28;   // padding = 28% of min(w,h) — matches .bubble-text CSS
+  // PAD_RATIO = per-side padding ratio, must match buildBubbleTextSVGNative (0.14) and
+  // buildBubbleTextSVG CSS (padding: min(w,h)*0.14 per side).
+  // LINE_H must match buildBubbleTextSVGNative (fontSize*1.3) so sizing = export height.
+  const PAD_RATIO = 0.14;   // per-side — matches rendering in both live and export paths
   const MAX_W     = 3000;   // hard cap so single-line text doesn't go off-page
   const MIN_W     = 300;
   const MIN_H     = 240;
-  const LINE_H    = b.fontSize * 1.25;
+  const LINE_H    = b.fontSize * 1.3;  // matches buildBubbleTextSVGNative lineH
 
   const fontFamily = BUBBLE_FONTS[b.font] || BUBBLE_FONTS['BubbleSans'];
   const weight = b.bold   ? 'bold'   : 'normal';
@@ -3569,17 +3572,13 @@ function sizeBubbleToText(b) {
   let naturalW = 0;
   hardLines.forEach(seg => { naturalW = Math.max(naturalW, measureStr(seg)); });
 
-  // Target a compact ~1.3:1 (w:h) bubble aspect ratio.
-  // With PAD_RATIO=0.28 on each side, back-calculating gives a target content
-  // area ratio of ~1.68. The ideal wrap width is the geometric mean:
-  //   idealContentW = sqrt(naturalW × LINE_H × TARGET_CONTENT_RATIO)
-  // This wraps text into ~3–5 lines for most dialogue, making bubbles compact
-  // and roughly square-ish instead of long and thin.
-  // We never exceed naturalW (no point wrapping a short text), and clamp to a
-  // reasonable minimum so tiny bubbles don't go degenerate.
-  const TARGET_CONTENT_RATIO = 1.68; // produces ~1.3:1 bubble after padding
-  const idealContentW = Math.sqrt(naturalW * LINE_H * TARGET_CONTENT_RATIO);
-  const contentW = Math.min(naturalW, Math.max(MIN_W * 0.55, idealContentW));
+  // Target a compact ~1.3:1 (w:h) bubble aspect ratio instead of going wide.
+  // Ideal content width = geometric mean: sqrt(naturalW * LINE_H * TARGET_RATIO)
+  // TARGET_RATIO ~1.4 in content-space produces ~1.3:1 bubble after padding is added.
+  // This wraps long text into ~3–5 lines, keeping bubbles compact and readable.
+  const TARGET_RATIO = 1.4;
+  const idealW = Math.sqrt(naturalW * LINE_H * TARGET_RATIO);
+  const contentW = Math.min(naturalW, Math.max(MIN_W * 0.55, idealW));
 
   // Word-wrap each hard line into display lines
   const displayLines = [];
@@ -3604,17 +3603,15 @@ function sizeBubbleToText(b) {
   const textW = Math.min(contentW, Math.max(...displayLines.map(l => measureStr(l))));
   const textH = displayLines.length * LINE_H;
 
-  // Back-calculate bubble size from content size + padding
-  // pad = PAD_RATIO * min(w,h)  →  if we assume w >= h then pad ≈ PAD_RATIO*h
-  // textW = w - 2*pad,  textH = h - 2*pad
-  // Solve for w and h (assuming square-ish pad):
-  // Let pad = PAD_RATIO * min(w,h). Iterate once: start with rough estimate.
+  // Back-calculate bubble size: pad = PAD_RATIO * min(w,h) per side.
+  // Iterate twice to converge: first rough estimate, then refine with actual min(w,h).
   let w = textW / (1 - 2 * PAD_RATIO) + 1;
   let h = textH / (1 - 2 * PAD_RATIO) + 1;
-  // Refine using actual min(w,h)
-  const pad = PAD_RATIO * Math.min(w, h);
-  w = textW + pad * 2;
-  h = textH + pad * 2;
+  for (let i = 0; i < 2; i++) {
+    const pad = PAD_RATIO * Math.min(w, h);
+    w = textW + pad * 2;
+    h = textH + pad * 2;
+  }
 
   b.w = Math.round(Math.max(MIN_W, w));
   b.h = Math.round(Math.max(MIN_H, h));
@@ -3937,7 +3934,7 @@ function updateTextStyle(textDiv, b) {
     font-style:${b.italic?'italic':'normal'};
     color:${b.color||'#111111'};
     padding:${pad}px;
-    line-height:1.25;
+    line-height:1.3;
     word-break:break-word;
     white-space:pre-wrap;
     overflow:hidden;
@@ -4036,6 +4033,26 @@ function svgExtraTail(svg, cx, cy, rx, ry, b, sw, type) {
     const cp4x = (bx + (tipX - bx) * m2) + amp * Math.cos(perp), cp4y = (by_ + (tipY - by_) * m2) + amp * Math.sin(perp);
     const td = `M ${s1x} ${s1y} Q ${cp1x} ${cp1y} ${bx+(tipX-bx)*m2} ${by_+(tipY-by_)*m2} Q ${cp2x} ${cp2y} ${tipX} ${tipY} Q ${cp3x} ${cp3y} ${bx+(tipX-bx)*m1} ${by_+(tipY-by_)*m1} Q ${cp4x} ${cp4y} ${s2x} ${s2y} Z`;
     mkPath(svg, td, '#111', '#fff', 1.5);
+    return;
+  }
+
+  // ── LILYPAD: extra V-notch cut into the ellipse edge ──
+  if (type === 'lilypad') {
+    const nw = Math.min(0.45, 0.22 * (b.tailBreadth || 1.0));
+    const a1l = tar - nw, a2l = tar + nw;
+    const [lx1, ly1] = ep(cx, cy, rx, ry, a1l);
+    const [lx2, ly2] = ep(cx, cy, rx, ry, a2l);
+    const depth = Math.min((b.tailLen || 100) * 0.55, Math.min(rx, ry) * 0.30);
+    const ix = cx + (rx - depth) * Math.cos(tar), iy = cy + (ry - depth) * Math.sin(tar);
+    const nFill = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    nFill.setAttribute('d', `M ${lx1} ${ly1} L ${ix} ${iy} L ${lx2} ${ly2} Z`);
+    nFill.setAttribute('fill', '#fff'); nFill.setAttribute('stroke', 'none');
+    svg.appendChild(nFill);
+    const nStroke = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    nStroke.setAttribute('d', `M ${lx1} ${ly1} L ${ix} ${iy} L ${lx2} ${ly2}`);
+    nStroke.setAttribute('fill', 'none'); nStroke.setAttribute('stroke', '#111');
+    nStroke.setAttribute('stroke-width', sw); nStroke.setAttribute('stroke-linejoin', 'round');
+    svg.appendChild(nStroke);
     return;
   }
 
@@ -4237,21 +4254,40 @@ function svgSpikedBubble(svg,cx,cy,rx,ry,b) {
   mkPath(svg,d,'#111','#fff',2);
 }
 
-// ── LILYPAD: real lilypad — full ellipse outline with a sharp V-notch cut in ──
-// The notch cuts inward with straight lines to a deep point, like a real lilypad's slit
+// ── LILYPAD: full ellipse with a V-notch cut in from the edge ──
+// Draw ellipse first, then overlay white-filled V to carve the notch cleanly.
+// This is reliable across all rx/ry ratios unlike a single arc-path approach.
 function svgLilypad(svg,cx,cy,rx,ry,b) {
+  // 1. Full ellipse body
+  const el=document.createElementNS('http://www.w3.org/2000/svg','ellipse');
+  el.setAttribute('cx',cx); el.setAttribute('cy',cy);
+  el.setAttribute('rx',rx); el.setAttribute('ry',ry);
+  el.setAttribute('stroke','#111'); el.setAttribute('stroke-width',2.5);
+  el.setAttribute('fill','#fff');
+  svg.appendChild(el);
+
+  // 2. V-notch: angle controls direction, tailLen controls depth, tailBreadth controls width
   const a=(b.tailAngle*Math.PI)/180;
-  const nw=0.28*(b.tailBreadth||1.0);  // notch half-angle
+  const nw=Math.min(0.45, 0.22*(b.tailBreadth||1.0));  // notch half-angle
   const a1=a-nw, a2=a+nw;
   const [x1,y1]=ep(cx,cy,rx,ry,a1);
   const [x2,y2]=ep(cx,cy,rx,ry,a2);
-  // Inner tip — deep, at ~45% of radius toward center
-  const depth=Math.min(rx,ry)*0.65;
+  // Depth capped at 30% of shorter radius so notch stays shallow and clean
+  const depth=Math.min((b.tailLen||100)*0.55, Math.min(rx,ry)*0.30);
   const ix=cx+(rx-depth)*Math.cos(a), iy=cy+(ry-depth)*Math.sin(a);
-  // Path: from notch-right, large arc all the way to notch-left,
-  // sharp line inward to tip, sharp line back to notch-right
-  const d=`M ${x2} ${y2} A ${rx} ${ry} 0 1 1 ${x1} ${y1} L ${ix} ${iy} L ${x2} ${y2} Z`;
-  mkPath(svg,d,'#111','#fff',2.5);
+
+  // White fill erases interior of notch (covers the ellipse stroke inside)
+  const nFill=document.createElementNS('http://www.w3.org/2000/svg','path');
+  nFill.setAttribute('d',`M ${x1} ${y1} L ${ix} ${iy} L ${x2} ${y2} Z`);
+  nFill.setAttribute('fill','#fff'); nFill.setAttribute('stroke','none');
+  svg.appendChild(nFill);
+
+  // Notch outline — two stroked edges from perimeter to inner tip
+  const nStroke=document.createElementNS('http://www.w3.org/2000/svg','path');
+  nStroke.setAttribute('d',`M ${x1} ${y1} L ${ix} ${iy} L ${x2} ${y2}`);
+  nStroke.setAttribute('fill','none'); nStroke.setAttribute('stroke','#111');
+  nStroke.setAttribute('stroke-width',2.5); nStroke.setAttribute('stroke-linejoin','round');
+  svg.appendChild(nStroke);
 }
 
 // ── TAIL HANDLE ──
