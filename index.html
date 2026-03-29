@@ -3920,7 +3920,8 @@ function importBubbles() {
   if (!bubbles[pg]) bubbles[pg] = [];
   const existing = bubbles[pg].length;
   const lines = raw.split('\n').map(l=>l.trim()).filter(Boolean);
-  const startI = lines[0].toLowerCase().includes('speech') ? 1 : 0;
+  const firstLower = lines[0].toLowerCase();
+  const startI = (firstLower.startsWith('speech') || firstLower.startsWith('type') || firstLower === 'speech type\tspeaker\tdialogue') ? 1 : 0;
   const added = [];
   for (let i = startI; i < lines.length; i++) {
     const cols = lines[i].split('\t').map(c=>c.trim());
