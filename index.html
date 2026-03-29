@@ -2675,10 +2675,15 @@ function duplicateSelectedBubble() {
   const { data, pgKey } = selectedBubble;
   const copy = JSON.parse(JSON.stringify(data));
   copy.id = 'b' + Date.now() + Math.random().toString(36).slice(2,6);
-  copy.x += 60; copy.y += 60;
   copy.zIndex = (bubbles[pgKey]||[]).length + 1;
-  if (!bubbles[pgKey]) bubbles[pgKey] = [];
-  bubbles[pgKey].push(copy);
+  copy.x = data.x; copy.y = data.y - data.h - 20;
+  const origIdx = (bubbles[pgKey]||[]).findIndex(b => b.id === data.id);
+  if (origIdx !== -1) {
+    bubbles[pgKey].splice(origIdx + 1, 0, copy);
+    bubbles[pgKey].forEach((b, idx) => { b.zIndex = idx + 1; });
+  } else {
+    bubbles[pgKey].push(copy);
+  }
   renderBubblesOnPage(pgKey);
   refreshLayersPanel(pgKey);
   // Select the new copy
@@ -2841,7 +2846,10 @@ canvasArea.addEventListener('touchend', e => {
 function checkBubbleOverflow(wrap, b) {
   const textDiv = wrap.querySelector('.bubble-text');
   if (!textDiv) return;
-  const isOverflowing = textDiv.scrollHeight > textDiv.clientHeight + 2 || textDiv.scrollWidth > textDiv.clientWidth + 2;
+  // Thought bubbles have bumpy borders that protrude ~27% beyond the base ellipse,
+  // so give them extra slack before flagging overflow.
+  const slack = (b && b.type === 'thought') ? Math.round(textDiv.clientHeight * 0.18) : 2;
+  const isOverflowing = textDiv.scrollHeight > textDiv.clientHeight + slack || textDiv.scrollWidth > textDiv.clientWidth + slack;
   wrap.classList.toggle('text-overflow', isOverflowing);
 }
 
@@ -3283,9 +3291,10 @@ function duplicateBubbleById(pgKey, id) {
   snapshotState();
   const copy = JSON.parse(JSON.stringify(src));
   copy.id = 'b' + Date.now() + Math.random().toString(36).slice(2,6);
-  copy.x += 60; copy.y += 60;
-  copy.zIndex = bbs.length + 1;
-  bbs.push(copy);
+  copy.x = src.x; copy.y = src.y - src.h - 20;
+  const origIdx = bbs.findIndex(b => b.id === id);
+  bbs.splice(origIdx + 1, 0, copy);
+  bbs.forEach((b, idx) => { b.zIndex = idx + 1; });
   renderBubblesOnPage(pgKey);
   refreshLayersPanel(pgKey);
   scheduleAutoSave();
@@ -3506,7 +3515,7 @@ function defaultBubble(type, text, speaker, index) {
     fontSize,
     bold,
     italic: false,
-    tailAngle: 225, tailLen: type === 'lilypad' ? 20 : 150, tailBreadth: type === 'lilypad' ? 1 : 7,
+    tailAngle: 225, tailLen: 20, tailBreadth: 1,
     extraTails: [],   // [{angle,len,breadth,dotCount,spikeCount,dashCount}, ...]
     dotCount: 4,
     spikeCount: 16,
@@ -5588,7 +5597,7 @@ function selectLayerById(pg, id) {
 function layerMove(pg, id, dir) {
   const bbs = bubbles[pg]||[];
   const i = bbs.findIndex(b=>b.id===id);
-  const j = i - dir;
+  const j = i + dir;
   if (j<0||j>=bbs.length) return;
   [bbs[i],bbs[j]]=[bbs[j],bbs[i]];
   bbs.forEach((b,idx)=>{ b.zIndex=idx+1; });
