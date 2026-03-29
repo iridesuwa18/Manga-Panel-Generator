@@ -770,6 +770,50 @@
   .pp-empty { color: var(--text3); font-size: 11px; padding: 12px; font-family: 'IBM Plex Mono', monospace; }
   @media (max-width: 700px) { #panelsPanel { display: none !important; } }
 
+  /* ── MULTI-SELECT MODE ── */
+  .pp-select-bar {
+    display: none; align-items: center; gap: 5px; flex-wrap: wrap;
+    padding: 5px 10px; border-bottom: 1px solid var(--border);
+    background: var(--surface2); flex-shrink: 0;
+  }
+  .pp-select-bar.active { display: flex; }
+  .pp-select-bar .pp-sel-label {
+    font-family: 'IBM Plex Mono', monospace; font-size: 9px;
+    color: var(--text3); flex: 1; white-space: nowrap;
+  }
+  .pp-sel-action {
+    padding: 3px 8px; background: var(--surface3);
+    border: 1px solid var(--border); border-radius: 3px;
+    color: var(--text2); font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px; cursor: pointer; white-space: nowrap;
+  }
+  .pp-sel-action:hover { border-color: var(--accent2); color: var(--accent); }
+  .pp-sel-action.lock  { border-color: var(--danger); color: var(--danger); }
+  .pp-sel-action.lock:hover { background: rgba(224,90,90,.1); }
+  .pp-sel-action.unlock { border-color: var(--success); color: var(--success); }
+  .pp-sel-action.unlock:hover { background: rgba(106,191,123,.1); }
+
+  /* checkbox on card in select mode */
+  #pp-body.selecting .pp-card { cursor: pointer; }
+  #pp-body.selecting .pp-card:hover { background: rgba(232,213,163,.04); }
+  .pp-card-cb { display: none; width: 15px; height: 15px; accent-color: var(--accent2); flex-shrink: 0; cursor: pointer; }
+  #pp-body.selecting .pp-card-cb { display: block; }
+
+  /* per-property lock pills */
+  .pp-lock-pills {
+    display: flex; gap: 4px; flex-wrap: wrap; margin-top: 5px; padding-top: 5px;
+    border-top: 1px solid var(--border);
+  }
+  .pp-lock-pill {
+    padding: 2px 7px; border-radius: 10px; font-size: 9px;
+    font-family: 'IBM Plex Mono', monospace; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface3); color: var(--text3);
+    transition: all .12s;
+  }
+  .pp-lock-pill:hover { border-color: var(--border2); color: var(--text); }
+  .pp-lock-pill.locked { background: rgba(224,90,90,.15); border-color: var(--danger); color: var(--danger); }
+  .pp-input-grid.pp-locked-inputs input { opacity: 0.4; pointer-events: none; }
+
   .bubble-wrap.text-overflow svg path,
   .bubble-wrap.text-overflow svg ellipse,
   .bubble-wrap.text-overflow svg rect {
@@ -3472,7 +3516,19 @@ function duplicatePage(pg) {
     <label style="font-size:10px;color:var(--text2);white-space:nowrap;">Page</label>
     <select id="pp-page-sel" onchange="refreshPanelsPanel(this.value)"></select>
     <button class="btn small" onclick="ppResetAll(document.getElementById('pp-page-sel').value)" title="Reset all overrides for this page">↺ All</button>
-    <button class="btn small" id="pp-lock-btn" onclick="ppToggleLockAll()" title="Lock layout to freeze all panel positions"></button>
+    <button class="btn small" id="pp-select-btn" onclick="ppToggleSelectMode()" title="Select panels to lock/unlock specific properties">☑ Select</button>
+  </div>
+  <!-- select-mode action bar -->
+  <div class="pp-select-bar" id="pp-select-bar">
+    <span class="pp-sel-label" id="pp-sel-count">0 selected</span>
+    <button class="pp-sel-action" onclick="ppSelectAll()">All</button>
+    <button class="pp-sel-action" onclick="ppSelectNone()">None</button>
+    <button class="pp-sel-action lock" onclick="ppBulkLock('pos')">🔒 Position</button>
+    <button class="pp-sel-action lock" onclick="ppBulkLock('corners')">🔒 Corners</button>
+    <button class="pp-sel-action lock" onclick="ppBulkLock('splits')">🔒 Splits</button>
+    <button class="pp-sel-action unlock" onclick="ppBulkUnlock('pos')">🔓 Position</button>
+    <button class="pp-sel-action unlock" onclick="ppBulkUnlock('corners')">🔓 Corners</button>
+    <button class="pp-sel-action unlock" onclick="ppBulkUnlock('splits')">🔓 Splits</button>
   </div>
   <div id="pp-body">
     <div class="pp-empty">Generate pages first to see panels.</div>
@@ -4968,12 +5024,12 @@ function refreshPanelsPanelPageSelect() {
   if (activePg) refreshPanelsPanel(activePg);
 }
 
-function lockAllPanels(pg) {
+// ── LOCK HELPERS — bake positions so random never re-rolls ──
+function _bakePositions(pg) {
+  // Snapshot current displayed rects into _lockedRects so generateAll won't re-roll
   const base = _lastBaseRects[pg];
-  if (!base?.length) { showToast('Generate pages first!'); return; }
+  if (!base?.length) return;
   if (!panelOverrides[pg]) panelOverrides[pg] = {};
-
-  // Compute the actual displayed rects (base + any existing x/y/w/h overrides)
   const ovs = panelOverrides[pg];
   const finalRects = base.map((r, idx) => {
     const ov = ovs[idx] || {};
@@ -4984,19 +5040,164 @@ function lockAllPanels(pg) {
       h: ov.h !== undefined ? ov.h : r.h,
     };
   });
-
-  // Store as a locked snapshot — generateAll will use this directly instead of recomputing
   panelOverrides[pg]._lockedRects = finalRects;
-
-  // Also bake into per-panel overrides and mark locked (for individual panel UI)
+  _lastBaseRects[pg] = finalRects;
   finalRects.forEach((r, idx) => {
     if (!ovs[idx]) ovs[idx] = {};
-    Object.assign(ovs[idx], { x: r.x, y: r.y, w: r.w, h: r.h, locked: true });
+    Object.assign(ovs[idx], { x: r.x, y: r.y, w: r.w, h: r.h });
   });
+}
 
-  // Update _lastBaseRects to match so Panel Editor stays in sync
-  _lastBaseRects[pg] = finalRects;
+function _unbakePositions(pg) {
+  if (!panelOverrides[pg]) return;
+  delete panelOverrides[pg]._lockedRects;
+  const ovs = panelOverrides[pg];
+  Object.keys(ovs).forEach(k => {
+    if (typeof ovs[k] === 'object' && ovs[k] !== null) {
+      delete ovs[k].x; delete ovs[k].y; delete ovs[k].w; delete ovs[k].h;
+      if (!Object.keys(ovs[k]).length) delete ovs[k];
+    }
+  });
+}
 
+// ── PER-PANEL property lock toggle ──
+function ppToggleLockProp(pg, idx, prop) {
+  ppEnsure(pg, idx);
+  const ov = panelOverrides[pg][idx];
+  ov[prop] = !ov[prop];
+  // If locking position, also bake _lockedRects snapshot so random won't re-roll this page
+  if (prop === 'lockPos') {
+    if (ov.lockPos) _bakePositions(pg);
+    else {
+      // Only unbake if NO panels on this page have lockPos
+      const anyLocked = Object.values(panelOverrides[pg]).some(o => o && o.lockPos);
+      if (!anyLocked) _unbakePositions(pg);
+    }
+  }
+  refreshPanelsPanel(pg);
+  renderMobilePanelsFor(pg);
+  rebuildPageList();
+  scheduleAutoSave();
+}
+
+// ── MULTI-SELECT STATE ──
+window._ppSelected = new Set();
+window._ppSelectMode = false;
+
+function ppToggleSelectMode() {
+  window._ppSelectMode = !window._ppSelectMode;
+  window._ppSelected.clear();
+  const bar  = document.getElementById('pp-select-bar');
+  const btn  = document.getElementById('pp-select-btn');
+  const body = document.getElementById('pp-body');
+  if (window._ppSelectMode) {
+    bar.classList.add('active');
+    btn.style.background = 'var(--accent2)';
+    btn.style.color      = 'var(--ink)';
+    btn.style.borderColor= 'var(--accent2)';
+    body.classList.add('selecting');
+  } else {
+    bar.classList.remove('active');
+    btn.style.background = '';
+    btn.style.color      = '';
+    btn.style.borderColor= '';
+    body.classList.remove('selecting');
+  }
+  _ppRefreshSelectCount();
+  const pg = document.getElementById('pp-page-sel')?.value;
+  if (pg) refreshPanelsPanel(pg);
+}
+
+function ppCardClick(e, pg, idx) {
+  if (!window._ppSelectMode) return;
+  // toggle selection
+  if (window._ppSelected.has(idx)) window._ppSelected.delete(idx);
+  else window._ppSelected.add(idx);
+  _ppRefreshSelectCount();
+  // update checkbox visual
+  const cb = document.querySelector(`.pp-card[id="pp-card-${idx}"] .pp-card-cb`);
+  if (cb) cb.checked = window._ppSelected.has(idx);
+  // highlight card
+  const card = document.getElementById('pp-card-' + idx);
+  if (card) card.style.background = window._ppSelected.has(idx) ? 'rgba(232,213,163,.08)' : '';
+}
+
+function ppToggleSelect(idx) {
+  if (window._ppSelected.has(idx)) window._ppSelected.delete(idx);
+  else window._ppSelected.add(idx);
+  _ppRefreshSelectCount();
+  const card = document.getElementById('pp-card-' + idx);
+  if (card) card.style.background = window._ppSelected.has(idx) ? 'rgba(232,213,163,.08)' : '';
+}
+
+function ppSelectAll() {
+  const pg = document.getElementById('pp-page-sel')?.value;
+  if (!pg) return;
+  const base = _lastBaseRects[pg] || [];
+  base.forEach((_, i) => window._ppSelected.add(i));
+  _ppRefreshSelectCount();
+  const pg2 = pg;
+  refreshPanelsPanel(pg2);
+}
+
+function ppSelectNone() {
+  window._ppSelected.clear();
+  _ppRefreshSelectCount();
+  document.querySelectorAll('.pp-card').forEach(c => c.style.background = '');
+  document.querySelectorAll('.pp-card-cb').forEach(cb => cb.checked = false);
+}
+
+function _ppRefreshSelectCount() {
+  const el = document.getElementById('pp-sel-count');
+  if (el) el.textContent = `${window._ppSelected.size} selected`;
+}
+
+function ppBulkLock(prop) {
+  const pg = document.getElementById('pp-page-sel')?.value;
+  if (!pg || !window._ppSelected.size) { showToast('Select panels first'); return; }
+  const key = { pos:'lockPos', corners:'lockCorners', splits:'lockSplits' }[prop];
+  window._ppSelected.forEach(idx => {
+    ppEnsure(pg, idx);
+    panelOverrides[pg][idx][key] = true;
+  });
+  if (prop === 'pos') _bakePositions(pg);
+  refreshPanelsPanel(pg);
+  renderMobilePanelsFor(pg);
+  rebuildPageList();
+  scheduleAutoSave();
+  showToast(`🔒 ${prop} locked on ${window._ppSelected.size} panel(s)`);
+}
+
+function ppBulkUnlock(prop) {
+  const pg = document.getElementById('pp-page-sel')?.value;
+  if (!pg || !window._ppSelected.size) { showToast('Select panels first'); return; }
+  const key = { pos:'lockPos', corners:'lockCorners', splits:'lockSplits' }[prop];
+  window._ppSelected.forEach(idx => {
+    ppEnsure(pg, idx);
+    panelOverrides[pg][idx][key] = false;
+  });
+  if (prop === 'pos') {
+    const anyLocked = Object.values(panelOverrides[pg]).some(o => o && o.lockPos);
+    if (!anyLocked) _unbakePositions(pg);
+  }
+  refreshPanelsPanel(pg);
+  renderMobilePanelsFor(pg);
+  rebuildPageList();
+  scheduleAutoSave();
+  showToast(`🔓 ${prop} unlocked on ${window._ppSelected.size} panel(s)`);
+}
+
+// Stubs kept for mobile and save/restore compatibility
+function lockAllPanels(pg) {
+  const base = _lastBaseRects[pg];
+  if (!base?.length) { showToast('Generate pages first!'); return; }
+  if (!panelOverrides[pg]) panelOverrides[pg] = {};
+  _bakePositions(pg);
+  const ovs = panelOverrides[pg];
+  base.forEach((r, idx) => {
+    if (!ovs[idx]) ovs[idx] = {};
+    ovs[idx].lockPos = true;
+  });
   refreshPanelsPanel(pg);
   renderMobilePanelsFor(pg);
   rebuildPageList();
@@ -5005,53 +5206,21 @@ function lockAllPanels(pg) {
 }
 
 function unlockAllPanels(pg) {
-  if (panelOverrides[pg]) {
-    delete panelOverrides[pg]._lockedRects;
-    // Remove baked positions too — without this, overrides would still override random
-    const ovs = panelOverrides[pg];
-    Object.keys(ovs).forEach(k => {
-      if (typeof ovs[k] === 'object' && ovs[k] !== null) {
-        delete ovs[k].x; delete ovs[k].y;
-        delete ovs[k].w; delete ovs[k].h;
-        ovs[k].locked = false;
-        // Clean up empty override objects
-        if (!Object.keys(ovs[k]).length) delete ovs[k];
-      }
-    });
-  }
+  _unbakePositions(pg);
+  const ovs = panelOverrides[pg];
+  if (ovs) Object.keys(ovs).forEach(k => {
+    if (typeof ovs[k] === 'object' && ovs[k]) {
+      ovs[k].lockPos = false; ovs[k].lockCorners = false; ovs[k].lockSplits = false;
+    }
+  });
   refreshPanelsPanel(pg);
   renderMobilePanelsFor(pg);
   rebuildPageList();
   scheduleAutoSave();
-  showToast(`Unlocked — Generate will re-roll ${pg}`);
+  showToast(`All locks removed for ${pg}`);
 }
 
-function ppToggleLockAll() {
-  const pg = document.getElementById('pp-page-sel')?.value;
-  if (!pg) return;
-  if (panelOverrides[pg]?._lockedRects) unlockAllPanels(pg);
-  else lockAllPanels(pg);
-  syncLockBtn(pg);
-}
-
-function mPpToggleLockAll() {
-  const pg = document.getElementById('m-pp-page-sel')?.value;
-  if (!pg) return;
-  if (panelOverrides[pg]?._lockedRects) unlockAllPanels(pg);
-  else lockAllPanels(pg);
-  syncMobileLockBtn(pg);
-  renderMobilePanelsFor(pg);
-}
-
-function syncLockBtn(pg) {
-  const btn = document.getElementById('pp-lock-btn');
-  if (!btn) return;
-  const isLocked = !!(panelOverrides[pg]?._lockedRects);
-  btn.textContent = isLocked ? '🔒 Locked' : '🔓 Lock Layout';
-  btn.style.borderColor = isLocked ? 'var(--danger)' : '';
-  btn.style.color = isLocked ? 'var(--danger)' : '';
-}
-
+function syncLockBtn(pg) { /* removed — no longer used */ }
 function syncMobileLockBtn(pg) {
   const btn = document.getElementById('m-pp-lock-btn');
   if (!btn) return;
@@ -5074,10 +5243,11 @@ function ppCornerHTML(pg, idx) {
   const lk   = (cornerLocks[pg]||{})[idx]   || {};
   const axis = (cornerAxisMode[pg]||{})[idx] || 'free';
   const ena  = (cornerEnabled[pg]||{})[idx];
+  const ov   = (panelOverrides[pg]||{})[idx] || {};
   // enabled = true if ever explicitly set true, OR if there are any non-zero offsets
   const anySet = ['tl','tr','bl','br'].some(k => co[k] || co[k+'Y']);
   const isEnabled = ena === true || (ena === undefined && anySet);
-  const allLocked = ['tl','tr','bl','br'].every(k => !!lk[k]);
+  const allLocked = ov.lockCorners === true;
 
   const cornerInput = (key) => {
     const xVal = Math.round(co[key]||0);
@@ -5116,8 +5286,8 @@ function ppCornerHTML(pg, idx) {
   html += `<span style="font-size:9px;color:var(--text3);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.5px;">Edit Corners</span>`;
   if (anySet) html += `<span style="font-size:8px;background:var(--accent2);color:var(--ink);border-radius:2px;padding:0 3px;font-family:'IBM Plex Mono',monospace;">active</span>`;
   html += `</label>`;
-  // Lock all button
-  html += `<button onclick="ppToggleCornersLocked('${pg}',${idx})" title="${allLocked?'Unlock all corners':'Lock all corners to prevent dragging'}" style="background:none;border:1px solid ${allLocked?'var(--danger)':'var(--border)'};border-radius:3px;cursor:pointer;font-size:10px;padding:1px 6px;color:${allLocked?'var(--danger)':'var(--text3)'};">${allLocked?'🔒':'🔓'}</button>`;
+  // Lock indicator (lock is now in pill row)
+  if (allLocked) html += `<span style="font-size:9px;color:var(--danger);font-family:'IBM Plex Mono',monospace;">🔒</span>`;
   if (anySet) html += `<button onclick="resetCorners('${pg}',${idx})" title="Reset all corner offsets" style="background:none;border:1px solid var(--border);border-radius:2px;cursor:pointer;font-size:9px;color:var(--text3);padding:1px 5px;">↺</button>`;
   html += `</div>`;
 
@@ -5162,13 +5332,8 @@ function ppToggleCornersEnabled(pg, idx, enabled) {
 }
 
 function ppToggleCornersLocked(pg, idx) {
-  if (!cornerLocks[pg]) cornerLocks[pg] = {};
-  if (!cornerLocks[pg][idx]) cornerLocks[pg][idx] = {};
-  const allLocked = ['tl','tr','bl','br'].every(k => !!cornerLocks[pg][idx][k]);
-  ['tl','tr','bl','br'].forEach(k => { cornerLocks[pg][idx][k] = !allLocked; });
-  refreshCornerOverlay(pg);
-  if (document.getElementById('panelsPanel')?.classList.contains('open')) refreshPanelsPanel(pg);
-  renderMobilePanelsFor(pg);
+  // Redirected to new per-property lock pill
+  ppToggleLockProp(pg, idx, 'lockCorners');
 }
 
 function ppSetCornerAxis(pg, idx, mode) {
@@ -5188,7 +5353,7 @@ function ppSplitHTML(pg, idx) {
   const ov = (panelOverrides[pg]||{})[idx] || {};
   const splits = getSplitsForPanel(ov);
   const so = (splitOffsets[pg]||{})[idx] || {};
-  const allLocked = !!(splitLocks[pg]?.[idx]?.all);
+  const allLocked = ov.lockSplits === true;
   const hasSplits = splits.length > 0;
   const dis = allLocked ? 'disabled' : '';
   const opq = allLocked ? 'opacity:0.45;pointer-events:none;' : '';
@@ -5196,10 +5361,10 @@ function ppSplitHTML(pg, idx) {
   const sel = 'width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:2px;font-size:10px;border-radius:2px;';
 
   let html = '<div style="margin-top:5px;border-top:1px solid var(--border);padding-top:5px;">';
-  // Header
+  // Header — no lock button here; lock is in the pill row above
   html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">';
   html += '<span style="font-size:9px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;flex:1;">SPLIT PANEL</span>';
-  html += `<button onclick="ppToggleSplitLock('${pg}',${idx})" title="${allLocked?'Unlock':'Lock'} splits" style="background:none;border:1px solid ${allLocked?'var(--danger)':'var(--border)'};border-radius:3px;cursor:pointer;font-size:10px;padding:1px 6px;color:${allLocked?'var(--danger)':'var(--text3)'};">${allLocked?'🔒':'🔓'}</button>`;
+  if (allLocked) html += '<span style="font-size:9px;color:var(--danger);font-family:\'IBM Plex Mono\',monospace;">🔒 locked</span>';
   html += '</div>';
 
   html += `<div style="${opq}">`;
@@ -5293,13 +5458,8 @@ function ppResetSplitOffsets(pg, idx, si) {
 }
 
 function ppToggleSplitLock(pg, idx) {
-  if (!splitLocks[pg])      splitLocks[pg]      = {};
-  if (!splitLocks[pg][idx]) splitLocks[pg][idx] = {};
-  splitLocks[pg][idx].all = !splitLocks[pg][idx].all;
-  refreshCornerOverlay(pg);
-  if (document.getElementById('panelsPanel')?.classList.contains('open')) refreshPanelsPanel(pg);
-  renderMobilePanelsFor(pg);
-  scheduleAutoSave();
+  // Redirected to new per-property lock pill
+  ppToggleLockProp(pg, idx, 'lockSplits');
 }
 
 function ppResetSplitLocks(pg, idx) {
@@ -5386,52 +5546,6 @@ function ppUpdateSplit(pg, idx, si, field, val) {
   scheduleAutoSave();
 }
 
-function refreshPanelsPanel(pg) {
-  const body = document.getElementById('pp-body');
-  if (!body) return;
-  const sel = document.getElementById('pp-page-sel');
-  if (sel && pg) sel.value = pg;
-  syncLockBtn(pg);
-
-  const baseRects = _lastBaseRects[pg] || [];
-  const ovs = panelOverrides[pg] || {};
-
-  if (!baseRects.length) {
-    body.innerHTML = '<div class="pp-empty">Generate pages first to see panels.</div>';
-    return;
-  }
-
-  body.innerHTML = baseRects.map((r, idx) => {
-    const ov = ovs[idx] || {};
-    const x = ov.x !== undefined ? ov.x : r.x;
-    const y = ov.y !== undefined ? ov.y : r.y;
-    const w = ov.w !== undefined ? ov.w : r.w;
-    const h = ov.h !== undefined ? ov.h : r.h;
-    const visible = ov.visible !== false;
-    const locked  = ov.locked  === true;
-    const hasOv   = Object.keys(ov).some(k => k !== 'locked');
-    return `<div class="pp-card" id="pp-card-${idx}">
-      <div class="pp-card-head">
-        <span class="pp-pnl-lbl">PNL ${idx + 1}</span>
-        <button class="pp-icon-btn${visible ? '' : ' pp-hidden'}" title="${visible ? 'Hide panel' : 'Show panel'}" onclick="ppToggleVisible('${pg}',${idx})">${visible ? '👁' : '🚫'}</button>
-        <button class="pp-icon-btn${locked ? ' pp-locked' : ''}" title="${locked ? 'Unlock' : 'Lock position'}" onclick="ppToggleLock('${pg}',${idx})">${locked ? '🔒' : '🔓'}</button>
-        ${hasOv ? `<button class="pp-icon-btn pp-reset" title="Reset to computed layout" onclick="ppReset('${pg}',${idx})">↺</button>` : ''}
-      </div>
-      <div class="pp-input-grid${locked ? ' pp-locked-inputs' : ''}">
-        <span class="pp-lbl">X</span>
-        <input type="number" value="${Math.round(x)}" ${locked ? 'disabled' : ''} onchange="ppSet('${pg}',${idx},'x',+this.value)">
-        <span class="pp-lbl">Y</span>
-        <input type="number" value="${Math.round(y)}" ${locked ? 'disabled' : ''} onchange="ppSet('${pg}',${idx},'y',+this.value)">
-        <span class="pp-lbl">W</span>
-        <input type="number" value="${Math.round(w)}" ${locked ? 'disabled' : ''} onchange="ppSet('${pg}',${idx},'w',+this.value)">
-        <span class="pp-lbl">H</span>
-        <input type="number" value="${Math.round(h)}" ${locked ? 'disabled' : ''} onchange="ppSet('${pg}',${idx},'h',+this.value)">
-      </div>
-      ${ppCornerHTML(pg, idx)}
-      ${ppSplitHTML(pg, idx)}
-    </div>`;
-  }).join('');
-}
 
 // ── PANEL SPLIT ──
 function ppSetSplit(pg, idx, enabled) {
@@ -5524,7 +5638,7 @@ function ppEnsure(pg, idx) {
 
 function ppSet(pg, idx, field, val) {
   ppEnsure(pg, idx);
-  if (panelOverrides[pg][idx].locked) return;
+  if (panelOverrides[pg][idx].lockPos) return;
   panelOverrides[pg][idx][field] = val;
   rerenderPageSVG(pg);
   if (document.getElementById('panelsPanel')?.classList.contains('open')) refreshPanelsPanel(pg);
@@ -5541,17 +5655,23 @@ function ppToggleVisible(pg, idx) {
 }
 
 function ppToggleLock(pg, idx) {
-  ppEnsure(pg, idx);
-  panelOverrides[pg][idx].locked = !panelOverrides[pg][idx].locked;
-  if (document.getElementById('panelsPanel')?.classList.contains('open')) refreshPanelsPanel(pg);
+  // Legacy — redirect to new per-property lock
+  ppToggleLockProp(pg, idx, 'lockPos');
 }
 
 function ppReset(pg, idx) {
   if (!panelOverrides[pg]) return;
-  const locked = panelOverrides[pg][idx]?.locked;
+  const lockPos     = panelOverrides[pg][idx]?.lockPos;
+  const lockCorners = panelOverrides[pg][idx]?.lockCorners;
+  const lockSplits  = panelOverrides[pg][idx]?.lockSplits;
   delete panelOverrides[pg][idx];
-  // Restore lock state so it survives reset
-  if (locked) { ppEnsure(pg, idx); panelOverrides[pg][idx].locked = true; }
+  // Restore lock states so they survive reset
+  if (lockPos || lockCorners || lockSplits) {
+    ppEnsure(pg, idx);
+    if (lockPos)     panelOverrides[pg][idx].lockPos     = true;
+    if (lockCorners) panelOverrides[pg][idx].lockCorners = true;
+    if (lockSplits)  panelOverrides[pg][idx].lockSplits  = true;
+  }
   rerenderPageSVG(pg);
   refreshPanelsPanel(pg);
   scheduleAutoSave();
@@ -5580,16 +5700,15 @@ function getMobilePanelsHTML(pg) {
     const w = ov.w !== undefined ? ov.w : r.w;
     const h = ov.h !== undefined ? ov.h : r.h;
     const visible = ov.visible !== false;
-    const locked  = ov.locked  === true;
-    const hasOv   = Object.keys(ov).some(k => k !== 'locked');
+    const lockPos = ov.lockPos === true;
+    const hasOv   = Object.keys(ov).some(k => !['lockPos','lockCorners','lockSplits','visible'].includes(k));
     const inp = (field, val) =>
-      `<input type="number" value="${Math.round(val)}" ${locked?'disabled':''} style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;border-radius:2px;opacity:${locked?'0.4':'1'};"
+      `<input type="number" value="${Math.round(val)}" ${lockPos?'disabled':''} style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;border-radius:2px;opacity:${lockPos?'0.4':'1'};"
         onchange="ppSet('${pg}',${idx},'${field}',+this.value);renderMobilePanelsFor('${pg}')">`;
     return '<div style="border:1px solid var(--border);border-radius:3px;padding:7px;margin-bottom:6px;background:var(--surface2);">'
       + '<div style="display:flex;align-items:center;gap:4px;margin-bottom:5px;">'
       + '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;color:var(--accent2);flex:1;">PNL ' + (idx + 1) + '</span>'
       + '<button style="background:none;border:1px solid transparent;border-radius:3px;cursor:pointer;font-size:13px;padding:1px 5px;opacity:' + (visible?'1':'0.4') + ';" title="' + (visible?'Hide':'Show') + '" onclick="ppToggleVisible(\'' + pg + '\',' + idx + ');renderMobilePanelsFor(\'' + pg + '\')">' + (visible?'👁':'🚫') + '</button>'
-      + '<button style="background:none;border:1px solid transparent;border-radius:3px;cursor:pointer;font-size:13px;padding:1px 5px;' + (locked?'color:var(--danger);':'') + '" title="' + (locked?'Unlock':'Lock') + '" onclick="ppToggleLock(\'' + pg + '\',' + idx + ');renderMobilePanelsFor(\'' + pg + '\')">' + (locked?'🔒':'🔓') + '</button>'
       + (hasOv ? '<button style="background:none;border:1px solid transparent;border-radius:3px;cursor:pointer;font-size:11px;padding:1px 5px;color:var(--text3);" title="Reset" onclick="ppReset(\'' + pg + '\',' + idx + ');renderMobilePanelsFor(\'' + pg + '\')">↺</button>' : '')
       + '</div>'
       + '<div style="display:grid;grid-template-columns:14px 1fr 14px 1fr;gap:3px 5px;align-items:center;margin-bottom:4px;">'
@@ -6638,13 +6757,45 @@ function restoreSaveData(data) {
   if (data.rows)          { rows = data.rows; renderTable(); }
   if (data.pageSettings)  { Object.assign(pageSettings, data.pageSettings); refreshPageSettings(); }
   if (data.bubbles)       { Object.assign(bubbles, data.bubbles); }
-  if (data.panelOverrides){ Object.assign(panelOverrides, data.panelOverrides); }
+  if (data.panelOverrides){
+    Object.assign(panelOverrides, data.panelOverrides);
+    // Migrate old save format: 'locked' → 'lockPos', splitLocks.all → 'lockSplits'
+    Object.values(panelOverrides).forEach(pgOvs => {
+      if (typeof pgOvs !== 'object') return;
+      Object.values(pgOvs).forEach(ov => {
+        if (typeof ov !== 'object' || !ov) return;
+        if (ov.locked === true) { ov.lockPos = true; delete ov.locked; }
+      });
+    });
+  }
   if (data.cornerOffsets) { Object.assign(cornerOffsets,  data.cornerOffsets);  }
-  if (data.cornerLocks)   { Object.assign(cornerLocks,    data.cornerLocks);    }
+  if (data.cornerLocks)   {
+    Object.assign(cornerLocks, data.cornerLocks);
+    // Migrate cornerLocks (all 4 corners locked) → panelOverrides[pg][idx].lockCorners
+    Object.entries(cornerLocks).forEach(([pg, pgCL]) => {
+      Object.entries(pgCL||{}).forEach(([idx, lk]) => {
+        if (lk && ['tl','tr','bl','br'].every(k => !!lk[k])) {
+          ppEnsure(pg, +idx);
+          panelOverrides[pg][+idx].lockCorners = true;
+        }
+      });
+    });
+  }
   if (data.cornerAxisMode){ Object.assign(cornerAxisMode, data.cornerAxisMode); }
   if (data.cornerEnabled) { Object.assign(cornerEnabled,  data.cornerEnabled);  }
   if (data.splitOffsets)  { Object.assign(splitOffsets,   data.splitOffsets);   }
-  if (data.splitLocks)    { Object.assign(splitLocks,     data.splitLocks);     }
+  if (data.splitLocks)    {
+    Object.assign(splitLocks, data.splitLocks);
+    // Migrate splitLocks.all → panelOverrides[pg][idx].lockSplits
+    Object.entries(splitLocks).forEach(([pg, pgSL]) => {
+      Object.entries(pgSL||{}).forEach(([idx, sl]) => {
+        if (sl?.all) {
+          ppEnsure(pg, +idx);
+          panelOverrides[pg][+idx].lockSplits = true;
+        }
+      });
+    });
+  }
   // Restore page-by-page view preference
   if (data.pageBypageMode !== undefined) {
     pageBypageMode = data.pageBypageMode;
