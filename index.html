@@ -533,6 +533,7 @@
   .split-dot:hover { transform: translate(-50%, -50%) scale(1.15); }
   .split-dot:active { background: #fff; transform: translate(-50%, -50%) scale(1.2); }
   .split-dot.locked { background: #666; cursor: not-allowed !important; border-color: #999; }
+  .split-dot.ip-dot { background: #7c4dff; border-color: #b39ddb; color: #fff; font-size: 8px; min-width: 28px; }
   .bubble-wrap {
     position: absolute;
     pointer-events: all;
@@ -1630,11 +1631,13 @@ function buildSVG(pg, pgNum, panelRects, fillColor, strokeColor, strokeW, forExp
     const co = pgCorners[idx];
     const isEnabled = pgCornerEnabled[idx] !== false; // default true if set, but default off if never set
     const hasCorners = co && isEnabled;
-    const sp = _ovs[idx]?.split || null;
+    // ── Normalise to multi-split array (backward-compat with old .split) ──
+    const ov = _ovs[idx] || {};
+    const splits = getSplitsForPanel(ov);
     const corners = getPanelCornerPts(r, co, isEnabled);
     const isSkewed = hasCorners && (co.tl||co.tr||co.bl||co.br||co.tlY||co.trY||co.blY||co.brY);
 
-    const hasGapSplit = sp && sp.style === 'gap';
+    const hasGapSplit = splits.some(sp => sp.style === 'gap');
 
     // ── Draw base panel shape (skip for hollow gap-split — sub-polys draw it) ──
     if (!hasGapSplit) {
@@ -1645,76 +1648,61 @@ function buildSVG(pg, pgNum, panelRects, fillColor, strokeColor, strokeW, forExp
       }
     }
 
-    // ── Draw split line/gap ──
-    if (sp) {
+    // ── Draw splits (multi-split support) ──
+    const pgSo = (splitOffsets[pg]||{})[idx] || {};
+    splits.forEach((sp, si) => {
+      const so = pgSo['s'+si] || {};
       const pct  = Math.max(5, Math.min(95, sp.pos || 50)) / 100;
       const gap  = sp.gap || 0;
       const half = gap / 2;
       const sty  = sp.style || 'line';
       const dir  = sp.dir || 'h';
 
-      // Per-endpoint pixel offsets (drag handles)
-      const so = (splitOffsets[pg]||{})[idx] || {};
-
       if (dir === 'h') {
-        // Horizontal split: A = left endpoint, B = right endpoint
-        // Offsets shift each endpoint up/down (Y axis only)
         let splitL = lp(corners.tl, corners.bl, pct);
         let splitR = lp(corners.tr, corners.br, pct);
         splitL = { x: splitL.x + (so.aX||0), y: splitL.y + (so.aY||0) };
         splitR = { x: splitR.x + (so.bX||0), y: splitR.y + (so.bY||0) };
-
         if (sty === 'line') {
           svg += `<line x1="${splitL.x.toFixed(1)}" y1="${splitL.y.toFixed(1)}" x2="${splitR.x.toFixed(1)}" y2="${splitR.y.toFixed(1)}" stroke="${strokeColor}" stroke-width="${strokeW}"/>`;
         } else {
           const hRatio = r.h > 0 ? half / r.h : 0;
-          const tpct = Math.max(0.001, pct - hRatio);
-          const bpct = Math.min(0.999, pct + hRatio);
-          // Top edge of gap: offset A top, B top
-          let topBL = lp(corners.tl, corners.bl, tpct);
-          let topBR = lp(corners.tr, corners.br, tpct);
-          topBL = { x: topBL.x + (so.aX||0), y: topBL.y + (so.aY||0) };
-          topBR = { x: topBR.x + (so.bX||0), y: topBR.y + (so.bY||0) };
-          // Bottom edge of gap: same offsets
-          let botTL = lp(corners.tl, corners.bl, bpct);
-          let botTR = lp(corners.tr, corners.br, bpct);
-          botTL = { x: botTL.x + (so.aX||0), y: botTL.y + (so.aY||0) };
-          botTR = { x: botTR.x + (so.bX||0), y: botTR.y + (so.bY||0) };
-          if (sty === 'gap') {
-            svg += `<polygon points="${polyAttr(corners.tl,corners.tr,corners.br,corners.bl)}" fill="white" stroke="none"/>`;
-          }
+          const tpct = Math.max(0.001, pct - hRatio), bpct = Math.min(0.999, pct + hRatio);
+          let topBL = lp(corners.tl, corners.bl, tpct); let topBR = lp(corners.tr, corners.br, tpct);
+          topBL = { x: topBL.x+(so.aX||0), y: topBL.y+(so.aY||0) }; topBR = { x: topBR.x+(so.bX||0), y: topBR.y+(so.bY||0) };
+          let botTL = lp(corners.tl, corners.bl, bpct); let botTR = lp(corners.tr, corners.br, bpct);
+          botTL = { x: botTL.x+(so.aX||0), y: botTL.y+(so.aY||0) }; botTR = { x: botTR.x+(so.bX||0), y: botTR.y+(so.bY||0) };
+          if (sty === 'gap') svg += `<polygon points="${polyAttr(corners.tl,corners.tr,corners.br,corners.bl)}" fill="white" stroke="none"/>`;
           svg += `<polygon points="${polyAttr(corners.tl,corners.tr,topBR,topBL)}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeW}" stroke-linejoin="miter"/>`;
           svg += `<polygon points="${polyAttr(botTL,botTR,corners.br,corners.bl)}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeW}" stroke-linejoin="miter"/>`;
         }
       } else {
-        // Vertical split: A = top endpoint, B = bottom endpoint
-        // Offsets shift each endpoint left/right (X axis only)
         let splitT = lp(corners.tl, corners.tr, pct);
         let splitB = lp(corners.bl, corners.br, pct);
         splitT = { x: splitT.x + (so.aX||0), y: splitT.y + (so.aY||0) };
         splitB = { x: splitB.x + (so.bX||0), y: splitB.y + (so.bY||0) };
-
         if (sty === 'line') {
           svg += `<line x1="${splitT.x.toFixed(1)}" y1="${splitT.y.toFixed(1)}" x2="${splitB.x.toFixed(1)}" y2="${splitB.y.toFixed(1)}" stroke="${strokeColor}" stroke-width="${strokeW}"/>`;
         } else {
           const wRatio = r.w > 0 ? half / r.w : 0;
-          const lpct = Math.max(0.001, pct - wRatio);
-          const rpct = Math.min(0.999, pct + wRatio);
-          let leftTR = lp(corners.tl, corners.tr, lpct);
-          let leftBR = lp(corners.bl, corners.br, lpct);
-          leftTR = { x: leftTR.x + (so.aX||0), y: leftTR.y + (so.aY||0) };
-          leftBR = { x: leftBR.x + (so.bX||0), y: leftBR.y + (so.bY||0) };
-          let rightTL = lp(corners.tl, corners.tr, rpct);
-          let rightBL = lp(corners.bl, corners.br, rpct);
-          rightTL = { x: rightTL.x + (so.aX||0), y: rightTL.y + (so.aY||0) };
-          rightBL = { x: rightBL.x + (so.bX||0), y: rightBL.y + (so.bY||0) };
-          if (sty === 'gap') {
-            svg += `<polygon points="${polyAttr(corners.tl,corners.tr,corners.br,corners.bl)}" fill="white" stroke="none"/>`;
-          }
+          const lpct = Math.max(0.001, pct - wRatio), rpct = Math.min(0.999, pct + wRatio);
+          let leftTR = lp(corners.tl, corners.tr, lpct); let leftBR = lp(corners.bl, corners.br, lpct);
+          leftTR = { x: leftTR.x+(so.aX||0), y: leftTR.y+(so.aY||0) }; leftBR = { x: leftBR.x+(so.bX||0), y: leftBR.y+(so.bY||0) };
+          let rightTL = lp(corners.tl, corners.tr, rpct); let rightBL = lp(corners.bl, corners.br, rpct);
+          rightTL = { x: rightTL.x+(so.aX||0), y: rightTL.y+(so.aY||0) }; rightBL = { x: rightBL.x+(so.bX||0), y: rightBL.y+(so.bY||0) };
+          if (sty === 'gap') svg += `<polygon points="${polyAttr(corners.tl,corners.tr,corners.br,corners.bl)}" fill="white" stroke="none"/>`;
           svg += `<polygon points="${polyAttr(corners.tl,leftTR,leftBR,corners.bl)}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeW}" stroke-linejoin="miter"/>`;
           svg += `<polygon points="${polyAttr(rightTL,corners.tr,corners.br,rightBL)}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeW}" stroke-linejoin="miter"/>`;
         }
       }
+    });
+
+    // ── Draw intersection points (H×V crossings) as small filled circles ──
+    if (!forExport) {
+      const ips = pgSo.ips || [];
+      ips.forEach((ip, ii) => {
+        if (ip) svg += `<circle cx="${ip.bx.toFixed(1)}" cy="${ip.by.toFixed(1)}" r="14" fill="${strokeColor}" opacity="0.25"/>`;
+      });
     }
 
     if (!forExport) {
@@ -2675,15 +2663,10 @@ function duplicateSelectedBubble() {
   const { data, pgKey } = selectedBubble;
   const copy = JSON.parse(JSON.stringify(data));
   copy.id = 'b' + Date.now() + Math.random().toString(36).slice(2,6);
+  copy.x += 60; copy.y += 60;
   copy.zIndex = (bubbles[pgKey]||[]).length + 1;
-  copy.x = data.x; copy.y = data.y - data.h - 20;
-  const origIdx = (bubbles[pgKey]||[]).findIndex(b => b.id === data.id);
-  if (origIdx !== -1) {
-    bubbles[pgKey].splice(origIdx + 1, 0, copy);
-    bubbles[pgKey].forEach((b, idx) => { b.zIndex = idx + 1; });
-  } else {
-    bubbles[pgKey].push(copy);
-  }
+  if (!bubbles[pgKey]) bubbles[pgKey] = [];
+  bubbles[pgKey].push(copy);
   renderBubblesOnPage(pgKey);
   refreshLayersPanel(pgKey);
   // Select the new copy
@@ -2846,10 +2829,7 @@ canvasArea.addEventListener('touchend', e => {
 function checkBubbleOverflow(wrap, b) {
   const textDiv = wrap.querySelector('.bubble-text');
   if (!textDiv) return;
-  // Thought bubbles have bumpy borders that protrude ~27% beyond the base ellipse,
-  // so give them extra slack before flagging overflow.
-  const slack = (b && b.type === 'thought') ? Math.round(textDiv.clientHeight * 0.18) : 2;
-  const isOverflowing = textDiv.scrollHeight > textDiv.clientHeight + slack || textDiv.scrollWidth > textDiv.clientWidth + slack;
+  const isOverflowing = textDiv.scrollHeight > textDiv.clientHeight + 2 || textDiv.scrollWidth > textDiv.clientWidth + 2;
   wrap.classList.toggle('text-overflow', isOverflowing);
 }
 
@@ -2891,8 +2871,95 @@ const cornerEditMode  = {};          // cornerEditMode[pg] = true/false
 const cornerLocks     = {};          // cornerLocks[pg][idx] = {tl,tr,bl,br} booleans
 const cornerAxisMode  = {};          // cornerAxisMode[pg][idx] = 'free'|'h'|'v'
 const cornerEnabled   = {};          // cornerEnabled[pg][idx] = true/false (are offsets applied?)
-const splitOffsets    = {};          // splitOffsets[pg][idx] = {aX,aY,bX,bY} — px offsets for each split endpoint
-const splitLocks      = {};          // splitLocks[pg][idx] = {a,b} — lock individual split endpoints
+const splitOffsets    = {};          // splitOffsets[pg][idx] = { s0:{aX,aY,bX,bY}, s1:{...}, ips:[{bx,by,ox,oy},...] }
+const splitLocks      = {};          // splitLocks[pg][idx] = {all} — lock all split endpoints
+
+// ── MULTI-SPLIT HELPERS ────────────────────────────────────────────────────────
+
+// Normalise panel override to always return an array of split objects.
+// Backward-compat: old .split (single object) → [split]
+function getSplitsForPanel(ov) {
+  if (!ov) return [];
+  if (Array.isArray(ov.splits)) return ov.splits;
+  if (ov.split) return [ov.split];
+  return [];
+}
+
+// Compute base endpoints for a split line given panel rect + corners
+function getSplitEndpoints(r, corners, sp, so) {
+  const pct = Math.max(5, Math.min(95, sp.pos || 50)) / 100;
+  function lp(a,b,t){return{x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t};}
+  if ((sp.dir||'h') === 'h') {
+    let A = lp(corners.tl, corners.bl, pct);
+    let B = lp(corners.tr, corners.br, pct);
+    A = { x: A.x+(so?.aX||0), y: A.y+(so?.aY||0) };
+    B = { x: B.x+(so?.bX||0), y: B.y+(so?.bY||0) };
+    return { A, B };
+  } else {
+    let A = lp(corners.tl, corners.tr, pct);
+    let B = lp(corners.bl, corners.br, pct);
+    A = { x: A.x+(so?.aX||0), y: A.y+(so?.aY||0) };
+    B = { x: B.x+(so?.bX||0), y: B.y+(so?.bY||0) };
+    return { A, B };
+  }
+}
+
+// Line-line intersection: returns {x,y,t,u} or null if parallel
+function lineIntersect(p1, p2, p3, p4) {
+  const d1x = p2.x-p1.x, d1y = p2.y-p1.y;
+  const d2x = p4.x-p3.x, d2y = p4.y-p3.y;
+  const denom = d1x*d2y - d1y*d2x;
+  if (Math.abs(denom) < 0.001) return null; // parallel
+  const dx = p3.x-p1.x, dy = p3.y-p1.y;
+  const t = (dx*d2y - dy*d2x) / denom;
+  const u = (dx*d1y - dy*d1x) / denom;
+  return { x: p1.x+t*d1x, y: p1.y+t*d1y, t, u };
+}
+
+// Recompute intersection point base positions for a panel and store them in splitOffsets
+function recomputeIPs(pg, idx, r, corners) {
+  const ov = (panelOverrides[pg]||{})[idx] || {};
+  const splits = getSplitsForPanel(ov);
+  if (!splitOffsets[pg]) splitOffsets[pg] = {};
+  if (!splitOffsets[pg][idx]) splitOffsets[pg][idx] = {};
+  const pgSo = splitOffsets[pg][idx];
+
+  const hSplits = splits.map((sp,si)=>({sp,si})).filter(({sp})=>(sp.dir||'h')==='h');
+  const vSplits = splits.map((sp,si)=>({sp,si})).filter(({sp})=>(sp.dir||'h')==='v');
+
+  const ips = [];
+  hSplits.forEach(({sp:hsp, si:hi}) => {
+    const soH = pgSo['s'+hi] || {};
+    const {A:hA, B:hB} = getSplitEndpoints(r, corners, hsp, soH);
+    vSplits.forEach(({sp:vsp, si:vi}) => {
+      const soV = pgSo['s'+vi] || {};
+      const {A:vA, B:vB} = getSplitEndpoints(r, corners, vsp, soV);
+      const pt = lineIntersect(hA, hB, vA, vB);
+      if (pt) {
+        const existing = ips.find(ip => ip.hi===hi && ip.vi===vi);
+        const ox = existing?.ox || 0, oy = existing?.oy || 0;
+        ips.push({ hi, vi, bx: pt.x, by: pt.y, ox, oy });
+      }
+    });
+  });
+  pgSo.ips = ips;
+  return ips;
+}
+
+// Redistribute same-direction splits evenly
+function evenlyDistributeSplits(pg, idx) {
+  const ov = (panelOverrides[pg]||{})[idx];
+  if (!ov?.splits) return;
+  const hSplits = ov.splits.filter(sp=>(sp.dir||'h')==='h');
+  const vSplits = ov.splits.filter(sp=>(sp.dir||'h')==='v');
+  hSplits.forEach((sp,i) => { sp.pos = Math.round((i+1)/(hSplits.length+1)*100); });
+  vSplits.forEach((sp,i) => { sp.pos = Math.round((i+1)/(vSplits.length+1)*100); });
+  // Clear same-axis offsets so distribution is clean
+  const pgSo = (splitOffsets[pg]||{})[idx];
+  if (pgSo) {
+    ov.splits.forEach((_,si) => { if (pgSo['s'+si]) delete pgSo['s'+si]; });
+  }
+}
 
 // ── CORNER EDITING ────────────────────────────────────────────────────────────
 
@@ -2971,55 +3038,65 @@ function refreshCornerOverlay(pg) {
       });
     }
 
-    // ── Split endpoint dots (shown whenever split is enabled) ──
-    const sp = pgOvs[idx]?.split;
-    if (sp) {
-      const pct  = Math.max(5, Math.min(95, sp.pos || 50)) / 100;
-      const dir  = sp.dir || 'h';
-      const so   = pgSo[idx] || {};
+    // ── Split endpoint dots (shown whenever splits are enabled) ──
+    const splits = getSplitsForPanel(pgOvs[idx] || {});
+    if (splits.length > 0) {
+      const corners = getPanelCornerPts(r, pgCo[idx], pgEna[idx] !== false);
+      splits.forEach((sp, si) => {
+        const so = (pgSo[idx] || {})['s'+si] || {};
+        const pct  = Math.max(5, Math.min(95, sp.pos || 50)) / 100;
+        const dir  = sp.dir || 'h';
+        let aBase, bBase, aCursor, bCursor;
+        const _lp = (a,b,t) => ({x:a.x+(b.x-a.x)*t, y:a.y+(b.y-a.y)*t});
+        if (dir === 'h') {
+          const rawA = _lp(corners.tl, corners.bl, pct);
+          const rawB = _lp(corners.tr, corners.br, pct);
+          aBase = { x: rawA.x, y: rawA.y }; bBase = { x: rawB.x, y: rawB.y };
+          aCursor = bCursor = 'ns-resize';
+        } else {
+          const rawA = _lp(corners.tl, corners.tr, pct);
+          const rawB = _lp(corners.bl, corners.br, pct);
+          aBase = { x: rawA.x, y: rawA.y }; bBase = { x: rawB.x, y: rawB.y };
+          aCursor = bCursor = 'ew-resize';
+        }
+        [
+          { key: 'a', base: aBase, label: 'A', cursor: aCursor },
+          { key: 'b', base: bBase, label: 'B', cursor: bCursor },
+        ].forEach(({ key, base, label, cursor }) => {
+          const isLocked = !!(splitLocks[pg]?.[idx]?.all);
+          const dot = document.createElement('div');
+          dot.className = 'split-dot' + (isLocked ? ' locked' : '');
+          dot.textContent = label;
+          dot.style.cursor = isLocked ? 'not-allowed' : cursor;
+          dot.dataset.pg  = pg; dot.dataset.idx = idx;
+          dot.dataset.key = key; dot.dataset.si  = si;
+          const ox = so[key + 'X'] || 0, oy = so[key + 'Y'] || 0;
+          dot.style.left = (base.x + ox) + 'px';
+          dot.style.top  = (base.y + oy) + 'px';
+          setupSplitDotDrag(dot, pg, idx, si, key, base.x, base.y, dir);
+          ov.appendChild(dot);
+        });
+      });
 
-      // Compute base positions of the two split endpoints on the panel edges
-      let aBase, bBase, aCursor, bCursor;
-      if (dir === 'h') {
-        // A = left edge, B = right edge; moveable up/down
-        aBase   = { x: r.x,         y: r.y + r.h * pct };
-        bBase   = { x: r.x + r.w,   y: r.y + r.h * pct };
-        aCursor = 'ns-resize';
-        bCursor = 'ns-resize';
-      } else {
-        // A = top edge, B = bottom edge; moveable left/right
-        aBase   = { x: r.x + r.w * pct, y: r.y         };
-        bBase   = { x: r.x + r.w * pct, y: r.y + r.h   };
-        aCursor = 'ew-resize';
-        bCursor = 'ew-resize';
-      }
-
-      [
-        { key: 'a', base: aBase, label: 'A', cursor: aCursor },
-        { key: 'b', base: bBase, label: 'B', cursor: bCursor },
-      ].forEach(({ key, base, label, cursor }) => {
+      // ── Intersection point (IP) dots ──
+      const ips = recomputeIPs(pg, idx, r, corners);
+      ips.forEach((ip, ii) => {
         const isLocked = !!(splitLocks[pg]?.[idx]?.all);
         const dot = document.createElement('div');
-        dot.className = 'split-dot' + (isLocked ? ' locked' : '');
-        dot.textContent = label;
-        dot.style.cursor = isLocked ? 'not-allowed' : cursor;
-        dot.dataset.pg  = pg;
-        dot.dataset.idx = idx;
-        dot.dataset.key = key;
-
-        const ox = so[key + 'X'] || 0;
-        const oy = so[key + 'Y'] || 0;
-        dot.style.left = (base.x + ox) + 'px';
-        dot.style.top  = (base.y + oy) + 'px';
-
-        setupSplitDotDrag(dot, pg, idx, key, base.x, base.y, dir);
+        dot.className = 'split-dot ip-dot' + (isLocked ? ' locked' : '');
+        dot.textContent = 'IP'+(ii+1);
+        dot.style.cursor = isLocked ? 'not-allowed' : 'move';
+        dot.dataset.pg = pg; dot.dataset.idx = idx; dot.dataset.ii = ii;
+        dot.style.left = (ip.bx + (ip.ox||0)) + 'px';
+        dot.style.top  = (ip.by + (ip.oy||0)) + 'px';
+        setupIPDotDrag(dot, pg, idx, ii, ip.bx, ip.by);
         ov.appendChild(dot);
       });
     }
   });
 }
 
-function setupSplitDotDrag(dot, pg, idx, key, baseX, baseY, dir) {
+function setupSplitDotDrag(dot, pg, idx, si, key, baseX, baseY, dir) {
   let dragging = false;
   let startClientX, startClientY, startOffX, startOffY, wrapScale;
 
@@ -3032,8 +3109,9 @@ function setupSplitDotDrag(dot, pg, idx, key, baseX, baseY, dir) {
     dragging = true;
     startClientX = e.clientX;
     startClientY = e.clientY;
-    startOffX = (splitOffsets[pg]?.[idx]?.[key + 'X']) || 0;
-    startOffY = (splitOffsets[pg]?.[idx]?.[key + 'Y']) || 0;
+    const soKey = 's' + si;
+    startOffX = (splitOffsets[pg]?.[idx]?.[soKey]?.[key + 'X']) || 0;
+    startOffY = (splitOffsets[pg]?.[idx]?.[soKey]?.[key + 'Y']) || 0;
 
     const cont = document.querySelector(`.page-output[data-pg="${pg}"]`);
     const svgWrap = cont?.querySelector('div[style*="transform-origin"]');
@@ -3048,28 +3126,67 @@ function setupSplitDotDrag(dot, pg, idx, key, baseX, baseY, dir) {
     const rawDx = (e.clientX - startClientX) / wrapScale;
     const rawDy = (e.clientY - startClientY) / wrapScale;
 
-    // Constrain: horizontal split endpoints move Y only; vertical move X only
     const dx = (dir === 'h') ? 0 : Math.round(rawDx);
     const dy = (dir === 'v') ? 0 : Math.round(rawDy);
 
-    if (!splitOffsets[pg])      splitOffsets[pg]      = {};
-    if (!splitOffsets[pg][idx]) splitOffsets[pg][idx] = {};
+    if (!splitOffsets[pg])        splitOffsets[pg]        = {};
+    if (!splitOffsets[pg][idx])   splitOffsets[pg][idx]   = {};
+    const soKey = 's' + si;
+    if (!splitOffsets[pg][idx][soKey]) splitOffsets[pg][idx][soKey] = {};
 
-    if (dir !== 'h') splitOffsets[pg][idx][key + 'X'] = startOffX + dx;
-    if (dir !== 'v') splitOffsets[pg][idx][key + 'Y'] = startOffY + dy;
+    if (dir !== 'h') splitOffsets[pg][idx][soKey][key + 'X'] = startOffX + dx;
+    if (dir !== 'v') splitOffsets[pg][idx][soKey][key + 'Y'] = startOffY + dy;
 
-    // Live-update dot position
-    dot.style.left = (baseX + (splitOffsets[pg][idx][key + 'X'] || 0)) + 'px';
-    dot.style.top  = (baseY + (splitOffsets[pg][idx][key + 'Y'] || 0)) + 'px';
+    dot.style.left = (baseX + (splitOffsets[pg][idx][soKey][key + 'X'] || 0)) + 'px';
+    dot.style.top  = (baseY + (splitOffsets[pg][idx][soKey][key + 'Y'] || 0)) + 'px';
 
     rebuildPageSVG(pg);
   });
 
   dot.addEventListener('pointerup', () => {
+    if (!dragging) return;
     dragging = false;
     snapshotState();
+    scheduleAutoSave();
   });
-  dot.addEventListener('pointercancel', () => { dragging = false; });
+}
+
+function setupIPDotDrag(dot, pg, idx, ii, baseBX, baseBY) {
+  let dragging = false;
+  let startClientX, startClientY, startOX, startOY, wrapScale;
+
+  dot.addEventListener('pointerdown', e => {
+    if (splitLocks[pg]?.[idx]?.all) return;
+    e.preventDefault(); e.stopPropagation();
+    dot.setPointerCapture(e.pointerId);
+    dragging = true;
+    startClientX = e.clientX; startClientY = e.clientY;
+    const ip = splitOffsets[pg]?.[idx]?.ips?.[ii];
+    startOX = ip?.ox || 0; startOY = ip?.oy || 0;
+    const cont = document.querySelector(`.page-output[data-pg="${pg}"]`);
+    const svgWrap = cont?.querySelector('div[style*="transform-origin"]');
+    const svgScale = svgWrap ? parseFloat(svgWrap.style.transform.replace('scale(','')) || scale : scale;
+    wrapScale = svgScale * (canvasZoom || 1);
+  });
+
+  dot.addEventListener('pointermove', e => {
+    if (!dragging) return; e.preventDefault();
+    const dx = Math.round((e.clientX - startClientX) / wrapScale);
+    const dy = Math.round((e.clientY - startClientY) / wrapScale);
+    if (!splitOffsets[pg]) splitOffsets[pg] = {};
+    if (!splitOffsets[pg][idx]) splitOffsets[pg][idx] = {};
+    if (!splitOffsets[pg][idx].ips) splitOffsets[pg][idx].ips = [];
+    if (!splitOffsets[pg][idx].ips[ii]) splitOffsets[pg][idx].ips[ii] = { bx: baseBX, by: baseBY, ox: 0, oy: 0 };
+    splitOffsets[pg][idx].ips[ii].ox = startOX + dx;
+    splitOffsets[pg][idx].ips[ii].oy = startOY + dy;
+    dot.style.left = (baseBX + startOX + dx) + 'px';
+    dot.style.top  = (baseBY + startOY + dy) + 'px';
+    rebuildPageSVG(pg);
+  });
+
+  dot.addEventListener('pointerup', () => {
+    if (!dragging) return; dragging = false; snapshotState(); scheduleAutoSave();
+  });
 }
 
 function setupCornerDotDrag(dot, pg, idx, key, baseX, baseY, axis) {
@@ -3291,10 +3408,9 @@ function duplicateBubbleById(pgKey, id) {
   snapshotState();
   const copy = JSON.parse(JSON.stringify(src));
   copy.id = 'b' + Date.now() + Math.random().toString(36).slice(2,6);
-  copy.x = src.x; copy.y = src.y - src.h - 20;
-  const origIdx = bbs.findIndex(b => b.id === id);
-  bbs.splice(origIdx + 1, 0, copy);
-  bbs.forEach((b, idx) => { b.zIndex = idx + 1; });
+  copy.x += 60; copy.y += 60;
+  copy.zIndex = bbs.length + 1;
+  bbs.push(copy);
   renderBubblesOnPage(pgKey);
   refreshLayersPanel(pgKey);
   scheduleAutoSave();
@@ -5069,84 +5185,109 @@ function ppToggleCornersOpen(pg, idx, open) {
 }
 
 function ppSplitHTML(pg, idx) {
-  const sp = (panelOverrides[pg]||{})[idx]?.split || null;
-  const spDir   = sp?.dir   || 'h';
-  const spPos   = sp?.pos   !== undefined ? sp.pos   : 50;
-  const spGap   = sp?.gap   !== undefined ? sp.gap   : 0;
-  const spStyle = sp?.style || 'line';
-  const so      = (splitOffsets[pg]||{})[idx] || {};
+  const ov = (panelOverrides[pg]||{})[idx] || {};
+  const splits = getSplitsForPanel(ov);
+  const so = (splitOffsets[pg]||{})[idx] || {};
   const allLocked = !!(splitLocks[pg]?.[idx]?.all);
-  const hasOffsets = !!(so.aX || so.aY || so.bX || so.bY);
-  const endLabel = spDir === 'h'
-    ? 'A = left &nbsp;\u00b7&nbsp; B = right &mdash; drag up/down on canvas'
-    : 'A = top &nbsp;\u00b7&nbsp; B = bottom &mdash; drag left/right on canvas';
-  const aVal = Math.round(spDir === 'h' ? (so.aY||0) : (so.aX||0));
-  const bVal = Math.round(spDir === 'h' ? (so.bY||0) : (so.bX||0));
-  const aField = spDir === 'h' ? 'aY' : 'aX';
-  const bField = spDir === 'h' ? 'bY' : 'bX';
+  const hasSplits = splits.length > 0;
   const dis = allLocked ? 'disabled' : '';
-  const opq = allLocked ? 'opacity:0.45;' : '';
+  const opq = allLocked ? 'opacity:0.45;pointer-events:none;' : '';
+  const inp = 'width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:2px 4px;font-size:10px;border-radius:2px;';
+  const sel = 'width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:2px;font-size:10px;border-radius:2px;';
 
-  return '<div style="margin-top:5px;border-top:1px solid var(--border);padding-top:5px;">'
-    // Header row: label + lock btn + enable checkbox
-    + '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">'
-    + '<span style="font-size:9px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;flex:1;">SPLIT PANEL</span>'
-    + '<button onclick="ppToggleSplitLock(\'' + pg + '\',' + idx + ')" title="' + (allLocked?'Unlock split settings':'Lock split settings to prevent changes') + '" style="background:none;border:1px solid ' + (allLocked?'var(--danger)':'var(--border)') + ';border-radius:3px;cursor:pointer;font-size:10px;padding:1px 6px;color:' + (allLocked?'var(--danger)':'var(--text3)') + ';">' + (allLocked?'🔒':'🔓') + '</button>'
-    + '<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:9px;color:var(--text2);">'
-    + '<input type="checkbox" ' + (sp?'checked':'') + ' ' + (allLocked?'disabled':'') + ' style="accent-color:var(--accent2);"'
-    + ' onchange="ppSetSplit(\'' + pg + '\',' + idx + ',this.checked)"> Enable'
-    + '</label></div>'
-    // All settings greyed when locked
-    + '<div style="' + opq + (allLocked?'pointer-events:none;':'') + '">'
-    + '<div style="opacity:' + (sp?1:0.35) + ';pointer-events:' + (sp?'all':'none') + ';">'
-    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-bottom:3px;">'
-    + '<div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">Direction</div>'
-    + '<select style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:2px;font-size:10px;border-radius:2px;"'
-    + ' onchange="ppUpdateSplit(\'' + pg + '\',' + idx + ',\'dir\',this.value)">'
-    + '<option value="h" ' + (spDir==='h'?'selected':'') + '>Horizontal \u2500</option>'
-    + '<option value="v" ' + (spDir==='v'?'selected':'') + '>Vertical \u2502</option>'
-    + '</select></div>'
-    + '<div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">Style</div>'
-    + '<select style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:2px;font-size:10px;border-radius:2px;"'
-    + ' onchange="ppUpdateSplit(\'' + pg + '\',' + idx + ',\'style\',this.value)">'
-    + '<option value="line" ' + (spStyle==='line'?'selected':'') + '>Line only</option>'
-    + '<option value="gap" ' + (spStyle==='gap'?'selected':'') + '>Gap (hollow)</option>'
-    + '<option value="solid" ' + (spStyle==='solid'?'selected':'') + '>Gap (solid fill)</option>'
-    + '</select></div></div>'
-    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-bottom:' + (sp?'3px':'0') + ';">'
-    + '<div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">Position %</div>'
-    + '<input type="number" min="5" max="95" value="' + spPos + '" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:2px 4px;font-size:10px;border-radius:2px;"'
-    + ' onchange="ppUpdateSplit(\'' + pg + '\',' + idx + ',\'pos\',+this.value)"></div>'
-    + '<div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">Gap (px)</div>'
-    + '<input type="number" min="0" max="200" value="' + spGap + '" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:2px 4px;font-size:10px;border-radius:2px;"'
-    + ' onchange="ppUpdateSplit(\'' + pg + '\',' + idx + ',\'gap\',+this.value)"></div>'
-    + '</div>'
-    + (sp
-      ? '<div style="font-size:8px;color:var(--text3);margin-bottom:3px;line-height:1.5;">\ud83d\udd35 ' + endLabel + '</div>'
-        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-bottom:3px;">'
-        + '<div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">A offset ' + (spDir==='h'?'(Y)':'(X)') + '</div>'
-        + '<input type="number" value="' + aVal + '" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:2px 4px;font-size:10px;border-radius:2px;"'
-        + ' onchange="ppSetSplitOffset(\'' + pg + '\',' + idx + ',\'a\',\'' + aField + '\',+this.value)"></div>'
-        + '<div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">B offset ' + (spDir==='h'?'(Y)':'(X)') + '</div>'
-        + '<input type="number" value="' + bVal + '" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:2px 4px;font-size:10px;border-radius:2px;"'
-        + ' onchange="ppSetSplitOffset(\'' + pg + '\',' + idx + ',\'b\',\'' + bField + '\',+this.value)"></div>'
-        + '</div>'
-        + (hasOffsets ? '<button style="width:100%;background:none;border:1px solid var(--border);color:var(--text3);font-size:9px;padding:2px;border-radius:2px;cursor:pointer;margin-bottom:2px;" onclick="ppResetSplitOffsets(\'' + pg + '\',' + idx + ')">&#8635; Reset endpoints</button>' : '')
-      : '')
-    + '</div></div></div>';
+  let html = '<div style="margin-top:5px;border-top:1px solid var(--border);padding-top:5px;">';
+  // Header
+  html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">';
+  html += '<span style="font-size:9px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;flex:1;">SPLIT PANEL</span>';
+  html += `<button onclick="ppToggleSplitLock('${pg}',${idx})" title="${allLocked?'Unlock':'Lock'} splits" style="background:none;border:1px solid ${allLocked?'var(--danger)':'var(--border)'};border-radius:3px;cursor:pointer;font-size:10px;padding:1px 6px;color:${allLocked?'var(--danger)':'var(--text3)'};">${allLocked?'🔒':'🔓'}</button>`;
+  html += '</div>';
+
+  html += `<div style="${opq}">`;
+
+  // One card per split
+  splits.forEach((sp, si) => {
+    const dir = sp.dir || 'h';
+    const sty = sp.style || 'line';
+    const spSo = so['s'+si] || {};
+    const aVal = Math.round(dir === 'h' ? (spSo.aY||0) : (spSo.aX||0));
+    const bVal = Math.round(dir === 'h' ? (spSo.bY||0) : (spSo.bX||0));
+    const aField = dir === 'h' ? 'aY' : 'aX';
+    const bField = dir === 'h' ? 'bY' : 'bX';
+    const hasOff = !!(spSo.aX||spSo.aY||spSo.bX||spSo.bY);
+    const endLabel = dir==='h' ? 'A=left · B=right — drag ↕' : 'A=top · B=bottom — drag ↔';
+
+    html += `<div style="background:var(--surface3);border:1px solid var(--border);border-radius:3px;padding:4px 5px;margin-bottom:4px;">`;
+    html += `<div style="display:flex;align-items:center;gap:4px;margin-bottom:3px;">`;
+    html += `<span style="font-size:9px;color:var(--text3);flex:1;">Split ${si+1}</span>`;
+    html += `<button onclick="ppRemoveSplit('${pg}',${idx},${si})" ${dis} style="background:none;border:1px solid var(--border);border-radius:2px;cursor:pointer;font-size:9px;padding:1px 5px;color:var(--danger);">✕</button>`;
+    html += `</div>`;
+    html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-bottom:3px;">`;
+    html += `<div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">Direction</div>`;
+    html += `<select style="${sel}" onchange="ppUpdateSplit('${pg}',${idx},${si},'dir',this.value)">`;
+    html += `<option value="h" ${dir==='h'?'selected':''}>Horizontal ─</option>`;
+    html += `<option value="v" ${dir==='v'?'selected':''}>Vertical │</option>`;
+    html += `</select></div>`;
+    html += `<div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">Style</div>`;
+    html += `<select style="${sel}" onchange="ppUpdateSplit('${pg}',${idx},${si},'style',this.value)">`;
+    html += `<option value="line" ${sty==='line'?'selected':''}>Line only</option>`;
+    html += `<option value="gap" ${sty==='gap'?'selected':''}>Gap (hollow)</option>`;
+    html += `<option value="solid" ${sty==='solid'?'selected':''}>Gap (solid)</option>`;
+    html += `</select></div></div>`;
+    html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-bottom:3px;">`;
+    html += `<div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">Position %</div>`;
+    html += `<input type="number" min="5" max="95" value="${sp.pos||50}" style="${inp}" onchange="ppUpdateSplit('${pg}',${idx},${si},'pos',+this.value)"></div>`;
+    html += `<div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">Gap (px)</div>`;
+    html += `<input type="number" min="0" max="200" value="${sp.gap||0}" style="${inp}" onchange="ppUpdateSplit('${pg}',${idx},${si},'gap',+this.value)"></div></div>`;
+    html += `<div style="font-size:8px;color:var(--text3);margin-bottom:3px;">🔵 ${endLabel}</div>`;
+    html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-bottom:${hasOff?'3px':'0'};">`;
+    html += `<div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">A offset ${dir==='h'?'(Y)':'(X)'}</div>`;
+    html += `<input type="number" value="${aVal}" style="${inp}" onchange="ppSetSplitOffset('${pg}',${idx},${si},'${aField}',+this.value)"></div>`;
+    html += `<div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">B offset ${dir==='h'?'(Y)':'(X)'}</div>`;
+    html += `<input type="number" value="${bVal}" style="${inp}" onchange="ppSetSplitOffset('${pg}',${idx},${si},'${bField}',+this.value)"></div></div>`;
+    if (hasOff) html += `<button style="width:100%;background:none;border:1px solid var(--border);color:var(--text3);font-size:9px;padding:2px;border-radius:2px;cursor:pointer;" onclick="ppResetSplitOffsets('${pg}',${idx},${si})">↺ Reset endpoints</button>`;
+    html += `</div>`;
+  });
+
+  // Intersection point info
+  const ips = (so.ips || []);
+  if (ips.length > 0) {
+    html += `<div style="font-size:8px;color:var(--text3);margin-bottom:3px;">🟣 ${ips.length} intersection point${ips.length>1?'s':''} — drag on canvas</div>`;
+  }
+
+  // Add split buttons
+  html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:2px;">`;
+  html += `<button onclick="ppAddSplit('${pg}',${idx},'h')" ${dis} style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);font-size:9px;padding:3px;border-radius:2px;cursor:pointer;">＋ Horizontal</button>`;
+  html += `<button onclick="ppAddSplit('${pg}',${idx},'v')" ${dis} style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);font-size:9px;padding:3px;border-radius:2px;cursor:pointer;">＋ Vertical</button>`;
+  html += `</div>`;
+  if (hasSplits) {
+    html += `<button onclick="ppClearAllSplits('${pg}',${idx})" ${dis} style="width:100%;margin-top:3px;background:none;border:1px solid var(--border);color:var(--danger);font-size:9px;padding:2px;border-radius:2px;cursor:pointer;">✕ Remove all splits</button>`;
+  }
+
+  html += `</div></div>`;
+  return html;
 }
 
-function ppSetSplitOffset(pg, idx, _end, field, val) {
-  if (!splitOffsets[pg])      splitOffsets[pg]      = {};
-  if (!splitOffsets[pg][idx]) splitOffsets[pg][idx] = {};
-  splitOffsets[pg][idx][field] = Math.round(val);
+function ppSetSplitOffset(pg, idx, si, field, val) {
+  if (!splitOffsets[pg])        splitOffsets[pg]        = {};
+  if (!splitOffsets[pg][idx])   splitOffsets[pg][idx]   = {};
+  const soKey = 's' + si;
+  if (!splitOffsets[pg][idx][soKey]) splitOffsets[pg][idx][soKey] = {};
+  splitOffsets[pg][idx][soKey][field] = Math.round(val);
   rerenderPageSVG(pg);
+  refreshCornerOverlay(pg);
   scheduleAutoSave();
 }
 
-function ppResetSplitOffsets(pg, idx) {
-  if (splitOffsets[pg]) delete splitOffsets[pg][idx];
+function ppResetSplitOffsets(pg, idx, si) {
+  if (splitOffsets[pg]?.[idx]) {
+    if (si !== undefined) {
+      delete splitOffsets[pg][idx]['s' + si];
+    } else {
+      delete splitOffsets[pg][idx];
+    }
+  }
   rerenderPageSVG(pg);
+  refreshCornerOverlay(pg);
   if (document.getElementById('panelsPanel')?.classList.contains('open')) refreshPanelsPanel(pg);
   scheduleAutoSave();
 }
@@ -5166,6 +5307,82 @@ function ppResetSplitLocks(pg, idx) {
   refreshCornerOverlay(pg);
   if (document.getElementById('panelsPanel')?.classList.contains('open')) refreshPanelsPanel(pg);
   renderMobilePanelsFor(pg);
+  scheduleAutoSave();
+}
+
+function ppAddSplit(pg, idx, dir) {
+  ppEnsure(pg, idx);
+  const ov = panelOverrides[pg][idx];
+  // Migrate old single .split to array
+  if (ov.split && !ov.splits) { ov.splits = [ov.split]; delete ov.split; }
+  if (!ov.splits) ov.splits = [];
+  ov.splits.push({ dir, pos: 50, gap: 0, style: 'line' });
+  evenlyDistributeSplits(pg, idx);
+  rerenderPageSVG(pg);
+  refreshCornerOverlay(pg);
+  if (document.getElementById('panelsPanel')?.classList.contains('open')) refreshPanelsPanel(pg);
+  renderMobilePanelsFor(pg);
+  scheduleAutoSave();
+}
+
+function ppRemoveSplit(pg, idx, si) {
+  const ov = (panelOverrides[pg]||{})[idx];
+  if (!ov) return;
+  if (ov.split && !ov.splits) { ov.splits = [ov.split]; delete ov.split; }
+  if (!ov.splits) return;
+  ov.splits.splice(si, 1);
+  // Clear offsets for this split index and rebuild keys
+  if (splitOffsets[pg]?.[idx]) {
+    const pgSo = splitOffsets[pg][idx];
+    // Shift down all s(n) keys after removed index
+    for (let i = si; i < ov.splits.length; i++) {
+      pgSo['s'+i] = pgSo['s'+(i+1)] || {};
+    }
+    delete pgSo['s'+ov.splits.length];
+    pgSo.ips = [];
+  }
+  if (ov.splits.length > 0) evenlyDistributeSplits(pg, idx);
+  rerenderPageSVG(pg);
+  refreshCornerOverlay(pg);
+  if (document.getElementById('panelsPanel')?.classList.contains('open')) refreshPanelsPanel(pg);
+  renderMobilePanelsFor(pg);
+  scheduleAutoSave();
+}
+
+function ppClearAllSplits(pg, idx) {
+  const ov = (panelOverrides[pg]||{})[idx];
+  if (!ov) return;
+  delete ov.split;
+  delete ov.splits;
+  if (splitOffsets[pg]) delete splitOffsets[pg][idx];
+  if (splitLocks[pg])   delete splitLocks[pg][idx];
+  rerenderPageSVG(pg);
+  refreshCornerOverlay(pg);
+  if (document.getElementById('panelsPanel')?.classList.contains('open')) refreshPanelsPanel(pg);
+  renderMobilePanelsFor(pg);
+  scheduleAutoSave();
+}
+
+// Legacy: ppSetSplit(pg, idx, enabled) — called by old checkbox if still present
+function ppSetSplit(pg, idx, enabled) {
+  if (enabled) ppAddSplit(pg, idx, 'h');
+  else ppClearAllSplits(pg, idx);
+}
+
+function ppUpdateSplit(pg, idx, si, field, val) {
+  const ov = (panelOverrides[pg]||{})[idx];
+  if (!ov) return;
+  if (ov.split && !ov.splits) { ov.splits = [ov.split]; delete ov.split; }
+  if (!ov.splits?.[si]) return;
+  ov.splits[si][field] = val;
+  // If direction changed, clear that split's offsets and redistribute
+  if (field === 'dir') {
+    if (splitOffsets[pg]?.[idx]) delete splitOffsets[pg][idx]['s'+si];
+    evenlyDistributeSplits(pg, idx);
+  }
+  rerenderPageSVG(pg);
+  refreshCornerOverlay(pg);
+  if (document.getElementById('panelsPanel')?.classList.contains('open')) refreshPanelsPanel(pg);
   scheduleAutoSave();
 }
 
@@ -5597,7 +5814,7 @@ function selectLayerById(pg, id) {
 function layerMove(pg, id, dir) {
   const bbs = bubbles[pg]||[];
   const i = bbs.findIndex(b=>b.id===id);
-  const j = i + dir;
+  const j = i - dir;
   if (j<0||j>=bbs.length) return;
   [bbs[i],bbs[j]]=[bbs[j],bbs[i]];
   bbs.forEach((b,idx)=>{ b.zIndex=idx+1; });
