@@ -5091,19 +5091,16 @@ function ppToggleSelectMode() {
   const btn  = document.getElementById('pp-select-btn');
   const body = document.getElementById('pp-body');
   if (window._ppSelectMode) {
-    bar.classList.add('active');
-    btn.style.background = 'var(--accent2)';
-    btn.style.color      = 'var(--ink)';
-    btn.style.borderColor= 'var(--accent2)';
-    body.classList.add('selecting');
+    if (bar)  bar.classList.add('active');
+    if (body) body.classList.add('selecting');
+    if (btn)  { btn.style.background = 'var(--accent2)'; btn.style.color = 'var(--ink)'; btn.style.borderColor = 'var(--accent2)'; }
   } else {
-    bar.classList.remove('active');
-    btn.style.background = '';
-    btn.style.color      = '';
-    btn.style.borderColor= '';
-    body.classList.remove('selecting');
+    if (bar)  bar.classList.remove('active');
+    if (body) body.classList.remove('selecting');
+    if (btn)  { btn.style.background = ''; btn.style.color = ''; btn.style.borderColor = ''; }
   }
   _ppRefreshSelectCount();
+  syncMobileSelectBtn();
   const pg = document.getElementById('pp-page-sel')?.value;
   if (pg) refreshPanelsPanel(pg);
 }
@@ -5131,18 +5128,21 @@ function ppToggleSelect(idx) {
 }
 
 function ppSelectAll() {
-  const pg = document.getElementById('pp-page-sel')?.value;
+  const pg = document.getElementById('pp-page-sel')?.value
+          || document.getElementById('m-pp-page-sel')?.value;
   if (!pg) return;
   const base = _lastBaseRects[pg] || [];
   base.forEach((_, i) => window._ppSelected.add(i));
   _ppRefreshSelectCount();
-  const pg2 = pg;
-  refreshPanelsPanel(pg2);
+  syncMobileSelectBtn();
+  refreshPanelsPanel(pg);
+  renderMobilePanelsFor(pg);
 }
 
 function ppSelectNone() {
   window._ppSelected.clear();
   _ppRefreshSelectCount();
+  syncMobileSelectBtn();
   document.querySelectorAll('.pp-card').forEach(c => c.style.background = '');
   document.querySelectorAll('.pp-card-cb').forEach(cb => cb.checked = false);
 }
@@ -5153,7 +5153,8 @@ function _ppRefreshSelectCount() {
 }
 
 function ppBulkLock(prop) {
-  const pg = document.getElementById('pp-page-sel')?.value;
+  const pg = document.getElementById('pp-page-sel')?.value
+          || document.getElementById('m-pp-page-sel')?.value;
   if (!pg || !window._ppSelected.size) { showToast('Select panels first'); return; }
   const key = { pos:'lockPos', corners:'lockCorners', splits:'lockSplits' }[prop];
   window._ppSelected.forEach(idx => {
@@ -5165,11 +5166,13 @@ function ppBulkLock(prop) {
   renderMobilePanelsFor(pg);
   rebuildPageList();
   scheduleAutoSave();
+  syncMobileSelectBtn();
   showToast(`🔒 ${prop} locked on ${window._ppSelected.size} panel(s)`);
 }
 
 function ppBulkUnlock(prop) {
-  const pg = document.getElementById('pp-page-sel')?.value;
+  const pg = document.getElementById('pp-page-sel')?.value
+          || document.getElementById('m-pp-page-sel')?.value;
   if (!pg || !window._ppSelected.size) { showToast('Select panels first'); return; }
   const key = { pos:'lockPos', corners:'lockCorners', splits:'lockSplits' }[prop];
   window._ppSelected.forEach(idx => {
@@ -5184,6 +5187,7 @@ function ppBulkUnlock(prop) {
   renderMobilePanelsFor(pg);
   rebuildPageList();
   scheduleAutoSave();
+  syncMobileSelectBtn();
   showToast(`🔓 ${prop} unlocked on ${window._ppSelected.size} panel(s)`);
 }
 
@@ -5726,7 +5730,40 @@ function getMobilePanelsHTML(pg) {
 function renderMobilePanelsFor(pg) {
   const body = document.getElementById('m-pp-body');
   if (body) body.innerHTML = getMobilePanelsHTML(pg);
-  syncMobileLockBtn(pg);
+  syncMobileSelectBtn();
+}
+
+function mPpToggleSelectMode() {
+  window._ppSelectMode = !window._ppSelectMode;
+  window._ppSelected.clear();
+  // Also sync desktop if open
+  const desktopBar = document.getElementById('pp-select-bar');
+  const desktopBtn = document.getElementById('pp-select-btn');
+  const desktopBody = document.getElementById('pp-body');
+  if (desktopBar)  desktopBar.classList.toggle('active', window._ppSelectMode);
+  if (desktopBody) desktopBody.classList.toggle('selecting', window._ppSelectMode);
+  if (desktopBtn) {
+    desktopBtn.style.background  = window._ppSelectMode ? 'var(--accent2)' : '';
+    desktopBtn.style.color       = window._ppSelectMode ? 'var(--ink)'     : '';
+    desktopBtn.style.borderColor = window._ppSelectMode ? 'var(--accent2)' : '';
+  }
+  _ppRefreshSelectCount();
+  const pg = document.getElementById('m-pp-page-sel')?.value;
+  if (pg) renderMobilePanelsFor(pg);
+}
+
+function syncMobileSelectBtn() {
+  const btn = document.getElementById('m-pp-select-btn');
+  const bar = document.getElementById('m-pp-select-bar');
+  if (btn) {
+    btn.style.background  = window._ppSelectMode ? 'var(--accent2)' : '';
+    btn.style.color       = window._ppSelectMode ? 'var(--ink)'     : '';
+    btn.style.borderColor = window._ppSelectMode ? 'var(--accent2)' : '';
+  }
+  if (bar) bar.style.display = window._ppSelectMode ? 'block' : 'none';
+  // sync count labels
+  const mCount = document.getElementById('m-pp-sel-count');
+  if (mCount) mCount.textContent = `${(window._ppSelected||new Set()).size} selected`;
 }
 
 // ── LAYERS PANEL ──
@@ -6125,14 +6162,31 @@ function getMobileTabContent(tab) {
       const pgs = getPages();
       const firstPg = pgs[0]?.pg || '';
       return `<div style="padding:10px;">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
           <span style="font-size:10px;color:var(--text2);white-space:nowrap;">Page</span>
           <select id="m-pp-page-sel" style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px;font-size:10px;font-family:'IBM Plex Mono',monospace;border-radius:2px;"
             onchange="renderMobilePanelsFor(this.value)">
             ${pgs.map(({pg}) => `<option value="${pg}">${pg}</option>`).join('')}
           </select>
           <button class="btn small" onclick="ppResetAll(document.getElementById('m-pp-page-sel').value);renderMobilePanelsFor(document.getElementById('m-pp-page-sel').value)">↺ All</button>
-          <button class="btn small" id="m-pp-lock-btn" onclick="mPpToggleLockAll()" title="Lock/unlock layout"></button>
+          <button class="btn small" id="m-pp-select-btn" onclick="mPpToggleSelectMode()" title="Select panels to lock/unlock">☑ Select</button>
+        </div>
+        <div id="m-pp-select-bar" style="display:none;margin-bottom:6px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:6px 8px;">
+          <div style="display:flex;align-items:center;gap:5px;margin-bottom:5px;">
+            <span id="m-pp-sel-count" style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);flex:1;">0 selected</span>
+            <button onclick="ppSelectAll()" style="padding:2px 8px;background:var(--surface3);border:1px solid var(--border);border-radius:3px;color:var(--text2);font-family:'IBM Plex Mono',monospace;font-size:9px;cursor:pointer;">All</button>
+            <button onclick="ppSelectNone()" style="padding:2px 8px;background:var(--surface3);border:1px solid var(--border);border-radius:3px;color:var(--text2);font-family:'IBM Plex Mono',monospace;font-size:9px;cursor:pointer;">None</button>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:4px;">
+            <button onclick="ppBulkLock('pos')" style="padding:4px 2px;background:var(--surface3);border:1px solid var(--danger);border-radius:3px;color:var(--danger);font-family:'IBM Plex Mono',monospace;font-size:9px;cursor:pointer;">🔒 Pos</button>
+            <button onclick="ppBulkLock('corners')" style="padding:4px 2px;background:var(--surface3);border:1px solid var(--danger);border-radius:3px;color:var(--danger);font-family:'IBM Plex Mono',monospace;font-size:9px;cursor:pointer;">🔒 Corners</button>
+            <button onclick="ppBulkLock('splits')" style="padding:4px 2px;background:var(--surface3);border:1px solid var(--danger);border-radius:3px;color:var(--danger);font-family:'IBM Plex Mono',monospace;font-size:9px;cursor:pointer;">🔒 Splits</button>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;">
+            <button onclick="ppBulkUnlock('pos')" style="padding:4px 2px;background:var(--surface3);border:1px solid var(--success);border-radius:3px;color:var(--success);font-family:'IBM Plex Mono',monospace;font-size:9px;cursor:pointer;">🔓 Pos</button>
+            <button onclick="ppBulkUnlock('corners')" style="padding:4px 2px;background:var(--surface3);border:1px solid var(--success);border-radius:3px;color:var(--success);font-family:'IBM Plex Mono',monospace;font-size:9px;cursor:pointer;">🔓 Corners</button>
+            <button onclick="ppBulkUnlock('splits')" style="padding:4px 2px;background:var(--surface3);border:1px solid var(--success);border-radius:3px;color:var(--success);font-family:'IBM Plex Mono',monospace;font-size:9px;cursor:pointer;">🔓 Splits</button>
+          </div>
         </div>
         <div id="m-pp-body">${getMobilePanelsHTML(firstPg)}</div>
       </div>`;
