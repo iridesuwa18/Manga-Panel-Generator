@@ -2051,7 +2051,9 @@ async function buildFontDefs() {
 // Build bubble text using <foreignObject> — mirrors live DOM exactly
 function buildBubbleTextSVG(b) {
   if (!b.text) return '';
-  const pad    = Math.min(b.w, b.h) * 0.14;
+  const padRatio = b.padRatio != null ? b.padRatio : 0.14;
+  const pad    = Math.min(b.w, b.h) * padRatio;
+  const lineH  = b.lineHeight != null ? b.lineHeight : 1.3;
   const family = (BUBBLE_FONTS[b.font] || BUBBLE_FONTS['BubbleSans']).replace(/&/g,'&amp;');
   const weight = b.bold   ? 'bold'   : 'normal';
   const fstyle = b.italic ? 'italic' : 'normal';
@@ -2061,14 +2063,15 @@ function buildBubbleTextSVG(b) {
     .replace(/>/g,'&gt;').replace(/\n/g,'<br/>');
 
   // Use XHTML namespace div inside foreignObject — all attribute values must be XML-safe
-  return `<foreignObject x="0" y="0" width="${b.w}" height="${b.h}"><div xmlns="http://www.w3.org/1999/xhtml" style="width:${b.w}px;height:${b.h}px;display:flex;align-items:center;justify-content:center;text-align:center;font-family:${family};font-size:${b.fontSize}px;font-weight:${weight};font-style:${fstyle};color:${color};padding:${pad}px;line-height:1.3;word-break:break-word;overflow:hidden;box-sizing:border-box;">${text}</div></foreignObject>`;
+  return `<foreignObject x="0" y="0" width="${b.w}" height="${b.h}"><div xmlns="http://www.w3.org/1999/xhtml" style="width:${b.w}px;height:${b.h}px;display:flex;align-items:center;justify-content:center;text-align:center;font-family:${family};font-size:${b.fontSize}px;font-weight:${weight};font-style:${fstyle};color:${color};padding:${pad}px;line-height:${lineH};word-break:break-word;overflow:hidden;box-sizing:border-box;">${text}</div></foreignObject>`;
 }
 
 // Build bubble text as native SVG <text>/<tspan> — used for PNG export to avoid canvas taint from foreignObject.
 // Uses OffscreenCanvas measureText for accurate per-font wrapping instead of char-width guessing.
 function buildBubbleTextSVGNative(b) {
   if (!b.text) return '';
-  const pad      = Math.min(b.w, b.h) * 0.14;
+  const padRatio = b.padRatio != null ? b.padRatio : 0.14;
+  const pad      = Math.min(b.w, b.h) * padRatio;
   const maxW     = b.w - pad * 2;
   const family   = (BUBBLE_FONTS[b.font] || BUBBLE_FONTS['BubbleSans']).replace(/&/g,'&amp;');
   // For measureText we need the raw (unescaped) CSS font-family string
@@ -2077,7 +2080,7 @@ function buildBubbleTextSVGNative(b) {
   const fstyle   = b.italic ? 'italic' : 'normal';
   const color    = (b.color || '#111111').replace(/&/g,'&amp;');
   const fontSize = b.fontSize || 40;
-  const lineH    = fontSize * 1.3;
+  const lineH    = fontSize * (b.lineHeight != null ? b.lineHeight : 1.3);
 
   // Measure text width using OffscreenCanvas (accurate for any font loaded in the page)
   let measureCtx = null;
@@ -3038,9 +3041,15 @@ canvasArea.addEventListener('touchend', e => {
 function checkBubbleOverflow(wrap, b) {
   const textDiv = wrap.querySelector('.bubble-text');
   if (!textDiv) return;
-  // Thought bubbles have bumpy borders that protrude ~27% beyond the base ellipse,
-  // so give them extra slack before flagging overflow.
-  const slack = (b && b.type === 'thought') ? Math.round(textDiv.clientHeight * 0.18) : 2;
+  // Give each bubble type appropriate slack before flagging overflow:
+  // - thought: bumpy border protrudes ~18% beyond ellipse
+  // - rectangle/square: inner double-border eats space; be generous
+  // - all others: tiny 2px tolerance for subpixel rounding
+  let slack = 2;
+  if (b) {
+    if (b.type === 'thought')                          slack = Math.round(textDiv.clientHeight * 0.18);
+    else if (b.type === 'rectangle' || b.type === 'square') slack = Math.round(textDiv.clientHeight * 0.12);
+  }
   const isOverflowing = textDiv.scrollHeight > textDiv.clientHeight + slack || textDiv.scrollWidth > textDiv.clientWidth + slack;
   wrap.classList.toggle('text-overflow', isOverflowing);
 }
@@ -3682,6 +3691,14 @@ function duplicatePage(pg) {
         <label>Size</label>
         <input id="bp-fsize" type="number" min="6" max="200" value="16" oninput="bpUpdate('fontSize',+this.value)">
       </div>
+      <div class="bp-row">
+        <label>Line H</label>
+        <input id="bp-line-height" type="number" min="0.8" max="3.0" step="0.05" value="1.3" oninput="bpUpdate('lineHeight',+this.value)" title="Line height multiplier (1.3 = default)">
+      </div>
+      <div class="bp-row">
+        <label>Padding</label>
+        <input id="bp-pad-ratio" type="number" min="0" max="0.4" step="0.01" value="0.14" oninput="bpUpdate('padRatio',+this.value)" title="Inner padding ratio 0–0.4 (0.14 = default)">
+      </div>
       <div class="bp-row" style="gap:4px;align-items:center;">
         <button class="font-btn" id="bp-bold" onclick="bpToggle('bold')"><b>B</b></button>
         <button class="font-btn" id="bp-italic" onclick="bpToggle('italic')"><i>I</i></button>
@@ -3787,6 +3804,8 @@ function defaultBubble(type, text, speaker, index) {
     dotCount: 4,
     spikeCount: 16,
     dashCount: 7,
+    lineHeight: 1.3,  // line spacing multiplier
+    padRatio: 0.14,   // per-side padding ratio (fraction of min(w,h))
     lockMove: false, lockResize: false, lockRotate: false,
     zIndex: (index||0) + 1,
     color: '#111111',
@@ -3805,14 +3824,14 @@ function defaultBubble(type, text, speaker, index) {
 // Uses OffscreenCanvas for accurate per-font measurement.
 // The bubble is allowed to grow freely in width (up to MAX_W) then wraps.
 function sizeBubbleToText(b) {
-  // PAD_RATIO = per-side padding ratio, must match buildBubbleTextSVGNative (0.14) and
-  // buildBubbleTextSVG CSS (padding: min(w,h)*0.14 per side).
-  // LINE_H must match buildBubbleTextSVGNative (fontSize*1.3) so sizing = export height.
-  const PAD_RATIO = 0.14;   // per-side — matches rendering in both live and export paths
+  // PAD_RATIO = per-side padding ratio, must match buildBubbleTextSVGNative and
+  // buildBubbleTextSVG CSS (padding: min(w,h)*padRatio per side).
+  // LINE_H must match buildBubbleTextSVGNative lineH so sizing = export height.
+  const PAD_RATIO = b.padRatio != null ? b.padRatio : 0.14;
   const MAX_W     = 3000;   // hard cap so single-line text doesn't go off-page
   const MIN_W     = 300;
   const MIN_H     = 240;
-  const LINE_H    = b.fontSize * 1.3;  // matches buildBubbleTextSVGNative lineH
+  const LINE_H    = b.fontSize * (b.lineHeight != null ? b.lineHeight : 1.3);
 
   const fontFamily = BUBBLE_FONTS[b.font] || BUBBLE_FONTS['BubbleSans'];
   const weight = b.bold   ? 'bold'   : 'normal';
@@ -4203,7 +4222,9 @@ function applyBubbleStyle(wrap, b) {
 }
 
 function updateTextStyle(textDiv, b) {
-  const pad = Math.min(b.w, b.h) * 0.14;
+  const padRatio = b.padRatio != null ? b.padRatio : 0.14;
+  const pad = Math.min(b.w, b.h) * padRatio;
+  const lineH = b.lineHeight != null ? b.lineHeight : 1.3;
   textDiv.style.cssText = `
     position:absolute;
     top:0; left:0;
@@ -4216,7 +4237,7 @@ function updateTextStyle(textDiv, b) {
     font-style:${b.italic?'italic':'normal'};
     color:${b.color||'#111111'};
     padding:${pad}px;
-    line-height:1.3;
+    line-height:${lineH};
     word-break:break-word;
     white-space:pre-wrap;
     overflow:hidden;
@@ -4834,6 +4855,8 @@ function syncBPFields(b) {
   s('bp-tail-len',Math.round(b.tailLen));
   s('bp-color',b.color||'#111111');
   s('bp-tail-breadth',b.tailBreadth||1.0);
+  s('bp-line-height', b.lineHeight != null ? b.lineHeight : 1.3);
+  s('bp-pad-ratio',   b.padRatio   != null ? b.padRatio   : 0.14);
   s('bp-dot-count',b.dotCount||4);
   s('bp-spike-count',b.spikeCount||16);
   s('bp-dash-count',b.dashCount||7);
@@ -4931,6 +4954,8 @@ function bpUpdatePos() {
   b.tailAngle   = gm('bp-tail-angle',   b.tailAngle);
   b.tailLen     = gm('bp-tail-len',     b.tailLen);
   b.tailBreadth = gm('bp-tail-breadth', b.tailBreadth||1.0);
+  b.lineHeight  = gm('bp-line-height',  b.lineHeight  != null ? b.lineHeight  : 1.3);
+  b.padRatio    = gm('bp-pad-ratio',    b.padRatio    != null ? b.padRatio    : 0.14);
   applyBubble(b, wrap, ab.pgKey);
 }
 
@@ -6240,6 +6265,12 @@ function getMobileTabContent(tab) {
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:4px;">
             <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">SIZE</div>
               <input id="m-bp-fsize" type="number" min="6" max="200" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;" oninput="bpUpdate('fontSize',+this.value)"></div>
+            <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">LINE H</div>
+              <input id="m-bp-line-height" type="number" min="0.8" max="3.0" step="0.05" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;" oninput="bpUpdate('lineHeight',+this.value)" title="Line height (1.3 default)"></div>
+            <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">PADDING</div>
+              <input id="m-bp-pad-ratio" type="number" min="0" max="0.4" step="0.01" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;" oninput="bpUpdate('padRatio',+this.value)" title="Padding ratio (0.14 default)"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:4px;">
             <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">W</div>
               <input id="m-bp-w" type="number" min="100" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:3px;font-size:10px;"></div>
             <div><div style="font-size:9px;color:var(--text3);margin-bottom:2px;">H</div>
@@ -6368,6 +6399,8 @@ function syncMobileBPFields(b) {
   s('m-bp-tail-len',Math.round(b.tailLen));
   s('m-bp-color',b.color||'#111111');
   s('m-bp-tail-breadth',b.tailBreadth||1.0);
+  s('m-bp-line-height', b.lineHeight != null ? b.lineHeight : 1.3);
+  s('m-bp-pad-ratio',   b.padRatio   != null ? b.padRatio   : 0.14);
   s('m-bp-dot-count',b.dotCount||4);
   s('m-bp-spike-count',b.spikeCount||16);
   s('m-bp-dash-count',b.dashCount||7);
@@ -6465,6 +6498,8 @@ function syncFromMobilePos() {
   if(g('m-bp-tail-angle')!==null) b.tailAngle=g('m-bp-tail-angle');
   if(g('m-bp-tail-len')!==null)     b.tailLen=g('m-bp-tail-len');
   if(g('m-bp-tail-breadth')!==null) b.tailBreadth=g('m-bp-tail-breadth');
+  if(g('m-bp-line-height')!==null)  b.lineHeight=g('m-bp-line-height');
+  if(g('m-bp-pad-ratio')!==null)    b.padRatio=g('m-bp-pad-ratio');
   if(g('m-bp-dot-count')!==null)   b.dotCount=g('m-bp-dot-count');
   if(g('m-bp-spike-count')!==null) b.spikeCount=g('m-bp-spike-count');
   if(g('m-bp-dash-count')!==null)  b.dashCount=g('m-bp-dash-count');
