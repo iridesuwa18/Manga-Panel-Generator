@@ -3792,6 +3792,11 @@ function defaultBubble(type, text, speaker, index) {
     color: '#111111',
     clipPanel: null,   // index into page's panel rects, or null = no clip
   };
+  // Lilypad-specific defaults: length=20, breadth=1
+  if (type === 'lilypad') {
+    b.tailLen = 20;
+    b.tailBreadth = 1;
+  }
   sizeBubbleToText(b);
   return b;
 }
