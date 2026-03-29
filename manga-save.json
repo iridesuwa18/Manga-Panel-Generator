@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "savedAt": "2026-03-29T01:20:49.798Z",
+  "savedAt": "2026-03-29T01:26:54.121Z",
   "rows": [
     {
       "chp": "CHP 2",
@@ -2607,8 +2607,8 @@
         "type": "thought",
         "text": "To think he dare to bring that up to cover their excuses...",
         "speaker": "Sam Potter",
-        "x": 1030.166666666667,
-        "y": 3150.333587646485,
+        "x": 1252.3888041178388,
+        "y": 1444.7778625488281,
         "w": 605,
         "h": 542,
         "rotate": 0,
@@ -2616,7 +2616,7 @@
         "fontSize": 60,
         "bold": false,
         "italic": false,
-        "tailAngle": 225,
+        "tailAngle": 243.00929061022504,
         "tailLen": 150,
         "tailBreadth": 7,
         "extraTails": [],
