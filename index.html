@@ -3506,7 +3506,7 @@ function defaultBubble(type, text, speaker, index) {
     fontSize,
     bold,
     italic: false,
-    tailAngle: 225, tailLen: 20, tailBreadth: 1,
+    tailAngle: 225, tailLen: type === 'lilypad' ? 20 : 150, tailBreadth: type === 'lilypad' ? 1 : 7,
     extraTails: [],   // [{angle,len,breadth,dotCount,spikeCount,dashCount}, ...]
     dotCount: 4,
     spikeCount: 16,
