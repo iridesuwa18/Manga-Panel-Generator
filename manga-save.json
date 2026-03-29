@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "savedAt": "2026-03-29T13:55:47.054Z",
+  "savedAt": "2026-03-29T14:08:36.286Z",
   "rows": [
     {
       "chp": "CHP 2",
@@ -3931,12 +3931,12 @@
       {
         "id": "b1774791703315lvco",
         "type": "rectangle",
-        "text": "Gravitalis, Tower C, Null Corps Building",
+        "text": "Gravitalis, \nTower C, Null Corps Building",
         "speaker": "None",
-        "x": 412.63880411783884,
-        "y": 1592.7221374511726,
-        "w": 616.7772267659504,
-        "h": 326.5554707845052,
+        "x": 445.9721374511719,
+        "y": 1592.7223917643237,
+        "w": 544.5550893147786,
+        "h": 320.99974568684894,
         "rotate": 0,
         "font": "TGLEngschrift",
         "fontSize": 90,
@@ -3954,7 +3954,8 @@
         "lockRotate": false,
         "zIndex": 1,
         "color": "#111111",
-        "clipPanel": null
+        "clipPanel": null,
+        "lineHeight": 1
       },
       {
         "id": "b1774791703318d0tw",
