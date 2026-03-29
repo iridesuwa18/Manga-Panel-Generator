@@ -3549,12 +3549,12 @@ function setupCornerDotDrag(dot, pg, idx, key, baseX, baseY, axis) {
     if (axis !== 'h') cornerOffsets[pg][idx][key]        = startOffX + dx;
     if (axis !== 'v') cornerOffsets[pg][idx][key + 'Y']  = startOffY + dy;
 
-    // Live-update dot position
+    // Live-update this dot's position directly — do NOT call refreshCornerOverlay here
+    // because it destroys ov.innerHTML and removes the dot (and its pointer capture).
     dot.style.left = (baseX + (cornerOffsets[pg][idx][key]       || 0)) + 'px';
     dot.style.top  = (baseY + (cornerOffsets[pg][idx][key + 'Y'] || 0)) + 'px';
 
     rebuildPageSVG(pg);
-    refreshCornerOverlay(pg);
     _syncCornerInputs(pg, idx);
 
     // Refresh bubble clips for this page
@@ -3567,9 +3567,14 @@ function setupCornerDotDrag(dot, pg, idx, key, baseX, baseY, axis) {
 
   dot.addEventListener('pointerup', () => {
     dragging = false;
+    // Now it's safe to rebuild all corner dots cleanly
+    refreshCornerOverlay(pg);
     snapshotState();
   });
-  dot.addEventListener('pointercancel', () => { dragging = false; });
+  dot.addEventListener('pointercancel', () => {
+    dragging = false;
+    refreshCornerOverlay(pg);
+  });
 }
 
 // Sync corner number inputs in the panel editor card without a full re-render
