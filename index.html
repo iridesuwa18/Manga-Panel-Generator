@@ -3858,8 +3858,11 @@ function duplicatePage(pg) {
           <option value="Bangers">Bangers (Manga)</option>
           <option value="Permanent Marker">Permanent Marker</option>
           <option value="Caveat">Caveat (Handwritten)</option>
-          <option value="custom1">Custom 1</option>
-          <option value="custom2">Custom 2</option>
+          <option value="BubbleSans">Bubble Sans</option>
+          <option value="XLTightBoo">XL Tight Boo</option>
+          <option value="TGLEngschrift">TGL Engschrift</option>
+          <option value="custom1" disabled hidden>Custom 1 (not loaded)</option>
+          <option value="custom2" disabled hidden>Custom 2 (not loaded)</option>
         </select>
       </div>
       <div class="bp-row">
@@ -6231,8 +6234,14 @@ function loadCustomFont(e) {
   reader.readAsDataURL(file);
   ['bp-font','m-bp-font'].forEach(id=>{
     const sel=document.getElementById(id); if(!sel) return;
+    // Find the placeholder option matching this key (e.g. custom1, custom2)
     for(const o of sel.options) {
-      if(o.value==='custom1'||o.value==='custom2'){o.value=key;o.textContent=file.name.replace(/\.[^.]+$/,'')+'(custom)';break;}
+      if(o.value===key){
+        o.textContent=file.name.replace(/\.[^.]+$/,'')+' (custom)';
+        o.disabled=false;
+        o.hidden=false;
+        break;
+      }
     }
   });
   showToast('Font loaded: '+file.name);
@@ -6428,8 +6437,8 @@ function getMobileTabContent(tab) {
                 <option value="BubbleSans">Bubble Sans</option>
                 <option value="XLTightBoo">XL Tight Boo</option>
                 <option value="TGLEngschrift">TGL Engschrift</option>
-                <option value="custom1">Custom 1</option>
-                <option value="custom2">Custom 2</option>
+                <option value="custom1" disabled hidden>Custom 1 (not loaded)</option>
+                <option value="custom2" disabled hidden>Custom 2 (not loaded)</option>
               </select>
             </div>
           </div>
