@@ -2216,12 +2216,38 @@ function buildExportSVGString(pg, fontDefsStr) {
   if (pgBubbles.length) {
     const serializer = new XMLSerializer();
 
-    // Build clipPath defs for any bubble that has clipPanel set
+    // Build clipPath defs for any bubble that has clipPanel set.
+    // Inset by strokeW/2 so the bubble outline sits cleanly inside the panel border.
+    const sw = strokeW / 2;
     const clipDefs = pgBubbles
       .filter(b => b.clipPanel !== null && b.clipPanel !== undefined && panelRects[b.clipPanel])
       .map(b => {
-        const r = panelRects[b.clipPanel];
-        return `<clipPath id="bclip-${b.id}"><rect x="${r.x.toFixed(1)}" y="${r.y.toFixed(1)}" width="${r.w.toFixed(1)}" height="${r.h.toFixed(1)}"/></clipPath>`;
+        const r  = panelRects[b.clipPanel];
+        const co  = (cornerOffsets[pg] || {})[b.clipPanel];
+        const ena = (cornerEnabled[pg]  || {})[b.clipPanel];
+        const hasCorners = co && ena !== false &&
+          (co.tl||co.tr||co.bl||co.br||co.tlY||co.trY||co.blY||co.brY);
+
+        let clipShape;
+        if (hasCorners) {
+          // Polygon clip matching the corner-offset panel shape, inset by sw
+          const x1 = r.x, y1 = r.y, x2 = r.x + r.w, y2 = r.y + r.h;
+          const pts = [
+            `${(x1 + (co.tl||0) + sw).toFixed(1)},${(y1 + (co.tlY||0) + sw).toFixed(1)}`,
+            `${(x2 + (co.tr||0) - sw).toFixed(1)},${(y1 + (co.trY||0) + sw).toFixed(1)}`,
+            `${(x2 + (co.br||0) - sw).toFixed(1)},${(y2 + (co.brY||0) - sw).toFixed(1)}`,
+            `${(x1 + (co.bl||0) + sw).toFixed(1)},${(y2 + (co.blY||0) - sw).toFixed(1)}`,
+          ].join(' ');
+          clipShape = `<polygon points="${pts}"/>`;
+        } else {
+          // Simple rect inset by strokeW/2 on all sides
+          const cx = (r.x + sw).toFixed(1);
+          const cy = (r.y + sw).toFixed(1);
+          const cw = Math.max(0, r.w - sw * 2).toFixed(1);
+          const ch = Math.max(0, r.h - sw * 2).toFixed(1);
+          clipShape = `<rect x="${cx}" y="${cy}" width="${cw}" height="${ch}"/>`;
+        }
+        return `<clipPath id="bclip-${b.id}">${clipShape}</clipPath>`;
       }).join('');
 
     if (clipDefs) {
