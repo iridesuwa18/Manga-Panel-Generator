@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "savedAt": "2026-04-04T00:03:45.019Z",
+  "savedAt": "2026-04-04T00:11:14.358Z",
   "rows": [
     {
       "chp": "CHP 2",
@@ -5161,6 +5161,167 @@
         "color": "#111111",
         "clipPanel": null
       }
+    ],
+    "PG 14": [
+      {
+        "id": "b1775261097786gc79",
+        "type": "circle",
+        "text": "But I know Bond well. He is known to be a mystery.",
+        "speaker": "Aero Nami",
+        "x": 834,
+        "y": 1495,
+        "w": 721,
+        "h": 460,
+        "rotate": 0,
+        "font": "BubbleSans",
+        "fontSize": 60,
+        "bold": false,
+        "italic": false,
+        "tailAngle": 254.93845654833126,
+        "tailLen": 50,
+        "tailBreadth": 7,
+        "extraTails": [],
+        "dotCount": 4,
+        "spikeCount": 16,
+        "dashCount": 7,
+        "lineHeight": 1.3,
+        "padRatio": 0.14,
+        "lockMove": false,
+        "lockResize": false,
+        "lockRotate": false,
+        "zIndex": 1,
+        "color": "#111111",
+        "clipPanel": 0
+      },
+      {
+        "id": "b1775261097790q96u",
+        "type": "circle",
+        "text": "I read about his abilities used in the Dream World.",
+        "speaker": "Yura Nakamata",
+        "x": 1551,
+        "y": 1486,
+        "w": 712,
+        "h": 495,
+        "rotate": 0,
+        "font": "BubbleSans",
+        "fontSize": 60,
+        "bold": false,
+        "italic": false,
+        "tailAngle": 270.6791830466808,
+        "tailLen": 65,
+        "tailBreadth": 7,
+        "extraTails": [],
+        "dotCount": 4,
+        "spikeCount": 16,
+        "dashCount": 7,
+        "lineHeight": 1.3,
+        "padRatio": 0.14,
+        "lockMove": false,
+        "lockResize": false,
+        "lockRotate": false,
+        "zIndex": 2,
+        "color": "#111111",
+        "clipPanel": 1
+      },
+      {
+        "id": "b1775261097790avqs",
+        "type": "circle",
+        "text": "Yeah... it'll be over once he used that.",
+        "speaker": "Aero Nami",
+        "x": 1777.1666666666667,
+        "y": 2934.8890584309893,
+        "w": 643.222391764323,
+        "h": 433,
+        "rotate": 0,
+        "font": "BubbleSans",
+        "fontSize": 60,
+        "bold": false,
+        "italic": false,
+        "tailAngle": 249.65222094534533,
+        "tailLen": 150,
+        "tailBreadth": 7,
+        "extraTails": [],
+        "dotCount": 4,
+        "spikeCount": 16,
+        "dashCount": 7,
+        "lineHeight": 1.3,
+        "padRatio": 0.14,
+        "lockMove": false,
+        "lockResize": false,
+        "lockRotate": false,
+        "zIndex": 5,
+        "color": "#111111",
+        "clipPanel": null
+      },
+      {
+        "id": "b1775261097791wnb9",
+        "type": "circle",
+        "text": "You sure about that?",
+        "speaker": "Keaton Fort",
+        "x": 2550,
+        "y": 3099.4445292154946,
+        "w": 467,
+        "h": 392,
+        "rotate": 0,
+        "font": "BubbleSans",
+        "fontSize": 60,
+        "bold": false,
+        "italic": false,
+        "tailAngle": 270,
+        "tailLen": 45,
+        "tailBreadth": 7,
+        "extraTails": [],
+        "dotCount": 4,
+        "spikeCount": 16,
+        "dashCount": 7,
+        "lineHeight": 1.3,
+        "padRatio": 0.14,
+        "lockMove": false,
+        "lockResize": false,
+        "lockRotate": false,
+        "zIndex": 6,
+        "color": "#111111",
+        "clipPanel": 5
+      },
+      {
+        "id": "b17752610977916l7r",
+        "type": "circle",
+        "text": "When did he...?",
+        "speaker": "Aero Nami  and Yura Nakamata",
+        "x": 736,
+        "y": 4102,
+        "w": 567,
+        "h": 207,
+        "rotate": 0,
+        "font": "BubbleSans",
+        "fontSize": 60,
+        "bold": false,
+        "italic": false,
+        "tailAngle": 242,
+        "tailLen": 45,
+        "tailBreadth": 7,
+        "extraTails": [
+          {
+            "angle": 299.48011873356035,
+            "len": 45,
+            "breadth": 7,
+            "dotCount": 4,
+            "spikeCount": 16,
+            "dashCount": 7
+          }
+        ],
+        "dotCount": 4,
+        "spikeCount": 16,
+        "dashCount": 7,
+        "lineHeight": 1.3,
+        "padRatio": 0.14,
+        "lockMove": false,
+        "lockResize": false,
+        "lockRotate": false,
+        "zIndex": 7,
+        "color": "#111111",
+        "clipPanel": 6
+      }
     ]
   },
   "panelOverrides": {
@@ -7045,7 +7206,15 @@
         "y": 3520.5,
         "w": 968,
         "h": 748,
-        "locked": true
+        "locked": true,
+        "splits": [
+          {
+            "dir": "v",
+            "pos": 50,
+            "gap": 0,
+            "style": "line"
+          }
+        ]
       },
       "7": {
         "x": 1538,
@@ -7659,6 +7828,9 @@
   "cornerEnabled": {
     "PG 3": {
       "0": false
+    },
+    "PG 14": {
+      "7": false
     }
   },
   "splitOffsets": {
@@ -7681,6 +7853,14 @@
         "1": {
           "aT": 0.5668977195765017,
           "bT": 0.4545096878804004
+        }
+      }
+    },
+    "PG 14": {
+      "6": {
+        "0": {
+          "aT": 0.6367845438950694,
+          "bT": 0.4604044936486249
         }
       }
     }
