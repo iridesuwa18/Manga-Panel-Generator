@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "savedAt": "2026-04-04T00:19:56.526Z",
+  "savedAt": "2026-04-04T00:29:06.937Z",
   "rows": [
     {
       "chp": "CHP 2",
@@ -5504,6 +5504,137 @@
         "color": "#111111",
         "clipPanel": null
       }
+    ],
+    "PG 16": [
+      {
+        "id": "b1775262132618e4wu",
+        "type": "thought",
+        "text": "Tch... no... I definitely seperated her soul.",
+        "speaker": "Bond Bridge",
+        "x": 816.9446563720701,
+        "y": 1531.1669209798172,
+        "w": 610.8888041178386,
+        "h": 355.2221374511719,
+        "rotate": 0,
+        "font": "BubbleSans",
+        "fontSize": 60,
+        "bold": false,
+        "italic": false,
+        "tailAngle": 271.32999864057456,
+        "tailLen": 150,
+        "tailBreadth": 7,
+        "extraTails": [],
+        "dotCount": 2,
+        "spikeCount": 16,
+        "dashCount": 7,
+        "lineHeight": 1.3,
+        "padRatio": 0.14,
+        "lockMove": false,
+        "lockResize": false,
+        "lockRotate": false,
+        "zIndex": 1,
+        "color": "#111111",
+        "clipPanel": null
+      },
+      {
+        "id": "b177526213261907k2",
+        "type": "thought",
+        "text": "She can control her body even when her soul is not connected.",
+        "speaker": "Bond Bridge",
+        "x": 2202.1393127441406,
+        "y": 1455.999745686849,
+        "w": 657,
+        "h": 494.44452921549475,
+        "rotate": 0,
+        "font": "BubbleSans",
+        "fontSize": 60,
+        "bold": false,
+        "italic": false,
+        "tailAngle": 269.03850678622234,
+        "tailLen": 150,
+        "tailBreadth": 7,
+        "extraTails": [],
+        "dotCount": 2,
+        "spikeCount": 16,
+        "dashCount": 7,
+        "lineHeight": 1.3,
+        "padRatio": 0.14,
+        "lockMove": false,
+        "lockResize": false,
+        "lockRotate": false,
+        "zIndex": 3,
+        "color": "#111111",
+        "clipPanel": null
+      },
+      {
+        "id": "b1775262132619u5k0",
+        "type": "thought",
+        "text": "So it is true...",
+        "speaker": "Aero Nami",
+        "x": 554.6666666666663,
+        "y": 2506.11094156901,
+        "w": 416.6666666666667,
+        "h": 310,
+        "rotate": 0,
+        "font": "BubbleSans",
+        "fontSize": 60,
+        "bold": false,
+        "italic": false,
+        "tailAngle": 277.38942071465567,
+        "tailLen": 150,
+        "tailBreadth": 7,
+        "extraTails": [],
+        "dotCount": 1,
+        "spikeCount": 16,
+        "dashCount": 7,
+        "lineHeight": 1.3,
+        "padRatio": 0.14,
+        "lockMove": false,
+        "lockResize": false,
+        "lockRotate": false,
+        "zIndex": 4,
+        "color": "#111111",
+        "clipPanel": null
+      },
+      {
+        "id": "b1775262132619n59p",
+        "type": "thought",
+        "text": "She is a Dozer.",
+        "speaker": "Aero and Bond",
+        "x": 1087.4442749023447,
+        "y": 2540.4999999999995,
+        "w": 363.1111958821615,
+        "h": 241.22213745117188,
+        "rotate": 0,
+        "font": "BubbleSans",
+        "fontSize": 60,
+        "bold": false,
+        "italic": false,
+        "tailAngle": 232.80998604095853,
+        "tailLen": 150,
+        "tailBreadth": 7,
+        "extraTails": [
+          {
+            "angle": 317.397889546043,
+            "len": 150,
+            "breadth": 7,
+            "dotCount": 2,
+            "spikeCount": 16,
+            "dashCount": 7
+          }
+        ],
+        "dotCount": 1,
+        "spikeCount": 16,
+        "dashCount": 7,
+        "lineHeight": 1.3,
+        "padRatio": 0.14,
+        "lockMove": false,
+        "lockResize": false,
+        "lockRotate": false,
+        "zIndex": 5,
+        "color": "#111111",
+        "clipPanel": null
+      }
     ]
   },
   "panelOverrides": {
@@ -7520,14 +7651,30 @@
         "y": 2764,
         "w": 968,
         "h": 1536,
-        "locked": true
+        "locked": true,
+        "splits": [
+          {
+            "dir": "h",
+            "pos": 50,
+            "gap": 0,
+            "style": "line"
+          }
+        ]
       },
       "7": {
         "x": 1538,
         "y": 2764,
         "w": 1472,
         "h": 1536,
-        "locked": true
+        "locked": true,
+        "splits": [
+          {
+            "dir": "h",
+            "pos": 50,
+            "gap": 0,
+            "style": "line"
+          }
+        ]
       },
       "_lockedRects": [
         {
@@ -8043,6 +8190,20 @@
         "0": {
           "aT": 0.6367845438950694,
           "bT": 0.4604044936486249
+        }
+      }
+    },
+    "PG 16": {
+      "6": {
+        "0": {
+          "bT": 0.36525144898889866,
+          "aT": 0.6671879789193347
+        }
+      },
+      "7": {
+        "0": {
+          "aT": 0.6921414904436022,
+          "bT": 0.42264427419363754
         }
       }
     }
