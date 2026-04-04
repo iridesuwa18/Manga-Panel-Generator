@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "savedAt": "2026-04-04T00:35:34.741Z",
+  "savedAt": "2026-04-04T00:36:22.588Z",
   "rows": [
     {
       "chp": "CHP 2",
@@ -5665,7 +5665,7 @@
         "lockRotate": false,
         "zIndex": 1,
         "color": "#111111",
-        "clipPanel": null
+        "clipPanel": 0
       },
       {
         "id": "b177526264918129nm",
