@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "savedAt": "2026-04-04T01:07:28.927Z",
+  "savedAt": "2026-04-04T01:07:44.613Z",
   "rows": [
     {
       "chp": "CHP 2",
@@ -6206,9 +6206,9 @@
         "dashCount": 7,
         "lineHeight": 1.3,
         "padRatio": 0.14,
-        "lockMove": false,
-        "lockResize": false,
-        "lockRotate": false,
+        "lockMove": true,
+        "lockResize": true,
+        "lockRotate": true,
         "zIndex": 1,
         "color": "#111111",
         "clipPanel": null
@@ -6236,9 +6236,9 @@
         "dashCount": 7,
         "lineHeight": 1.3,
         "padRatio": 0.14,
-        "lockMove": false,
-        "lockResize": false,
-        "lockRotate": false,
+        "lockMove": true,
+        "lockResize": true,
+        "lockRotate": true,
         "zIndex": 2,
         "color": "#111111",
         "clipPanel": null
