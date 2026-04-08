@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Manga Panel Generator</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&family=Bangers&family=Permanent+Marker&family=Caveat:wght@600&display=swap');
@@ -12,12 +12,12 @@
   @font-face { font-family: 'TGLEngschrift'; src: url('TGL_0-1451Eng.ttf') format('truetype'); }
 
   :root {
-    --bg: #0e0e0e;
-    --surface: #161616;
-    --surface2: #1f1f1f;
-    --surface3: #2a2a2a;
-    --border: #333;
-    --border2: #444;
+    --bg: #1c1c1c;
+    --surface: #252525;
+    --surface2: #2e2e2e;
+    --surface3: #383838;
+    --border: #3a3a3a;
+    --border2: #4a4a4a;
     --accent: #e8d5a3;
     --accent2: #c4a96b;
     --text: #f0ede6;
@@ -26,6 +26,13 @@
     --danger: #e05a5a;
     --success: #6abf7b;
     --ink: #1a1a1a;
+
+    /* PS chrome dimensions */
+    --topbar-h: 38px;
+    --menubar-h: 28px;
+    --leftbar-w: 42px;
+    --rightpanel-w: 300px;
+    --statusbar-h: 22px;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -34,385 +41,413 @@
     background: var(--bg);
     color: var(--text);
     font-family: 'IBM Plex Sans', sans-serif;
-    font-size: 13px;
-    min-height: 100vh;
+    font-size: 12px;
+    height: 100dvh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
 
-  /* ── HEADER ── */
-  header {
+  /* ── PS MENU BAR ─────────────────────────────── */
+  #menubar {
+    height: var(--menubar-h);
     background: var(--surface);
     border-bottom: 1px solid var(--border);
-    padding: 14px 24px;
     display: flex;
     align-items: center;
-    gap: 20px;
-    position: sticky;
-    top: 0;
-    z-index: 100;
+    gap: 0;
+    flex-shrink: 0;
+    z-index: 200;
+    user-select: none;
   }
-  header h1 {
+
+  .app-logo {
     font-family: 'Bebas Neue', sans-serif;
-    font-size: 26px;
+    font-size: 15px;
     letter-spacing: 2px;
     color: var(--accent);
+    padding: 0 14px;
+    border-right: 1px solid var(--border);
+    height: 100%;
+    display: flex;
+    align-items: center;
     flex-shrink: 0;
   }
-  header .subtitle {
-    color: var(--text3);
+
+  .menu-item {
+    padding: 0 10px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    color: var(--text2);
     font-family: 'IBM Plex Mono', monospace;
     font-size: 11px;
+    cursor: pointer;
+    position: relative;
+    transition: background .1s, color .1s;
+    white-space: nowrap;
   }
-  .header-actions { margin-left: auto; display: flex; gap: 8px; }
+  .menu-item:hover, .menu-item.open { background: var(--surface3); color: var(--text); }
 
-  /* ── BUTTONS ── */
+  .menu-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-top: none;
+    min-width: 180px;
+    z-index: 999;
+    box-shadow: 0 8px 24px rgba(0,0,0,.5);
+  }
+  .menu-item.open .menu-dropdown { display: block; }
+
+  .menu-dropdown button {
+    display: block;
+    width: 100%;
+    padding: 8px 14px;
+    background: none;
+    border: none;
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    text-align: left;
+    cursor: pointer;
+    transition: background .1s;
+    white-space: nowrap;
+  }
+  .menu-dropdown button:hover { background: var(--surface3); color: var(--accent); }
+  .menu-dropdown .sep { height: 1px; background: var(--border); margin: 3px 0; }
+
+  .menubar-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-right: 10px;
+    height: 100%;
+  }
+  .menubar-right .btn { padding: 3px 10px; font-size: 10px; }
+
+  /* ── PS OPTIONS BAR ──────────────────────────── */
+  #optionsbar {
+    height: var(--topbar-h);
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 10px;
+    flex-shrink: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+  #optionsbar::-webkit-scrollbar { height: 2px; }
+
+  .opt-group {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    padding-right: 8px;
+    height: 100%;
+  }
+  .opt-group:last-child { border-right: none; }
+
+  .opt-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    color: var(--text3);
+    white-space: nowrap;
+  }
+
+  /* ── MAIN WORKSPACE ──────────────────────────── */
+  #workspace {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  /* ── LEFT TOOL BAR ───────────────────────────── */
+  #leftbar {
+    width: var(--leftbar-w);
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 6px 0;
+    gap: 2px;
+    flex-shrink: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    z-index: 10;
+  }
+  #leftbar::-webkit-scrollbar { width: 0; }
+
+  .tool-btn {
+    width: 34px;
+    height: 34px;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: var(--text3);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .12s;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .tool-btn:hover { background: var(--surface3); color: var(--text); border-color: var(--border); }
+  .tool-btn.active { background: var(--surface3); color: var(--accent); border-color: var(--accent2); }
+  .tool-sep { width: 24px; height: 1px; background: var(--border); margin: 4px 0; flex-shrink: 0; }
+
+  /* Tooltip */
+  .tool-btn::after {
+    content: attr(data-tip);
+    position: absolute;
+    left: calc(100% + 8px);
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--surface3);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    padding: 3px 7px;
+    border-radius: 3px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .15s;
+    z-index: 999;
+    border: 1px solid var(--border2);
+  }
+  .tool-btn:hover::after { opacity: 1; }
+
+  /* ── CANVAS AREA ──────────────────────────────── */
+  #canvasWrap {
+    flex: 1;
+    background: #141414;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  #canvasArea {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* status bar */
+  #statusbar {
+    height: var(--statusbar-h);
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+  .status-item {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    color: var(--text3);
+    white-space: nowrap;
+  }
+  .status-item span { color: var(--text2); }
+
+  /* ── RIGHT PANEL ──────────────────────────────── */
+  #rightpanel {
+    width: var(--rightpanel-w);
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    overflow: hidden;
+    transition: width .2s ease;
+  }
+  #rightpanel.collapsed { width: 0; }
+
+  /* Panel header tabs — like PS panel icons */
+  .panel-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    background: var(--surface2);
+  }
+  .panel-tab {
+    flex: 1;
+    padding: 8px 4px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text3);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    cursor: pointer;
+    transition: all .12s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    line-height: 1;
+  }
+  .panel-tab .ptab-icon { font-size: 14px; }
+  .panel-tab:hover { color: var(--text); }
+  .panel-tab.active { color: var(--accent); border-bottom-color: var(--accent2); }
+
+  .panel-content { display: none; flex: 1; overflow-y: auto; flex-direction: column; }
+  .panel-content.active { display: flex; }
+
+  /* ── PANEL SECTIONS ───────────────────────────── */
+  .ps-section {
+    border-bottom: 1px solid var(--border);
+  }
+  .ps-section-head {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 7px 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface2);
+    user-select: none;
+    transition: background .1s;
+  }
+  .ps-section-head:hover { background: var(--surface3); }
+  .ps-section-head::after { content: '▾'; font-size: 10px; opacity: 0.5; transition: transform .15s; }
+  .ps-section-head.collapsed::after { transform: rotate(-90deg); }
+  .ps-section-body { padding: 10px; }
+  .ps-section-body.collapsed { display: none; }
+
+  /* ── BUTTONS ──────────────────────────────────── */
   .btn {
-    padding: 7px 14px;
+    padding: 5px 10px;
     border: 1px solid var(--border2);
     background: var(--surface2);
     color: var(--text);
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 11px;
+    font-size: 10px;
     cursor: pointer;
     border-radius: 3px;
-    transition: all .15s;
+    transition: all .12s;
     white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
   }
   .btn:hover { background: var(--surface3); border-color: var(--accent2); color: var(--accent); }
   .btn.primary { background: var(--accent2); color: var(--ink); border-color: var(--accent2); font-weight: 600; }
   .btn.primary:hover { background: var(--accent); }
   .btn.danger { border-color: var(--danger); color: var(--danger); }
   .btn.danger:hover { background: rgba(224,90,90,.1); }
-  .btn.small { padding: 4px 9px; font-size: 10px; }
+  .btn.small { padding: 3px 7px; font-size: 9px; }
+  .btn.icon { padding: 4px 7px; font-size: 13px; }
   .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-row { display: flex; gap: 5px; flex-wrap: wrap; }
+  .btn-full { width: 100%; justify-content: center; margin-bottom: 5px; }
 
-  /* ── LAYOUT ── */
-  .app { display: grid; grid-template-columns: 1fr 340px; height: calc(100vh - 53px); }
-
-  /* ── LEFT: CANVAS AREA ── */
-  .canvas-area {
-    padding: 20px;
-    overflow: hidden;
-    background: #0a0a0a;
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    flex: 1;
-    min-height: 0;
-  }
-
-  /* ── MOBILE FIXED BOTTOM PANEL ── */
-  #mobilePanel {
-    display: none;
-    position: fixed;
-    bottom: 0; left: 0; right: 0;
-    background: var(--surface);
-    border-top: 2px solid var(--border2);
-    z-index: 300;
-    height: 44vh;
-    flex-direction: column;
-  }
-  #mobileTabBar {
-    display: flex;
-    flex-shrink: 0;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-  }
-  #mobileTabBar button {
-    flex: 1;
-    background: none;
-    border: none;
-    border-right: 1px solid var(--border);
-    color: var(--text3);
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 9px;
-    padding: 6px 2px 5px;
-    cursor: pointer;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1px;
-  }
-  #mobileTabBar button:last-child { border-right: none; }
-  #mobileTabBar button.active { color: var(--accent); background: var(--surface2); }
-  #mobileTabBar button .mtab-icon { font-size: 16px; }
-  #mobilePanelContent {
-    overflow-y: auto;
-    flex: 1;
-    -webkit-overflow-scrolling: touch;
-  }
-  #mobilePanel.collapsed {
-    height: auto;
-  }
-  #mobilePanel.collapsed #mobilePanelContent {
-    display: none;
-  }
-  #mobilePanelToggle {
-    flex-shrink: 0;
-    background: none;
-    border: none;
-    border-left: 1px solid var(--border);
-    color: var(--text3);
-    font-size: 14px;
-    padding: 6px 10px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: color 0.15s;
-  }
-  #mobilePanelToggle:active { color: var(--accent); }
-  #mobileTopBar {
-    display: none;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    padding: 0;
-    flex-direction: column;
-    position: sticky; top: 0; z-index: 100;
-  }
-  #mobileTopRow {
-    display: flex;
-    gap: 6px;
-    padding: 6px 10px;
-  }
-  #mobilePbpBar {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    padding: 4px 10px 5px;
-    border-top: 1px solid var(--border);
-    background: var(--surface2);
-  }
-  #mobilePbpBar select {
+  /* ── FORM ELEMENTS ────────────────────────────── */
+  label { display: block; color: var(--text3); margin-bottom: 3px; font-size: 10px; font-family: 'IBM Plex Mono', monospace; }
+  input[type=text], input[type=number], select, textarea {
+    width: 100%;
     background: var(--surface3);
     border: 1px solid var(--border);
     color: var(--text);
-    padding: 3px 6px;
+    padding: 5px 7px;
     font-family: 'IBM Plex Mono', monospace;
     font-size: 10px;
-    border-radius: 3px;
-  }
-  #mobilePbpBar select:disabled { opacity: 0.35; }
-  #mobilePbpToggle.active {
-    background: var(--accent2) !important;
-    color: var(--ink) !important;
-    border-color: var(--accent2) !important;
-    font-weight: 600;
-  }
-
-  @media (max-width: 700px) {
-    header .subtitle { display: none; }
-    header { padding: 10px 14px; gap: 10px; }
-    header h1 { font-size: 20px; }
-    .header-actions { display: none; }
-
-    .app {
-      display: block;
-      height: auto;
-    }
-    .sidebar { display: none !important; }
-    #bubblePanel { display: none !important; }
-    #layersPanel { display: none !important; }
-
-    .canvas-area {
-      padding: 10px 8px;
-      padding-bottom: calc(44vh + 10px);
-    }
-    .canvas-area.panel-collapsed {
-      padding-bottom: calc(44px + 10px);
-    }
-
-    #mobilePanel { display: flex; }
-    #mobileTopBar { display: flex; }
-  }
-
-  .page-output {
-    background: white;
-    position: relative;
-    flex-shrink: 0;
-    box-shadow: 0 4px 32px rgba(0,0,0,.6);
-  }
-
-  .page-label {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 10px;
-    color: var(--text3);
-    text-align: center;
-    margin-bottom: 6px;
-  }
-
-  /* ── RIGHT: SIDEBAR ── */
-  .sidebar {
-    background: var(--surface);
-    border-left: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  .sidebar-tabs {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    border-bottom: 1px solid var(--border);
-  }
-  .tab-btn {
-    padding: 10px;
-    background: none;
-    border: none;
-    color: var(--text3);
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 11px;
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    transition: all .15s;
-  }
-  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
-  .tab-btn:hover:not(.active) { color: var(--text); }
-
-  .sidebar-content { flex: 1; overflow-y: auto; padding: 14px; }
-
-  .section-title {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 10px;
-    color: var(--text3);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: 8px;
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    cursor: pointer;
-    user-select: none;
-  }
-  .section-title::after {
-    content: '▾';
-    font-size: 11px;
-    opacity: 0.5;
-    transition: transform .15s;
-    flex-shrink: 0;
-  }
-  .section-title.collapsed::after { transform: rotate(-90deg); }
-  .section-body { overflow: hidden; }
-  .section-body.collapsed { display: none; }
-
-  /* ── FORM ELEMENTS ── */
-  label { display: block; color: var(--text2); margin-bottom: 3px; font-size: 11px; }
-  input[type=text], input[type=number], select, textarea {
-    width: 100%;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 6px 8px;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 11px;
-    border-radius: 3px;
-    outline: none;
-    transition: border-color .15s;
-  }
-  input[type=text]:focus, input[type=number]:focus, select:focus, textarea:focus {
-    border-color: var(--accent2);
-  }
-  textarea { resize: vertical; min-height: 60px; }
-  select option { background: var(--surface2); }
-
-  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
-  .form-group { margin-bottom: 8px; }
-
-  /* ── DATA TABLE ── */
-  .table-wrap {
-    overflow-x: auto;
-    border: 1px solid var(--border);
-    border-radius: 3px;
-  }
-  table { width: 100%; border-collapse: collapse; font-family: 'IBM Plex Mono', monospace; font-size: 10px; }
-  thead tr { background: var(--surface3); }
-  th { padding: 6px 8px; text-align: left; color: var(--text3); border-bottom: 1px solid var(--border); white-space: nowrap; }
-  td { padding: 5px 8px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
-  tr:last-child td { border-bottom: none; }
-  tr:hover td { background: var(--surface2); }
-
-  td input {
-    background: transparent;
-    border: 1px solid transparent;
-    padding: 2px 4px;
-    width: 100%;
-    min-width: 40px;
-  }
-  td input:focus { border-color: var(--accent2); background: var(--surface2); }
-  td select { background: transparent; border: 1px solid transparent; padding: 2px; }
-  td select:focus { background: var(--surface2); border-color: var(--accent2); }
-
-  .del-btn {
-    background: none;
-    border: none;
-    color: var(--text3);
-    cursor: pointer;
-    font-size: 14px;
-    padding: 0 4px;
-    line-height: 1;
-  }
-  .del-btn:hover { color: var(--danger); }
-
-  /* ── PAGE LIST ── */
-  .page-entry {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 10px;
-    margin-bottom: 8px;
-    cursor: pointer;
-    transition: all .15s;
-  }
-  .page-entry:hover { border-color: var(--accent2); }
-  .page-entry.selected { border-color: var(--accent); background: rgba(232,213,163,.05); }
-  .page-entry-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-  .page-entry-label {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 15px;
-    color: var(--accent);
-    flex: 1;
-  }
-  .page-entry-panels { color: var(--text3); font-size: 10px; font-family: 'IBM Plex Mono', monospace; }
-  .page-entry-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-  .page-entry-controls label { font-size: 10px; }
-
-  /* ── BADGE ── */
-  .badge {
-    padding: 2px 6px;
     border-radius: 2px;
-    font-size: 9px;
-    font-family: 'IBM Plex Mono', monospace;
-    font-weight: 600;
-    text-transform: uppercase;
+    outline: none;
+    transition: border-color .12s;
   }
-  .badge-odd { background: rgba(106,191,123,.15); color: var(--success); border: 1px solid rgba(106,191,123,.3); }
-  .badge-even { background: rgba(100,140,220,.15); color: #7aabf0; border: 1px solid rgba(100,140,220,.3); }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent2); }
+  textarea { resize: vertical; min-height: 55px; }
+  select option { background: var(--surface3); }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px; }
+  .form-group { margin-bottom: 7px; }
+  .range-row { display: flex; align-items: center; gap: 6px; }
+  .range-row input[type=range] { flex: 1; }
+  .range-val { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--accent2); min-width: 28px; text-align: right; }
+  .color-row { display: flex; align-items: center; gap: 6px; }
 
-  /* ── IMPORT AREA ── */
+  /* ── DATA TABLE ───────────────────────────────── */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 2px; }
+  table { width: 100%; border-collapse: collapse; font-family: 'IBM Plex Mono', monospace; font-size: 9px; }
+  thead tr { background: var(--surface3); }
+  th { padding: 5px 6px; text-align: left; color: var(--text3); border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td { padding: 4px 6px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--surface3); }
+  td input { background: transparent; border: 1px solid transparent; padding: 2px 3px; width: 100%; min-width: 36px; font-size: 9px; color: var(--text); font-family: 'IBM Plex Mono', monospace; }
+  td input:focus { border-color: var(--accent2); background: var(--surface2); }
+  .del-btn { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 12px; padding: 0 3px; line-height: 1; }
+  .del-btn:hover { color: var(--danger); }
+  .add-row-bar { display: flex; gap: 5px; margin-top: 6px; flex-wrap: wrap; }
+
+  /* ── DROP ZONE ────────────────────────────────── */
   .drop-zone {
     border: 2px dashed var(--border2);
-    border-radius: 6px;
-    padding: 20px;
+    border-radius: 4px;
+    padding: 16px 10px;
     text-align: center;
     color: var(--text3);
     cursor: pointer;
     transition: all .2s;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
   }
   .drop-zone:hover { border-color: var(--accent2); color: var(--text2); }
   .drop-zone.drag-over { border-color: var(--accent); background: rgba(232,213,163,.05); }
-  .drop-zone .dz-icon { font-size: 28px; margin-bottom: 6px; }
-  .drop-zone .dz-text { font-size: 11px; font-family: 'IBM Plex Mono', monospace; }
+  .drop-zone .dz-icon { font-size: 22px; margin-bottom: 4px; }
+  .drop-zone .dz-text { font-size: 10px; font-family: 'IBM Plex Mono', monospace; }
 
-  /* ── SCROLLBAR ── */
-  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  /* ── PAGE LIST ────────────────────────────────── */
+  .page-entry {
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 8px;
+    margin-bottom: 6px;
+    transition: border-color .12s;
+  }
+  .page-entry:hover { border-color: var(--accent2); }
+  .page-entry.selected { border-color: var(--accent); }
+  .page-entry-header { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .page-entry-label { font-family: 'Bebas Neue', sans-serif; font-size: 14px; color: var(--accent); flex: 1; }
+  .page-entry-panels { color: var(--text3); font-size: 9px; font-family: 'IBM Plex Mono', monospace; }
+  .page-entry-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .page-entry-controls label { font-size: 9px; }
+
+  /* ── BADGE ────────────────────────────────────── */
+  .badge { padding: 1px 5px; border-radius: 2px; font-size: 8px; font-family: 'IBM Plex Mono', monospace; font-weight: 600; text-transform: uppercase; }
+  .badge-odd { background: rgba(106,191,123,.15); color: var(--success); border: 1px solid rgba(106,191,123,.3); }
+  .badge-even { background: rgba(100,140,220,.15); color: #7aabf0; border: 1px solid rgba(100,140,220,.3); }
+
+  /* ── SCROLLBAR ────────────────────────────────── */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: var(--bg); }
   ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
   ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
 
-  /* ── EMPTY STATE ── */
+  /* ── EMPTY STATE ──────────────────────────────── */
   .empty-state {
     flex: 1;
     display: flex;
@@ -420,483 +455,460 @@
     align-items: center;
     justify-content: center;
     color: var(--text3);
-    gap: 10px;
-    padding: 40px;
     text-align: center;
+    padding: 40px 20px;
+    gap: 10px;
   }
-  .empty-state .icon { font-size: 48px; opacity: .3; }
-  .empty-state p { font-size: 12px; line-height: 1.6; max-width: 260px; }
+  .empty-state .icon { font-size: 40px; opacity: .3; }
+  .empty-state p { font-size: 11px; line-height: 1.6; font-family: 'IBM Plex Mono', monospace; max-width: 240px; }
 
-  /* ── TOAST ── */
+  /* ── TOAST ────────────────────────────────────── */
   #toast {
     position: fixed;
-    bottom: 20px;
-    right: 20px;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
     background: var(--surface3);
-    border: 1px solid var(--border2);
     color: var(--text);
-    padding: 10px 16px;
+    padding: 8px 18px;
     border-radius: 4px;
     font-family: 'IBM Plex Mono', monospace;
     font-size: 11px;
+    z-index: 9999;
     opacity: 0;
-    transition: opacity .3s;
+    transition: opacity .2s, transform .2s;
     pointer-events: none;
-    z-index: 999;
+    border: 1px solid var(--border2);
+    white-space: nowrap;
   }
-  #toast.show { opacity: 1; }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-  .range-row { display: flex; align-items: center; gap: 8px; }
-  .range-row input[type=range] { flex: 1; accent-color: var(--accent2); }
-  .range-val { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--accent); min-width: 32px; text-align: right; }
-
-  .color-row { display: flex; gap: 8px; align-items: center; }
-  .color-row input[type=color] { width: 36px; height: 28px; border: 1px solid var(--border); border-radius: 3px; cursor: pointer; padding: 2px; background: var(--surface2); }
-
-  .info-chip {
-    background: var(--surface3);
-    border: 1px solid var(--border);
-    padding: 6px 10px;
-    border-radius: 4px;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 10px;
-    color: var(--text3);
-    margin-bottom: 10px;
-    line-height: 1.7;
-  }
-  .info-chip strong { color: var(--accent2); }
-
-  .flex-row { display: flex; gap: 6px; align-items: center; }
-  .flex-row label { margin: 0; white-space: nowrap; }
-
-  #pasted-csv {
-    font-size: 10px;
-    min-height: 80px;
-    background: var(--surface2);
-  }
-  .add-row-bar {
-    display: flex;
-    gap: 6px;
-    margin-top: 6px;
-    flex-wrap: wrap;
-  }
-
-  .page-thumb-wrap { display: flex; flex-direction: column; align-items: center; }
-
-  /* ── SPEECH BUBBLE OVERLAY ── */
+  /* ── SPEECH BUBBLE OVERLAY ────────────────────── */
   .bubble-overlay {
-    position: absolute; top: 0; left: 0;
-    width: 100%; height: 100%;
-    pointer-events: none;
-  }
-  .corner-overlay {
-    position: absolute; top: 0; left: 0;
-    pointer-events: none;
-    z-index: 400;
-  }
-  .corner-dot {
     position: absolute;
-    width: 44px; height: 44px;
-    border-radius: 50%;
-    background: var(--accent);
-    border: 4px solid #fff;
-    box-shadow: 0 2px 12px rgba(0,0,0,.6), 0 0 0 2px rgba(0,0,0,.3);
-    transform: translate(-50%, -50%);
-    cursor: move;
-    pointer-events: all;
-    box-sizing: border-box;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 10px; font-weight: 700; color: var(--ink);
-    font-family: 'IBM Plex Mono', monospace;
-    transition: background 0.1s, transform 0.1s;
-    touch-action: none;
+    top: 0; left: 0;
+    pointer-events: none;
+    overflow: visible;
+    --pg-scale: 0.06;
   }
-  .corner-dot:hover { transform: translate(-50%, -50%) scale(1.15); }
-  .corner-dot:active { background: #fff; transform: translate(-50%, -50%) scale(1.2); }
-  .corner-dot.locked { background: #666; cursor: not-allowed; border-color: #999; }
-  .split-dot {
-    position: absolute;
-    width: 40px; height: 40px;
-    border-radius: 50%;
-    background: #00ccff;
-    border: 4px solid #fff;
-    box-shadow: 0 2px 12px rgba(0,0,0,.6), 0 0 0 2px rgba(0,0,0,.3);
-    transform: translate(-50%, -50%);
-    cursor: move;
-    pointer-events: all;
-    box-sizing: border-box;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 9px; font-weight: 700; color: #000;
-    font-family: 'IBM Plex Mono', monospace;
-    transition: background 0.1s, transform 0.1s;
-    touch-action: none;
-    z-index: 401;
-  }
-  .split-dot:hover { transform: translate(-50%, -50%) scale(1.15); }
-  .split-dot:active { background: #fff; transform: translate(-50%, -50%) scale(1.2); }
-  .split-dot.locked { background: #666; cursor: not-allowed !important; border-color: #999; }
   .bubble-wrap {
     position: absolute;
-    pointer-events: all;
     cursor: move;
-    user-select: none;
-  }
-  .bubble-wrap.locked-move { cursor: default; pointer-events: none; }
-  .bubble-wrap svg.bubble-svg { overflow: visible; display: block; }
-  .bubble-wrap .bubble-text {
-    position: absolute; top: 0; left: 0;
-    width: 100%; height: 100%;
-    display: flex; align-items: center; justify-content: center;
-    text-align: center;
-    pointer-events: none;
-    overflow: hidden;
-    padding: 12%;
-    line-height: 1.2;
-    word-break: break-word;
-  }
-  /* ── SELECTION BOX (Photoshop style, scale-aware) ── */
-  .bubble-wrap .sel-box {
-    display: none;
-    position: absolute;
-    inset: 0;
-    border: calc(3px / var(--pg-scale, 0.06)) dashed #4a9eff;
-    border-radius: calc(4px / var(--pg-scale, 0.06));
-    pointer-events: none;
-    box-sizing: border-box;
-  }
-  .bubble-wrap.selected .sel-box { display: block; }
-  .bubble-wrap .sel-handle {
-    position: absolute;
-    width:  calc(9px / var(--pg-scale, 0.06));
-    height: calc(9px / var(--pg-scale, 0.06));
-    background: #fff;
-    border: calc(1.5px / var(--pg-scale, 0.06)) solid #4a9eff;
-    border-radius: calc(2px / var(--pg-scale, 0.06));
     pointer-events: all;
-    display: none;
+    touch-action: none;
+  }
+  .bubble-wrap.selected .bubble-selection { opacity: 1; }
+  .bubble-selection {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    border: 2px solid #4af;
+    pointer-events: none;
+    opacity: 0;
     box-sizing: border-box;
   }
-  .bubble-wrap.selected .sel-handle { display: block; }
-  .sel-handle.nw { top:0;    left:0;   transform:translate(-50%,-50%); cursor:nw-resize; }
-  .sel-handle.n  { top:0;    left:50%; transform:translate(-50%,-50%); cursor:n-resize;  }
-  .sel-handle.ne { top:0;    right:0;  transform:translate(50%,-50%);  cursor:ne-resize; }
-  .sel-handle.e  { top:50%;  right:0;  transform:translate(50%,-50%);  cursor:e-resize;  }
-  .sel-handle.se { bottom:0; right:0;  transform:translate(50%,50%);   cursor:se-resize; }
-  .sel-handle.s  { bottom:0; left:50%; transform:translate(-50%,50%);  cursor:s-resize;  }
-  .sel-handle.sw { bottom:0; left:0;   transform:translate(-50%,50%);  cursor:sw-resize; }
-  .sel-handle.w  { top:50%;  left:0;   transform:translate(-50%,-50%); cursor:w-resize;  }
-  .bubble-wrap .rotate-handle {
+  .bubble-handle {
     position: absolute;
-    top: 0; left: 50%;
-    transform: translate(-50%, calc(-30px / var(--pg-scale, 0.06)));
-    width:  calc(14px / var(--pg-scale, 0.06));
-    height: calc(14px / var(--pg-scale, 0.06));
-    background: #ff00aa;
-    border: calc(1.5px / var(--pg-scale, 0.06)) solid #fff;
-    border-radius: 50%;
-    cursor: grab; pointer-events: all; display: none;
+    width: calc(8px / var(--pg-scale));
+    height: calc(8px / var(--pg-scale));
+    background: #fff;
+    border: calc(2px / var(--pg-scale)) solid #4af;
+    border-radius: 1px;
+    pointer-events: all;
+    cursor: se-resize;
+    z-index: 2;
   }
-  .bubble-wrap.selected .rotate-handle { display: block; }
-  .bubble-wrap .rotate-stem {
-    display: none;
+  .bubble-handle.rot {
+    background: #4af;
+    border-radius: 50%;
+    cursor: crosshair;
+    top: calc(-18px / var(--pg-scale));
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  .bubble-handle.tl { top: 0; left: 0; transform: translate(-50%,-50%); cursor: nw-resize; }
+  .bubble-handle.tr { top: 0; right: 0; transform: translate(50%,-50%); cursor: ne-resize; }
+  .bubble-handle.bl { bottom: 0; left: 0; transform: translate(-50%,50%); cursor: sw-resize; }
+  .bubble-handle.br { bottom: 0; right: 0; transform: translate(50%,50%); cursor: se-resize; }
+  .bubble-handle.ml { top: 50%; left: 0; transform: translate(-50%,-50%); cursor: w-resize; }
+  .bubble-handle.mr { top: 50%; right: 0; transform: translate(50%,-50%); cursor: e-resize; }
+  .bubble-handle.mt { top: 0; left: 50%; transform: translate(-50%,-50%); cursor: n-resize; }
+  .bubble-handle.mb { bottom: 0; left: 50%; transform: translate(-50%,50%); cursor: s-resize; }
+
+  /* ── SNAP INDICATOR ───────────────────────────── */
+  .snap-indicator {
     position: absolute;
-    top: 0; left: 50%;
-    width: calc(1px / var(--pg-scale, 0.06));
-    height: calc(25px / var(--pg-scale, 0.06));
-    background: #4a9eff;
-    transform: translate(-50%, calc(-25px / var(--pg-scale, 0.06)));
+    background: rgba(100,200,255,.6);
     pointer-events: none;
+    z-index: 10;
   }
-  .bubble-wrap.selected .rotate-stem { display: block; }
-  .bubble-wrap .tail-handle {
-    position: absolute;
-    width:  calc(12px / var(--pg-scale, 0.06));
-    height: calc(12px / var(--pg-scale, 0.06));
-    background: #ffaa00;
-    border: calc(1.5px / var(--pg-scale, 0.06)) solid #fff;
-    border-radius: 50%;
-    cursor: crosshair; pointer-events: all;
-    display: none; transform: translate(-50%,-50%);
-  }
-  .bubble-wrap.selected .tail-handle { display: block; }
-  .bubble-wrap .extra-tail-handle {
-    position: absolute;
-    width:  calc(11px / var(--pg-scale, 0.06));
-    height: calc(11px / var(--pg-scale, 0.06));
-    background: #00ccff;
-    border: calc(1.5px / var(--pg-scale, 0.06)) solid #fff;
-    border-radius: 50%;
-    cursor: crosshair; pointer-events: all;
-    display: none; transform: translate(-50%,-50%);
-  }
-  .bubble-wrap.selected .extra-tail-handle { display: block; }
 
-  /* ── BUBBLE EDITOR PANEL ── */
-  #bubblePanel {
-    position: fixed; right: 350px; top: 53px;
-    width: 260px; background: var(--surface);
-    border-left: 1px solid var(--border);
-    border-bottom: 1px solid var(--border);
-    z-index: 200; overflow-y: auto;
-    max-height: calc(100vh - 53px);
+  /* ── PAGE-BY-PAGE VIEW ───────────────────────── */
+  .pbp-nav-bar {
     display: none;
-  }
-  #bubblePanel.open { display: block; }
-  .bp-section { padding: 10px 12px; border-bottom: 1px solid var(--border); }
-  .bp-title { font-family: 'IBM Plex Mono',monospace; font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; }
-  .bp-row { display:flex; gap:6px; align-items:center; margin-bottom:6px; }
-  .bp-row label { font-size:10px; color:var(--text2); min-width:46px; }
-  .bp-row input, .bp-row select { flex:1; }
-  .font-btn { padding:3px 7px; font-size:11px; border:1px solid var(--border2); background:var(--surface2); color:var(--text); cursor:pointer; border-radius:2px; }
-  .font-btn.active { background:var(--accent2); color:var(--ink); border-color:var(--accent2); }
-  #importFontBtn { width:100%; margin-top:4px; }
-  .lock-row { display:flex; gap:4px; flex-wrap:wrap; }
-  .lock-btn { padding:3px 8px; font-size:10px; border:1px solid var(--border); background:var(--surface2); color:var(--text2); cursor:pointer; border-radius:2px; }
-  .lock-btn.active { border-color:var(--danger); color:var(--danger); }
-
-
-  /* ── LAYERS PANEL ── */
-  #layersPanel {
-    position:fixed; right:0; top:53px;
-    width:300px; background:var(--surface);
-    border-left:1px solid var(--border);
-    z-index:190; display:none;
-    flex-direction:column;
-    max-height:calc(100vh - 53px);
-  }
-  #layersPanel.open { display:flex; }
-  #layersPanel .lp-header {
-    padding:8px 12px; border-bottom:1px solid var(--border);
-    display:flex; align-items:center; justify-content:space-between;
-    flex-shrink:0;
-  }
-  #layersList { overflow-y:auto; flex:1; }
-  .layer-row {
-    display:flex; align-items:center; gap:6px;
-    padding:6px 10px; border-bottom:1px solid var(--border);
-    cursor:pointer; font-size:11px;
-  }
-  .layer-row:hover { background:var(--surface2); }
-  .layer-row.active { background:rgba(210,195,140,0.18); border-left:2px solid var(--accent2); color:var(--accent); }
-  .layer-icon { font-size:14px; flex-shrink:0; }
-  .layer-label { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text2); cursor:default; }
-  .layer-dialogue-popup {
-    position:fixed;
-    background:var(--surface3);
-    border:1px solid var(--accent2);
-    border-radius:5px;
-    padding:10px 13px;
-    max-width:220px;
-    z-index:9999;
-    box-shadow:0 4px 16px rgba(0,0,0,.5);
-    pointer-events:none;
-  }
-  .layer-dialogue-popup .ldp-speaker {
-    font-family:'IBM Plex Mono',monospace;
-    font-size:9px;
-    color:var(--accent2);
-    text-transform:uppercase;
-    letter-spacing:1px;
-    margin-bottom:4px;
-  }
-  .layer-dialogue-popup .ldp-text {
-    font-family:'IBM Plex Sans',sans-serif;
-    font-size:11px;
-    color:var(--text);
-    line-height:1.5;
-    white-space:pre-wrap;
-    word-break:break-word;
-  }
-  .layer-btns { display:flex; gap:2px; }
-  .layer-btns button {
-    background:var(--surface3); border:1px solid var(--border); color:var(--text2);
-    padding:1px 5px; cursor:pointer; font-size:11px; border-radius:2px;
-  }
-  .layer-btns button:hover { color:var(--accent); border-color:var(--accent2); }
-
-  /* ── PANELS EDITOR PANEL ── */
-  #panelsPanel {
-    position: fixed; right: 350px; top: 53px;
-    width: 278px; background: var(--surface);
-    border-left: 1px solid var(--border);
+    align-items: center;
+    gap: 5px;
+    padding: 4px 8px;
+    background: var(--surface2);
     border-bottom: 1px solid var(--border);
-    z-index: 193; display: none;
-    flex-direction: column;
-    max-height: calc(100vh - 53px);
+    flex-shrink: 0;
+    width: 100%;
   }
-  #panelsPanel.open { display: flex; }
-  .pp-head {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 8px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0;
-  }
-  .pp-page-bar {
-    display: flex; align-items: center; gap: 6px;
-    padding: 6px 10px; border-bottom: 1px solid var(--border); flex-shrink: 0;
-  }
-  .pp-page-bar select {
-    flex: 1; background: var(--surface2); border: 1px solid var(--border);
-    color: var(--text); padding: 4px 6px; font-size: 10px;
-    font-family: 'IBM Plex Mono', monospace; border-radius: 2px;
-  }
-  #pp-body { overflow-y: auto; flex: 1; }
-  .pp-card {
-    border-bottom: 1px solid var(--border); padding: 8px 10px;
-  }
-  .pp-card-head {
-    display: flex; align-items: center; gap: 4px; margin-bottom: 6px;
-  }
-  .pp-pnl-lbl {
-    font-family: 'IBM Plex Mono', monospace; font-size: 11px;
-    color: var(--accent2); flex: 1;
-  }
-  .pp-icon-btn {
-    background: none; border: 1px solid transparent; border-radius: 3px;
-    cursor: pointer; font-size: 13px; padding: 1px 4px; line-height: 1;
-  }
-  .pp-icon-btn:hover { border-color: var(--border2); background: var(--surface2); }
-  .pp-icon-btn.pp-hidden { opacity: 0.35; }
-  .pp-icon-btn.pp-locked { color: var(--danger); }
-  .pp-icon-btn.pp-reset { font-size: 11px; color: var(--text3); }
-  .pp-input-grid {
-    display: grid; grid-template-columns: 14px 1fr 14px 1fr; gap: 4px 5px; align-items: center;
-  }
-  .pp-input-grid.pp-locked-inputs input { opacity: 0.4; }
-  .pp-lbl { font-size: 10px; color: var(--text3); font-family: 'IBM Plex Mono', monospace; text-align: right; }
-  .pp-input-grid input[type=number] {
-    background: var(--surface2); border: 1px solid var(--border); color: var(--text);
-    padding: 3px 5px; font-size: 10px; font-family: 'IBM Plex Mono', monospace;
-    border-radius: 2px; width: 100%;
-  }
-  .pp-input-grid input[type=number]:focus { border-color: var(--accent2); outline: none; }
-  .pp-empty { color: var(--text3); font-size: 11px; padding: 12px; font-family: 'IBM Plex Mono', monospace; }
-  @media (max-width: 700px) { #panelsPanel { display: none !important; } }
+  .pbp-nav-bar.visible { display: flex; }
 
-  .bubble-wrap.text-overflow svg path,
-  .bubble-wrap.text-overflow svg ellipse,
-  .bubble-wrap.text-overflow svg rect {
-    stroke: #ff4444 !important;
-    stroke-width: 4 !important;
-  }
+  .page-output { background: white; position: relative; flex-shrink: 0; box-shadow: 0 4px 32px rgba(0,0,0,.6); }
+  .page-label { font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: var(--text3); text-align: center; margin-bottom: 5px; }
 
+  /* ── CANVAS INNER ─────────────────────────────── */
   #canvasInner {
+    position: absolute;
+    top: 0; left: 0;
+    transform-origin: top left;
     display: flex;
     flex-direction: column;
-    gap: 24px;
     align-items: center;
-    transform-origin: top center;
-    transition: transform 0.05s;
-    will-change: transform;
-    position: relative;
+    gap: 20px;
+    padding: 20px;
+    min-width: 100%;
     min-height: 100%;
-    width: 100%;
   }
 
-  /* ── CUSTOM CANVAS SCROLLBAR ── */
+  /* ── CUSTOM SCROLLBAR (canvas) ────────────────── */
   #canvasScrollTrack {
     position: absolute;
-    right: 2px;
-    top: 0;
-    bottom: 0;
+    right: 3px;
+    top: 3px;
+    bottom: 3px;
     width: 6px;
     background: transparent;
-    z-index: 60;
     border-radius: 3px;
+    z-index: 10;
+    display: none;
   }
-  #canvasScrollTrack:hover { background: rgba(255,255,255,0.04); }
+  #canvasScrollTrack.visible { display: block; }
   #canvasScrollThumb {
     position: absolute;
-    width: 100%;
+    width: 6px;
     background: var(--border2);
     border-radius: 3px;
     cursor: pointer;
-    min-height: 30px;
-    transition: background 0.15s;
-    user-select: none;
+    transition: background .15s;
   }
-  #canvasScrollThumb:hover,
-  #canvasScrollThumb.dragging { background: var(--text3); }
+  #canvasScrollThumb:hover { background: var(--text3); }
 
-  /* ── SNAP INDICATOR ── */
-  .snap-active { box-shadow: 0 0 0 2px var(--accent2) inset; }
+  /* ── CANVAS RESET ─────────────────────────────── */
+  #canvasResetBtn {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    z-index: 20;
+    opacity: 0.6;
+  }
+  #canvasResetBtn:hover { opacity: 1; }
 
-  /* ── KEYBOARD SHORTCUT HINT ── */
-  .shortcut-hint {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 9px;
-    color: var(--text3);
-    background: var(--surface3);
-    border: 1px solid var(--border);
-    border-radius: 2px;
-    padding: 1px 4px;
-    margin-left: 4px;
-  }
-
-  /* ── PAGE JUMP SELECT ── */
-  #pageJumpSelect {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    color: var(--text2);
-    padding: 5px 8px;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 11px;
-    border-radius: 3px;
-    cursor: pointer;
-    max-width: 200px;
-  }
-  #pageJumpSelect:focus { border-color: var(--accent2); outline: none; }
-
-  /* ── PAGE-BY-PAGE VIEW ── */
-  #canvasInner.pbp-mode > .page-thumb-wrap { display: none; }
-  #canvasInner.pbp-mode > .page-thumb-wrap.pbp-active { display: flex; }
-  .pbp-nav-bar {
-    display: none;
-    position: absolute; top: 10px; left: 50%; z-index: 51;
-    transform: translateX(-50%);
-    background: var(--surface2);
-    border: 1px solid var(--border2);
-    border-radius: 4px;
-    padding: 4px 8px;
-    gap: 6px;
-    align-items: center;
-  }
-  .pbp-nav-bar.active { display: flex; }
-  @media (max-width: 700px) {
-    .pbp-nav-bar { display: none !important; }
-  }
-  .pbp-nav-bar select {
-    background: var(--surface3);
-    border: 1px solid var(--border2);
-    color: var(--text);
-    padding: 4px 8px;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 11px;
-    border-radius: 3px;
-    cursor: pointer;
-  }
-  .pbp-nav-bar button { padding: 4px 10px; }
-  .pbp-toggle-btn.active { background: var(--accent2) !important; color: var(--ink) !important; border-color: var(--accent2) !important; font-weight: 600; }
-
-  /* ── AUTOSAVE LABEL ── */
+  /* ── AUTOSAVE LABEL ───────────────────────────── */
   #autosaveLabel {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 10px;
+    font-size: 9px;
     color: var(--text3);
     white-space: nowrap;
   }
 
-  /* ── CANVAS RESET BUTTON ── */
-  #canvasResetBtn {
-    position: absolute;
-    top: 10px;
-    right: 16px;
-    z-index: 50;
+  /* ── BUBBLE EDITOR PANEL ─────────────────────── */
+  #bubblePanel {
+    position: fixed;
+    right: var(--rightpanel-w);
+    top: calc(var(--menubar-h) + var(--topbar-h));
+    bottom: var(--statusbar-h);
+    width: 260px;
+    background: var(--surface);
+    border-left: 1px solid var(--border2);
+    border-right: 1px solid var(--border);
+    display: none;
+    flex-direction: column;
+    overflow-y: auto;
+    z-index: 150;
+    box-shadow: -4px 0 16px rgba(0,0,0,.4);
+  }
+  #bubblePanel.open { display: flex; }
+
+  .bp-section { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  .bp-title { font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: var(--text3); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+  .bp-row { display: flex; align-items: center; gap: 5px; margin-bottom: 4px; }
+  .bp-row label { width: 52px; flex-shrink: 0; margin-bottom: 0; color: var(--text2); }
+  .bp-row input { flex: 1; }
+  .font-btn { padding: 3px 8px; background: var(--surface2); border: 1px solid var(--border); color: var(--text2); font-size: 11px; cursor: pointer; border-radius: 2px; transition: all .12s; }
+  .font-btn.active { background: var(--accent2); color: var(--ink); border-color: var(--accent2); }
+  .lock-row { display: flex; gap: 5px; }
+  .lock-btn { flex: 1; padding: 4px; background: var(--surface2); border: 1px solid var(--border); color: var(--text2); font-size: 9px; cursor: pointer; border-radius: 2px; text-align: center; font-family: 'IBM Plex Mono', monospace; transition: all .12s; white-space: nowrap; }
+  .lock-btn.locked { background: rgba(200,160,80,.15); border-color: var(--accent2); color: var(--accent); }
+
+  /* ── LAYERS PANEL ─────────────────────────────── */
+  #layersPanel {
+    position: fixed;
+    right: var(--rightpanel-w);
+    top: calc(var(--menubar-h) + var(--topbar-h));
+    bottom: var(--statusbar-h);
+    width: 200px;
+    background: var(--surface);
+    border-left: 1px solid var(--border2);
+    border-right: 1px solid var(--border);
+    display: none;
+    flex-direction: column;
+    z-index: 149;
+    box-shadow: -4px 0 16px rgba(0,0,0,.3);
+  }
+  #layersPanel.open { display: flex; }
+  .lp-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-bottom: 1px solid var(--border); background: var(--surface2); flex-shrink: 0; }
+  #layersList { flex: 1; overflow-y: auto; }
+  .layer-item { display: flex; align-items: center; gap: 6px; padding: 5px 10px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background .1s; font-family: 'IBM Plex Mono', monospace; font-size: 10px; }
+  .layer-item:hover { background: var(--surface3); }
+  .layer-item.selected { background: rgba(232,213,163,.08); color: var(--accent); }
+  .layer-vis { cursor: pointer; opacity: 0.5; font-size: 13px; flex-shrink: 0; }
+  .layer-vis:hover { opacity: 1; }
+
+  /* ── PANELS EDITOR PANEL ─────────────────────── */
+  #panelsPanel {
+    position: fixed;
+    left: var(--leftbar-w);
+    top: calc(var(--menubar-h) + var(--topbar-h));
+    bottom: var(--statusbar-h);
+    width: 260px;
+    background: var(--surface);
+    border-right: 1px solid var(--border2);
+    display: none;
+    flex-direction: column;
+    overflow-y: auto;
+    z-index: 150;
+    box-shadow: 4px 0 16px rgba(0,0,0,.4);
+  }
+  #panelsPanel.open { display: flex; }
+  .pp-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-bottom: 1px solid var(--border); background: var(--surface2); flex-shrink: 0; }
+  .pp-page-bar { display: flex; align-items: center; gap: 6px; padding: 7px 10px; border-bottom: 1px solid var(--border); background: var(--surface2); flex-shrink: 0; }
+  .pp-page-bar label { margin-bottom: 0; }
+  #pp-body { flex: 1; overflow-y: auto; padding: 8px; }
+  .pp-panel-item { background: var(--surface3); border: 1px solid var(--border); border-radius: 3px; padding: 8px; margin-bottom: 6px; }
+  .pp-panel-label { font-family: 'Bebas Neue', sans-serif; font-size: 13px; color: var(--accent); margin-bottom: 5px; display: flex; align-items: center; gap: 6px; }
+  .pp-row { display: grid; grid-template-columns: auto 1fr; gap: 5px; align-items: center; margin-bottom: 4px; font-size: 9px; }
+  .pp-row label { margin-bottom: 0; white-space: nowrap; }
+  .pp-corner-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+  .pp-corner { background: var(--surface); border: 1px solid var(--border); border-radius: 2px; padding: 4px; }
+  .pp-corner-label { font-size: 8px; color: var(--text3); margin-bottom: 2px; font-family: 'IBM Plex Mono', monospace; }
+  .pp-corner-inputs { display: flex; gap: 2px; align-items: center; }
+  .pp-corner-inputs input { width: 34px; padding: 2px 3px; font-size: 8px; }
+  .pp-split-row { display: flex; align-items: center; gap: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 2px; padding: 4px 6px; margin-bottom: 3px; font-size: 9px; font-family: 'IBM Plex Mono', monospace; }
+  .pp-split-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .pp-empty { padding: 20px; color: var(--text3); font-size: 10px; text-align: center; font-family: 'IBM Plex Mono', monospace; }
+
+  /* ── INFO CHIP ────────────────────────────────── */
+  .info-chip { background: var(--surface3); border: 1px solid var(--border); border-radius: 2px; padding: 5px 8px; font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: var(--text2); margin-bottom: 7px; }
+
+  /* ── PAGE JUMP SELECT ─────────────────────────── */
+  #pageJumpSelect {
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 3px 6px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    border-radius: 2px;
+    max-width: 110px;
   }
 
-
-  @media (max-width:700px) {
-    #layersPanel { display:none !important; }
+  /* ── KEYBOARD SHORTCUT HINT ───────────────────── */
+  .kbd-hint {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    color: var(--text3);
+    padding: 2px 4px;
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    margin: 0 1px;
   }
 
+  /* ── SAVE MODAL ───────────────────────────────── */
+  #saveModal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.7);
+    z-index: 500;
+    align-items: center;
+    justify-content: center;
+  }
+  #saveModal.open { display: flex; }
+  .modal-box {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 5px;
+    padding: 24px;
+    width: 360px;
+    max-width: 92vw;
+  }
+  .modal-title { font-family: 'Bebas Neue', sans-serif; font-size: 20px; color: var(--accent); letter-spacing: 2px; margin-bottom: 14px; }
+  .modal-row { margin-bottom: 10px; }
+
+  /* ── MOBILE ───────────────────────────────────── */
+  /* Mobile: right panel becomes bottom sheet */
+  @media (max-width: 768px) {
+    :root {
+      --leftbar-w: 36px;
+      --rightpanel-w: 0px; /* hidden by default, overlaid */
+      --topbar-h: 34px;
+      --menubar-h: 36px;
+    }
+
+    #optionsbar { gap: 5px; }
+
+    #rightpanel {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      width: 100% !important;
+      height: 46dvh;
+      border-left: none;
+      border-top: 2px solid var(--border2);
+      transform: translateY(100%);
+      transition: transform .25s ease;
+      z-index: 300;
+    }
+    #rightpanel.mobile-open {
+      transform: translateY(0);
+    }
+    #rightpanel.collapsed {
+      width: 100% !important;
+      transform: translateY(100%);
+    }
+
+    #canvasWrap {
+      padding-bottom: 0;
+    }
+
+    #bubblePanel {
+      right: 0;
+      left: 0;
+      width: 100%;
+      top: auto;
+      bottom: 46dvh;
+      height: 42dvh;
+      border: none;
+      border-top: 2px solid var(--border2);
+    }
+    #layersPanel {
+      right: 0;
+      left: 0;
+      width: 100%;
+      top: auto;
+      bottom: 46dvh;
+      height: 36dvh;
+    }
+    #panelsPanel {
+      left: 0;
+      right: 0;
+      width: 100%;
+      top: auto;
+      bottom: 46dvh;
+      height: 42dvh;
+      border: none;
+      border-top: 2px solid var(--border2);
+    }
+
+    /* Mobile canvas has bottom padding when panel open */
+    #canvasArea.panel-open {
+      padding-bottom: 46dvh;
+    }
+
+    .menu-dropdown { min-width: 140px; font-size: 10px; }
+    .app-logo { font-size: 13px; padding: 0 10px; }
+    .menu-item { padding: 0 7px; font-size: 10px; }
+
+    #statusbar { display: none; }
+
+    /* Mobile: panel toggle button */
+    #mobilePanelToggle2 {
+      display: flex !important;
+    }
+  }
+
+  /* Small phones: hide some menu items */
+  @media (max-width: 420px) {
+    .menu-item.desktop-only { display: none; }
+    .app-logo { padding: 0 8px; font-size: 12px; }
+  }
+
+  #mobilePanelToggle2 {
+    display: none;
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    z-index: 350;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--accent2);
+    color: var(--ink);
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,.5);
+  }
+
+  /* Panel open state shifts canvas */
+  #rightpanel:not(.collapsed) ~ #canvasWrap { /* handled by JS */ }
+
+  /* ── PANELS PBP TOGGLE ────────────────────────── */
+  .pbp-toggle-btn { white-space: nowrap; }
+
+  /* Misc saved from original */
+  .section { margin-bottom: 0; }
+  .section-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+  }
+  .section-title::after { content: '▾'; font-size: 10px; opacity: 0.5; transition: transform .15s; flex-shrink: 0; }
+  .section-title.collapsed::after { transform: rotate(-90deg); }
+  .section-body { overflow: hidden; }
+  .section-body.collapsed { display: none; }
+
+  /* Sidebar content (used inside right panel) */
+  .sidebar-content { flex: 1; overflow-y: auto; padding: 0; }
+  .sidebar-content .section { border-bottom: 1px solid var(--border); padding: 10px; }
+
+  /* Mobile tab bar inside panel */
+  .panel-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    background: var(--surface2);
+    overflow-x: auto;
+  }
+  .panel-tabs::-webkit-scrollbar { height: 0; }
+
+  /* For legacy code that calls switchTab('data'/'pages') */
+  #tab-data, #tab-pages { flex: 1; overflow-y: auto; flex-direction: column; }
+
+  /* Right-panel resize handle for desktop */
+  #panelResizeHandle {
+    width: 4px;
+    background: transparent;
+    cursor: col-resize;
+    flex-shrink: 0;
+    transition: background .15s;
+  }
 
   /* ── MOBILE LAYERS SLIDE-OUT ── */
   #mobileLayersDrawer {
@@ -912,7 +924,7 @@
     transition: right .22s ease;
     overflow: hidden;
   }
-  #mobileLayersDrawer.open { right: 0; }
+  #mobileLayersDrawer.open { right: 0; display: flex; }
   #mobileLayersDrawerBg {
     display: none;
     position: fixed; inset: 0;
@@ -929,309 +941,311 @@
   #mobileLayersDrawer .mld-content {
     overflow-y: auto; flex: 1; padding: 10px;
   }
-  @media (max-width: 700px) {
-    #mobileLayersDrawer { display: flex; }
-  }
 
-  /* ── SAVE/LOAD ── */
-  #saveModal {
-    display:none; position:fixed; inset:0;
-    background:rgba(0,0,0,.7); z-index:600;
-    align-items:center; justify-content:center;
-  }
-  #saveModal.open { display:flex; }
-  #saveModalBox {
-    background:var(--surface); border:1px solid var(--border2);
-    border-radius:6px; padding:20px; width:320px; max-width:92vw;
-  }
-  #saveModalBox h2 { font-family:'Bebas Neue',sans-serif; font-size:20px; color:var(--accent); margin-bottom:12px; }
-  #saveModalBox input {
-    width:100%; background:var(--surface2); border:1px solid var(--border);
-    color:var(--text); padding:7px 10px; font-size:12px;
-    border-radius:3px; margin-bottom:8px; font-family:'IBM Plex Mono',monospace;
-  }
-  #saveStatus { font-size:11px; color:var(--text3); min-height:16px; margin-bottom:8px; }
+  /* Layer list items */
+  .layer-row { display:flex; align-items:center; gap:6px; padding:5px 0; cursor:pointer; }
+  .layer-icon { font-size:14px; flex-shrink:0; }
+  .layer-label { flex:1; font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .layer-btns { display:flex; gap:3px; flex-shrink:0; }
+  .layer-btns button { padding:1px 5px; background:var(--surface2); border:1px solid var(--border); color:var(--text2); font-size:10px; cursor:pointer; border-radius:2px; }
+  .layer-btns button:hover { color:var(--accent); }
 
-
-  /* ── HEADER DROPDOWNS ── */
-  .hdr-dropdown {
-    position: relative;
-    display: inline-flex;
-  }
-  .hdr-dropdown-trigger { display: flex; align-items: center; gap: 4px; }
-  .hdr-dropdown-menu {
-    display: none;
-    position: absolute;
-    top: calc(100% + 6px);
-    right: 0;
-    background: var(--surface);
-    border: 1px solid var(--border2);
-    border-radius: 4px;
-    min-width: 190px;
-    z-index: 500;
-    box-shadow: 0 8px 24px rgba(0,0,0,.5);
-    overflow: hidden;
-  }
-  .hdr-dropdown-menu.hdr-dropdown-menu-up {
-    top: auto;
-    bottom: calc(100% + 6px);
-  }
-  .hdr-dropdown.open .hdr-dropdown-menu { display: block; }
-  .hdr-dropdown-menu button {
-    display: block; width: 100%;
-    background: none; border: none;
-    color: var(--text); text-align: left;
-    padding: 9px 14px;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 11px; cursor: pointer;
-    white-space: nowrap;
-    transition: background .1s;
-  }
-  .hdr-dropdown-menu button:hover { background: var(--surface2); color: var(--accent); }
-  .hdr-dropdown-sep { height: 1px; background: var(--border); margin: 3px 0; }
-
-  /* Mobile dropdown bar */
-  .mob-act-btn { padding: 7px 10px; font-size: 12px; }
-  .mob-hdr-dd { flex: 1; }
-  .mob-hdr-dd > .btn { width: 100%; justify-content: center; }
-  #mobileTopBar { flex-wrap: nowrap; gap: 4px; }
 </style>
 </head>
 <body>
 
-<header>
-  <h1>MANGA PANEL GEN</h1>
-  <span class="subtitle">// 3300×4677 | framing 2800×3940 | safe 2520×3940</span>
-  <div class="header-actions">
-    <button class="btn undo-btn" onclick="undo()" title="Undo (Ctrl+Z)" disabled>↩</button>
-    <button class="btn redo-btn" onclick="redo()" title="Redo (Ctrl+Y)" disabled>↪</button>
-    <select id="pageJumpSelect" onchange="jumpToPage(this.value)" title="Jump to page" style="max-width:120px;">
-      <option value="">⇢ Jump…</option>
-    </select>
-    <label style="display:flex;align-items:center;gap:4px;cursor:pointer;" title="Toggle snap">
-      <input type="checkbox" id="snapToggle" onchange="snapEnabled=this.checked" style="accent-color:var(--accent2);">
-      <span style="font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--text2);">Snap</span>
-    </label>
-    <span id="autosaveLabel"></span>
-    <button class="btn" onclick="openQuickModal('cloudModal')">☁ Cloud</button>
-    <button class="btn" onclick="generateAll()">⚡ Generate</button>
-    <button class="btn primary" onclick="openQuickModal('exportModal')">↓ Export</button>
-  </div>
-</header>
+<!-- ── MENU BAR ── -->
+<div id="menubar">
+  <div class="app-logo">MPG</div>
 
-<!-- MOBILE TOP ACTION BAR -->
-<div id="mobileTopBar">
-  <div id="mobileTopRow">
-    <button class="btn undo-btn" style="flex:1" onclick="undo()" disabled>↩</button>
-    <button class="btn redo-btn" style="flex:1" onclick="redo()" disabled>↪</button>
-    <button class="btn" style="flex:1" onclick="openQuickModal('cloudModal')">☁</button>
-    <button class="btn primary" style="flex:2" onclick="generateAll()">⚡ Gen</button>
-    <button class="btn" style="flex:1" onclick="openQuickModal('exportModal')">↓ Exp</button>
+  <!-- File menu -->
+  <div class="menu-item" onclick="toggleMenu(this)">File
+    <div class="menu-dropdown">
+      <button onclick="openQuickModal('cloudModal')">☁ Save to Cloud…</button>
+      <button onclick="openQuickModal('cloudModal')">📂 Load from Cloud…</button>
+      <button onclick="restoreAutoSave()">🔄 Restore Auto-Save</button>
+      <div class="sep"></div>
+      <button onclick="openQuickModal('exportModal')">↓ Export…</button>
+    </div>
   </div>
-  <div id="mobilePbpBar">
-    <button id="mobilePbpToggle" class="btn small" onclick="setPbpMode(!pageBypageMode)" style="white-space:nowrap;padding:3px 7px;">📄 PBP</button>
-    <select id="mobilePbpSel" onchange="navigateToPbpPage(this.value)" style="flex:1;"></select>
+
+  <!-- View menu -->
+  <div class="menu-item desktop-only" onclick="toggleMenu(this)">View
+    <div class="menu-dropdown">
+      <button onclick="setPbpMode(!pageBypageMode)">📄 Toggle Page-by-Page</button>
+      <button onclick="resetCanvasView()">⊙ Reset View</button>
+      <div class="sep"></div>
+      <button onclick="toggleRightPanel()">▶ Toggle Right Panel</button>
+      <button onclick="toggleLayersPanel()">🗂 Layers</button>
+      <button onclick="togglePanelsPanel()">⬜ Panel Editor</button>
+    </div>
+  </div>
+
+  <!-- Edit menu -->
+  <div class="menu-item desktop-only" onclick="toggleMenu(this)">Edit
+    <div class="menu-dropdown">
+      <button onclick="undo()" class="undo-btn" disabled>↩ Undo  Ctrl+Z</button>
+      <button onclick="redo()" class="redo-btn" disabled>↪ Redo  Ctrl+Y</button>
+      <div class="sep"></div>
+      <button onclick="generateAll()">⚡ Generate All Pages</button>
+    </div>
+  </div>
+
+  <!-- Bubbles menu -->
+  <div class="menu-item desktop-only" onclick="toggleMenu(this)">Bubbles
+    <div class="menu-dropdown">
+      <button onclick="toggleBubblePanel()">✏️ Bubble Editor</button>
+      <button onclick="toggleLayersPanel()">🗂 Layers</button>
+      <div class="sep"></div>
+      <button onclick="clearBubbles()">✕ Clear Bubbles</button>
+    </div>
+  </div>
+
+  <div class="menubar-right">
+    <!-- Undo/Redo always visible -->
+    <button class="btn icon undo-btn" onclick="undo()" title="Undo (Ctrl+Z)" disabled>↩</button>
+    <button class="btn icon redo-btn" onclick="redo()" title="Redo (Ctrl+Y)" disabled>↪</button>
+    <span id="autosaveLabel"></span>
+  </div>
+</div>
+
+<!-- ── OPTIONS BAR ── -->
+<div id="optionsbar">
+  <!-- Generate -->
+  <div class="opt-group">
+    <button class="btn primary small" onclick="generateAll()">⚡ Generate</button>
+    <button class="btn small" onclick="openQuickModal('exportModal')">↓ Export</button>
+    <button class="btn small" onclick="openQuickModal('cloudModal')">☁</button>
+  </div>
+
+  <!-- Scale -->
+  <div class="opt-group">
+    <span class="opt-label">Scale</span>
+    <input type="range" id="scaleSlider" min="3" max="50" value="6" oninput="updateScale(this.value)" style="width:80px;">
+    <span class="range-val" id="scaleVal">6%</span>
+  </div>
+
+  <!-- Snap -->
+  <div class="opt-group">
+    <input type="checkbox" id="snapToggle" onchange="snapEnabled=this.checked" style="accent-color:var(--accent2); width:13px; height:13px; cursor:pointer;">
+    <span class="opt-label">Snap</span>
+  </div>
+
+  <!-- Page-by-page -->
+  <div class="opt-group">
+    <button class="btn small pbp-toggle-btn" onclick="setPbpMode(!pageBypageMode)">📄 PBP</button>
+    <select id="pbpSidebarSel" style="max-width:100px;font-size:9px;" onchange="if(pageBypageMode) navigateToPbpPage(this.value); else setPbpMode(true,this.value)"></select>
     <button class="btn small" onclick="pbpPrev()">◀</button>
     <button class="btn small" onclick="pbpNext()">▶</button>
   </div>
+
+  <!-- Page jump -->
+  <div class="opt-group">
+    <span class="opt-label">Jump</span>
+    <select id="pageJumpSelect" onchange="jumpToPage(this.value)" style="max-width:100px;">
+      <option value="">— page —</option>
+    </select>
+  </div>
+
+  <!-- Panel colors -->
+  <div class="opt-group desktop-only">
+    <span class="opt-label">Fill</span>
+    <input type="color" id="panelFill" value="#f0ede6" style="width:28px;height:22px;padding:0;border:1px solid var(--border);border-radius:2px;cursor:pointer;background:none;">
+    <span class="opt-label">Stroke</span>
+    <input type="color" id="panelStroke" value="#1a1a1a" style="width:28px;height:22px;padding:0;border:1px solid var(--border);border-radius:2px;cursor:pointer;background:none;">
+    <span class="opt-label">W</span>
+    <input type="number" id="strokeWidth" value="8" min="1" max="30" style="width:42px;">
+  </div>
+
+  <!-- Font import -->
+  <div class="opt-group desktop-only">
+    <span class="opt-label">Font</span>
+    <input type="file" id="fontFileInput" accept=".ttf,.otf,.woff,.woff2" onchange="loadCustomFont(event)" style="font-size:9px;color:var(--text2);max-width:120px;">
+  </div>
 </div>
 
-<!-- MOBILE FIXED BOTTOM PANEL -->
-<div id="mobilePanel">
-  <div id="mobileTabBar">
-    <button onclick="openMobileTab('data')" id="mtab-data" class="active">
-      <span class="mtab-icon">📋</span>Data
-    </button>
-    <button onclick="openMobileTab('pages')" id="mtab-pages">
-      <span class="mtab-icon">📄</span>Pages
-    </button>
-    <button onclick="openMobileTab('panels')" id="mtab-panels">
-      <span class="mtab-icon">⬜</span>Panels
-    </button>
-    <button onclick="openMobileTab('bubbles')" id="mtab-bubbles">
-      <span class="mtab-icon">💬</span>Bubbles
-    </button>
-    <button onclick="openMobileTab('generate')" id="mtab-generate">
-      <span class="mtab-icon">⚡</span>Generate
-    </button>
-    <button id="mobilePanelToggle" onclick="toggleMobilePanel()" title="Hide/show panel">▼</button>
-  </div>
-  <div id="mobilePanelContent">
-    <!-- content swapped by JS -->
-  </div>
-</div>
+<!-- ── WORKSPACE ── -->
+<div id="workspace">
 
-<div class="app">
-  <!-- LEFT: canvas -->
-  <div class="canvas-area" id="canvasArea">
-    <button id="canvasResetBtn" class="btn small" onclick="resetCanvasView()" title="Reset zoom/pan (or Ctrl+scroll to zoom, Space+drag to pan)" style="opacity:0.6;">⊙ Reset View</button>
-    <!-- PAGE-BY-PAGE NAV BAR (desktop only) -->
-    <div class="pbp-nav-bar" id="pbpNavBar">
-      <span style="font-size:10px;color:var(--text3);white-space:nowrap;">Page</span>
-      <select id="pbpPageSel" onchange="navigateToPbpPage(this.value)"></select>
-      <button class="btn small" onclick="pbpPrev()" title="Previous page">◀</button>
-      <button class="btn small" onclick="pbpNext()" title="Next page">▶</button>
-    </div>
-    <!-- Custom virtual scrollbar -->
-    <div id="canvasScrollTrack"><div id="canvasScrollThumb"></div></div>
-    <div id="canvasInner">
-      <div class="empty-state" id="emptyState">
-        <div class="icon">⬜</div>
-        <p>Import panel data or add rows manually, then click <strong>Generate All Pages</strong> to preview your manga layout.</p>
-        <p style="font-size:10px;margin-top:8px;">💡 Ctrl+scroll to zoom · Space+drag to pan · Ctrl+Z to undo</p>
+  <!-- LEFT TOOLBAR -->
+  <div id="leftbar">
+    <button class="tool-btn" data-tip="Generate All" onclick="generateAll()">⚡</button>
+    <div class="tool-sep"></div>
+    <button class="tool-btn" data-tip="Bubble Editor" onclick="toggleBubblePanel()">💬</button>
+    <button class="tool-btn" data-tip="Panel Editor" onclick="togglePanelsPanel()">⬜</button>
+    <button class="tool-btn" data-tip="Layers" onclick="toggleLayersPanel()">🗂</button>
+    <div class="tool-sep"></div>
+    <button class="tool-btn" data-tip="Undo" onclick="undo()">↩</button>
+    <button class="tool-btn" data-tip="Redo" onclick="redo()">↪</button>
+    <div class="tool-sep"></div>
+    <button class="tool-btn" data-tip="Reset View" onclick="resetCanvasView()">⊙</button>
+    <button class="tool-btn" data-tip="Export" onclick="openQuickModal('exportModal')">↓</button>
+    <button class="tool-btn" data-tip="Cloud Save" onclick="openQuickModal('cloudModal')">☁</button>
+    <div class="tool-sep"></div>
+    <!-- Mobile: toggle right panel -->
+    <button class="tool-btn" data-tip="Properties" onclick="toggleRightPanel()" id="panelToggleBtn">▶</button>
+  </div>
+
+  <!-- CANVAS AREA -->
+  <div id="canvasWrap">
+    <div id="canvasArea">
+      <!-- PBP nav -->
+      <div class="pbp-nav-bar" id="pbpNavBar">
+        <span style="font-size:9px;color:var(--text3);white-space:nowrap;">Page</span>
+        <select id="pbpPageSel" onchange="navigateToPbpPage(this.value)"></select>
+        <button class="btn small" onclick="pbpPrev()">◀</button>
+        <button class="btn small" onclick="pbpNext()">▶</button>
       </div>
+      <!-- Scrollbar -->
+      <div id="canvasScrollTrack"><div id="canvasScrollThumb"></div></div>
+      <!-- Content -->
+      <div id="canvasInner">
+        <div class="empty-state" id="emptyState">
+          <div class="icon">⬜</div>
+          <p>Import panel data or add rows manually, then click <strong>Generate</strong>.</p>
+          <p style="font-size:9px;margin-top:6px;">Ctrl+scroll zoom · Space+drag pan · Ctrl+Z undo</p>
+        </div>
+      </div>
+      <button id="canvasResetBtn" class="btn small" onclick="resetCanvasView()" title="Reset zoom/pan">⊙ Reset</button>
+    </div>
+
+    <!-- Status bar -->
+    <div id="statusbar">
+      <span class="status-item">3300×4677px</span>
+      <span class="status-item">frame <span>2800×3940</span></span>
+      <span class="status-item">safe <span>2520×3940</span></span>
+      <span class="status-item" id="statusPages"></span>
+      <span class="status-item" style="margin-left:auto;" id="statusZoom"></span>
     </div>
   </div>
 
-  <!-- RIGHT: sidebar -->
-  <div class="sidebar">
-    <div class="sidebar-tabs">
-      <button class="tab-btn active" onclick="switchTab('data')">📋 Data</button>
-      <button class="tab-btn" onclick="switchTab('pages')" id="pagesTabBtn">📄 Pages</button>
+  <!-- RIGHT PANEL -->
+  <div id="rightpanel">
+    <!-- Tabs -->
+    <div class="panel-tabs">
+      <button class="panel-tab active" onclick="switchTab('data')" id="ptab-data">
+        <span class="ptab-icon">📋</span>Data
+      </button>
+      <button class="panel-tab" onclick="switchTab('pages')" id="ptab-pages">
+        <span class="ptab-icon">📄</span>Pages
+      </button>
     </div>
 
     <!-- DATA TAB -->
-    <div class="sidebar-content" id="tab-data">
+    <div id="tab-data" class="sidebar-content">
 
       <div class="section">
         <div class="section-title" onclick="toggleSection(this)">Import Excel / CSV</div>
         <div class="section-body">
-        <div class="drop-zone" id="dropZone" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
-          <div class="dz-icon">📂</div>
-          <div class="dz-text">Drag & drop .xlsx / .csv here</div>
-          <label style="display:inline-block;margin-top:8px;cursor:pointer;">
-            <span class="btn small" style="pointer-events:none;">📁 Browse File</span>
-            <input type="file" id="fileInput" accept=".xlsx,.csv" style="display:none" onchange="handleFileImport(event)">
-          </label>
-        </div>
-
-        <div style="text-align:center; color:var(--text3); font-size:10px; margin: 6px 0;">— or paste CSV data —</div>
-        <textarea id="pasted-csv" placeholder="Chapter No.,Scene No.,Page No.,Panel No.,Row No.,Panel (L x H in %),Total Max Panel L per row (/100),Total Max Panel H per row (/100)"></textarea>
-        <button class="btn" style="width:100%; margin-top:6px" onclick="parsePastedCSV()">Parse Pasted Data</button>
+          <div class="drop-zone" id="dropZone" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+            <div class="dz-icon">📂</div>
+            <div class="dz-text">Drop .xlsx / .csv here</div>
+            <label style="display:inline-block;margin-top:6px;cursor:pointer;">
+              <span class="btn small" style="pointer-events:none;">📁 Browse</span>
+              <input type="file" id="fileInput" accept=".xlsx,.csv" style="display:none" onchange="handleFileImport(event)">
+            </label>
+          </div>
+          <div style="text-align:center;color:var(--text3);font-size:9px;margin:5px 0;">— or paste CSV —</div>
+          <textarea id="pasted-csv" placeholder="Chapter No.,Scene No.,Page No.,Panel No.,Row No.,Panel (L x H in %),Total Max Panel L per row (/100),Total Max Panel H per row (/100)"></textarea>
+          <button class="btn btn-full" onclick="parsePastedCSV()" style="margin-top:5px;">Parse Pasted Data</button>
         </div>
       </div>
 
       <div class="section">
         <div class="section-title" onclick="toggleSection(this)">Panel Data Table</div>
         <div class="section-body">
-        <div class="info-chip">
-          <strong>Columns:</strong> CHP · SCN · PG · PNL · ROW · LxH% · MaxL · MaxH
-        </div>
-        <div class="table-wrap">
-          <table id="dataTable">
-            <thead>
-              <tr>
-                <th>CHP</th><th>SCN</th><th>PG</th><th>PNL</th>
-                <th>ROW/CLM</th><th>L×H%</th><th>MaxL</th><th>MaxH</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="tableBody"></tbody>
-          </table>
-        </div>
-        <div class="add-row-bar">
-          <button class="btn small" onclick="addRow()">+ Add Row</button>
-          <button class="btn small danger" onclick="clearAllRows()">Clear All</button>
-          <button class="btn small" onclick="loadSampleData()">Load Sample</button>
-        </div>
+          <div class="info-chip"><strong>Cols:</strong> CHP · SCN · PG · PNL · ROW · LxH% · MaxL · MaxH</div>
+          <div class="table-wrap">
+            <table id="dataTable">
+              <thead>
+                <tr>
+                  <th>CHP</th><th>SCN</th><th>PG</th><th>PNL</th>
+                  <th>ROW</th><th>L×H%</th><th>MaxL</th><th>MaxH</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="tableBody"></tbody>
+            </table>
+          </div>
+          <div class="add-row-bar">
+            <button class="btn small" onclick="addRow()">+ Row</button>
+            <button class="btn small danger" onclick="clearAllRows()">Clear</button>
+            <button class="btn small" onclick="loadSampleData()">Sample</button>
+          </div>
         </div>
       </div>
     </div>
 
     <!-- PAGES TAB -->
-    <div class="sidebar-content" id="tab-pages" style="display:none">
+    <div id="tab-pages" class="sidebar-content" style="display:none;">
+
       <div class="section">
-        <div class="section-title" onclick="toggleSection(this)">Global Settings</div>
+        <div class="section-title" onclick="toggleSection(this)">Layout View</div>
         <div class="section-body">
-        <div class="form-group">
-          <label>Preview Scale</label>
-          <div class="range-row">
-            <input type="range" id="scaleSlider" min="3" max="50" value="6" oninput="updateScale(this.value)">
-            <span class="range-val" id="scaleVal">6%</span>
-          </div>
-        </div>
-        <div class="form-group">
-          <label>Layout View</label>
-          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-            <button class="btn small pbp-toggle-btn" onclick="setPbpMode(!pageBypageMode)" title="Toggle page-by-page vs scroll-all view">📄 Page-by-Page</button>
-            <select id="pbpSidebarSel" style="flex:1;min-width:80px;font-size:10px;" onchange="if(pageBypageMode) navigateToPbpPage(this.value); else setPbpMode(true,this.value)"></select>
-          </div>
-          <div style="font-size:9px;color:var(--text3);margin-top:3px;">Saved with project — restores on load</div>
-        </div>
-        <div class="form-row">
           <div class="form-group">
-            <label>Panel Fill</label>
-            <div class="color-row">
-              <input type="color" id="panelFill" value="#f0ede6">
-              <span style="font-size:10px;color:var(--text3)">default fill</span>
+            <label>Zoom</label>
+            <div class="range-row">
+              <input type="range" id="m-scaleSlider" min="3" max="50" value="6" oninput="updateScale(this.value)">
+              <span class="range-val" id="m-scaleVal">6%</span>
             </div>
           </div>
-          <div class="form-group">
-            <label>Panel Stroke</label>
-            <div class="color-row">
-              <input type="color" id="panelStroke" value="#1a1a1a">
-              <span style="font-size:10px;color:var(--text3)">border</span>
-            </div>
-          </div>
-        </div>
-        <div class="form-group">
-          <label>Stroke Width (px at full res)</label>
-          <input type="number" id="strokeWidth" value="8" min="1" max="30">
-        </div>
         </div>
       </div>
 
       <div class="section">
         <div class="section-title" onclick="toggleSection(this)" style="cursor:default;">
           <span onclick="toggleSection(this.parentElement)" style="cursor:pointer;flex:1;">Per-Page Settings</span>
-          <button class="btn small" onclick="togglePanelsPanel()" title="Toggle panel editor">⬜ Panels</button>
+          <button class="btn small" onclick="event.stopPropagation();togglePanelsPanel()">⬜</button>
         </div>
         <div class="section-body">
-        <div id="pageList"></div>
-        <div id="noPages" style="color:var(--text3);font-size:11px;font-family:'IBM Plex Mono',monospace;">
-          No pages yet — import data first.
-        </div>
+          <div id="pageList"></div>
+          <div id="noPages" style="color:var(--text3);font-size:10px;font-family:'IBM Plex Mono',monospace;">
+            No pages yet — import data first.
+          </div>
         </div>
       </div>
 
       <div class="section">
-        <div class="section-title" onclick="toggleSection(this)" style="cursor:default;" >
+        <div class="section-title" onclick="toggleSection(this)" style="cursor:default;">
           <span onclick="toggleSection(this.parentElement)" style="cursor:pointer;flex:1;">Speech Bubbles</span>
-          <button class="btn small" onclick="toggleLayersPanel()" title="Toggle layers panel">🗂 Layers</button>
+          <button class="btn small" onclick="event.stopPropagation();toggleLayersPanel()">🗂</button>
         </div>
         <div class="section-body">
-        <div style="color:var(--text3);font-size:10px;margin-bottom:6px;">Paste from Excel: Speech Type · Speaker · Dialogue (one row per bubble)</div>
-        <textarea id="bubblePaste" style="width:100%;min-height:70px;font-size:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px;font-family:'IBM Plex Mono',monospace;" placeholder="Circle – Dialogue&#9;Claude&#9;Hello world!&#10;Spiked – Yelling&#9;Velo&#9;WAIT!"></textarea>
-        <div class="bp-row" style="margin-top:4px;">
-          <label style="font-size:10px;color:var(--text2);">For page</label>
-          <select id="bubbleTargetPage" style="flex:1;"></select>
-        </div>
-        <button class="btn" style="width:100%;margin-top:4px;" onclick="importBubbles()">+ Add Bubbles to Page</button>
-        <div style="margin-top:6px;">
-          <button class="btn small" onclick="toggleBubblePanel()">✏️ Edit Bubbles</button>
-          <button class="btn small danger" onclick="clearBubbles()">Clear Bubbles</button>
-        </div>
-        <div style="margin-top:6px;">
-          <label style="font-size:10px;color:var(--text2);display:block;margin-bottom:3px;">Import custom font (.ttf/.otf/.woff)</label>
-          <input type="file" id="fontFileInput" accept=".ttf,.otf,.woff,.woff2" onchange="loadCustomFont(event)" style="font-size:10px;color:var(--text2);width:100%;">
-        </div>
+          <div style="color:var(--text3);font-size:9px;margin-bottom:5px;">Paste: Type · Speaker · Dialogue</div>
+          <textarea id="bubblePaste" placeholder="Circle – Dialogue&#9;Claude&#9;Hello world!&#10;Spiked – Yelling&#9;Velo&#9;WAIT!"></textarea>
+          <div class="bp-row" style="margin-top:5px;">
+            <label style="flex-shrink:0;margin-bottom:0;font-size:10px;color:var(--text2);">Page</label>
+            <select id="bubbleTargetPage" style="flex:1;"></select>
+          </div>
+          <button class="btn btn-full" onclick="importBubbles()" style="margin-top:5px;">+ Add Bubbles</button>
+          <div style="display:flex;gap:5px;margin-top:5px;">
+            <button class="btn small" onclick="toggleBubblePanel()">✏️ Edit</button>
+            <button class="btn small danger" onclick="clearBubbles()">Clear</button>
+          </div>
+          <!-- Font (mobile fallback) -->
+          <div style="margin-top:6px;" class="desktop-hidden">
+            <label style="font-size:9px;color:var(--text2);margin-bottom:2px;">Custom Font</label>
+            <input type="file" id="m-fontFileInput" accept=".ttf,.otf,.woff,.woff2" onchange="loadCustomFont(event)" style="font-size:9px;color:var(--text2);width:100%;">
+          </div>
         </div>
       </div>
 
       <div class="section">
         <div class="section-title" onclick="toggleSection(this)">Actions</div>
         <div class="section-body">
-        <button class="btn" style="width:100%;margin-bottom:6px" onclick="generateAll()">⚡ Generate All Pages</button>
-        <button class="btn primary" style="width:100%;margin-bottom:6px" onclick="exportAllSVG()">↓ Export All SVGs</button>
-        <button class="btn" style="width:100%;margin-bottom:6px" onclick="exportAllPNG()">↓ Export All PNGs</button>
-        <button class="btn" style="width:100%;margin-bottom:6px" onclick="openSingleExportModal()">↓ Export Single Page…</button>
-        <button class="btn" style="width:100%;margin-bottom:6px" onclick="exportExcel()">↓ Export Excel Data</button>
-        <button class="btn" style="width:100%" onclick="restoreAutoSave()">🔄 Restore Auto-Save</button>
+          <button class="btn btn-full" onclick="generateAll()">⚡ Generate All Pages</button>
+          <button class="btn btn-full primary" onclick="openQuickModal('exportModal')">↓ Export…</button>
+          <button class="btn btn-full" onclick="exportExcel()">↓ Excel Data</button>
+          <button class="btn btn-full" onclick="restoreAutoSave()">🔄 Restore Auto-Save</button>
         </div>
       </div>
     </div>
   </div>
-</div>
+
+</div><!-- end workspace -->
+
+<!-- Mobile panel toggle FAB -->
+<button id="mobilePanelToggle2" onclick="toggleMobilePanelFloat()">☰</button>
 
 <div id="toast"></div>
 
@@ -1277,19 +1291,52 @@ function getSafeRect(isOdd) {
 // ─────────────────────────────────────────────
 let rows = []; // raw panel data rows
 let pageSettings = {}; // keyed by pageKey "PG X"
-let scale = (window.innerWidth <= 700) ? 0.12 : 0.06;
+let scale = (window.innerWidth <= 768) ? 0.12 : 0.06;
 let activeTab = 'data';
+
+// ─────────────────────────────────────────────
+// MENU SYSTEM
+// ─────────────────────────────────────────────
+function toggleMenu(el) {
+  const wasOpen = el.classList.contains('open');
+  document.querySelectorAll('.menu-item.open').forEach(m => m.classList.remove('open'));
+  if (!wasOpen) el.classList.add('open');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.menu-item')) {
+    document.querySelectorAll('.menu-item.open').forEach(m => m.classList.remove('open'));
+  }
+});
+
+// ─────────────────────────────────────────────
+// RIGHT PANEL TOGGLE
+// ─────────────────────────────────────────────
+function toggleRightPanel() {
+  const p = document.getElementById('rightpanel');
+  p.classList.toggle('collapsed');
+  document.getElementById('panelToggleBtn').textContent = p.classList.contains('collapsed') ? '◀' : '▶';
+}
+
+function toggleMobilePanelFloat() {
+  const p = document.getElementById('rightpanel');
+  p.classList.toggle('mobile-open');
+  const btn = document.getElementById('mobilePanelToggle2');
+  btn.textContent = p.classList.contains('mobile-open') ? '✕' : '☰';
+  const ca = document.getElementById('canvasArea');
+  ca.classList.toggle('panel-open', p.classList.contains('mobile-open'));
+}
 
 // ─────────────────────────────────────────────
 // TAB SWITCHING
 // ─────────────────────────────────────────────
 function switchTab(tab) {
   activeTab = tab;
-  document.querySelectorAll('.tab-btn').forEach((b,i) => {
-    b.classList.toggle('active', (i===0&&tab==='data')||(i===1&&tab==='pages'));
+  ['data','pages'].forEach(t => {
+    const btn = document.getElementById('ptab-' + t);
+    const content = document.getElementById('tab-' + t);
+    if (btn) btn.classList.toggle('active', t === tab);
+    if (content) content.style.display = t === tab ? 'flex' : 'none';
   });
-  document.getElementById('tab-data').style.display = tab === 'data' ? '' : 'none';
-  document.getElementById('tab-pages').style.display = tab === 'pages' ? '' : 'none';
   if (tab === 'pages') rebuildPageList();
 }
 
@@ -1309,6 +1356,9 @@ function updateScale(v) {
     ov.style.setProperty('--pg-scale', scale);
   });
   generateAll();
+  // Update status zoom
+  const sz = document.getElementById('statusZoom');
+  if(sz) sz.textContent = Math.round(v) + '%';
 }
 
 // ─────────────────────────────────────────────
@@ -1340,7 +1390,7 @@ function clearAllRows() {
 }
 
 function emptyStateHTML() {
-  return `<div class="empty-state" id="emptyState"><div class="icon">⬜</div><p>Import panel data or add rows manually, then click <strong>Generate All Pages</strong>.</p></div>`;
+  return `<div class="empty-state" id="emptyState"><div class="icon">⬜</div><p>Import panel data or add rows manually, then click <strong>Generate</strong>.</p></div>`;
 }
 
 function renderTable() {
@@ -1395,35 +1445,40 @@ function rebuildPageList() {
         <div class="page-entry-label">${pg}</div>
         <span class="badge ${isOdd?'badge-odd':'badge-even'}">${isOdd?'ODD':'EVEN'}</span>
         <span class="page-entry-panels">${panelCount} panels</span>
-        <button class="btn small" onclick="event.stopPropagation();duplicatePage('${pg}')" title="Duplicate this page layout+bubbles" style="margin-left:4px;">⧉</button>
+        <button class="btn small" onclick="event.stopPropagation();duplicatePage('${pg}')" title="Duplicate" style="margin-left:3px;">⧉</button>
       </div>
       <div class="page-entry-controls">
         <div class="form-group">
-          <label>Zone Mode</label>
+          <label>Zone</label>
           <select onchange="pageSettings['${pg}'].mode=this.value" >
-            <option value="safe" ${ps.mode==='safe'?'selected':''}>Safe Zone</option>
+            <option value="safe" ${ps.mode==='safe'?'selected':''}>Safe</option>
             <option value="frame" ${ps.mode==='frame'?'selected':''}>Full Frame</option>
-            <option value="random" ${ps.mode==='random'?'selected':''}>Random (Mixed)</option>
+            <option value="random" ${ps.mode==='random'?'selected':''}>Random</option>
           </select>
         </div>
         <div class="form-group">
           <label>Flow</label>
           <select onchange="pageSettings['${pg}'].flow=this.value">
-            <option value="v-first" ${(ps.flow||'v-first')==='v-first'?'selected':''}>V-first (stack↓ then →)</option>
-            <option value="h-first" ${(ps.flow||'v-first')==='h-first'?'selected':''}>H-first (fill→ then ↓)</option>
+            <option value="v-first" ${(ps.flow||'v-first')==='v-first'?'selected':''}>V-first</option>
+            <option value="h-first" ${(ps.flow||'v-first')==='h-first'?'selected':''}>H-first</option>
           </select>
         </div>
         <div class="form-group">
-          <label>Gutter (px)</label>
+          <label>Gutter</label>
           <input type="number" value="${ps.gutter}" min="0" max="200"
             onchange="pageSettings['${pg}'].gutter=+this.value">
         </div>
       </div>
     </div>`;
   }).join('');
-}
 
-// ─────────────────────────────────────────────
+  // Update status bar page count
+  const sp = document.getElementById('statusPages');
+  if(sp) sp.textContent = pages.length + ' pages, ' + rows.length + ' panels';
+
+  // Sync page selects
+  syncPageSelects();
+}
 // LAYOUT ENGINE
 // ─────────────────────────────────────────────
 function parseLH(str) {
@@ -7203,5 +7258,98 @@ document.getElementById('saveModal').addEventListener('click', e => {
   }
   .quick-modal-close:hover { border-color: var(--danger); color: var(--danger); }
 </style>
+
+<script>
+// ═══════════════════════════════════════════════════
+// LAYOUT COMPATIBILITY SHIMS
+// ═══════════════════════════════════════════════════
+
+// syncPageSelects — called in new rebuildPageList
+function syncPageSelects() {
+  rebuildPbpNavBar();
+  refreshBubblePageSelect();
+}
+
+// isMobile threshold updated to match new 768px breakpoint
+const _isMobileOrig = isMobile;
+window.isMobile = () => window.innerWidth <= 768;
+
+// Guard refs to removed DOM elements (mobilePanel, mobileTopBar, mobilePbpBar etc.)
+// These elements no longer exist; all calls are no-ops via safe getElementById returns null
+// The original code already guards with if(el) checks — no extra work needed.
+
+// pagesTabBtn referenced in updatePagesTabLabel — doesn't exist anymore, safe.
+// mobilePanelToggle — safe (guarded).
+// mtab-* buttons — safe (guarded).
+
+// On mobile, auto-open the right panel FAB logic
+window.addEventListener('resize', () => {
+  const fab = document.getElementById('mobilePanelToggle2');
+  const rp  = document.getElementById('rightpanel');
+  if (window.innerWidth > 768) {
+    // Desktop: ensure right panel is visible, remove mobile-open
+    rp.classList.remove('mobile-open');
+    if (fab) fab.textContent = '☰';
+    document.getElementById('canvasArea').classList.remove('panel-open');
+  }
+});
+
+// Patch openMobileTab to also switch the new panel tabs
+const _origOpenMobileTab = openMobileTab;
+window.openMobileTab = function(tab) {
+  _origOpenMobileTab(tab);
+  // Map old mobile tabs to new sidebar tabs
+  if (tab === 'data') switchTab('data');
+  else if (tab === 'pages' || tab === 'panels' || tab === 'bubbles' || tab === 'generate') switchTab('pages');
+};
+
+// On DOMContentLoaded — init mobile FAB visibility
+document.addEventListener('DOMContentLoaded', () => {
+  const fab = document.getElementById('mobilePanelToggle2');
+  if (fab) fab.style.display = window.innerWidth <= 768 ? 'flex' : 'none';
+  window.addEventListener('resize', () => {
+    if (fab) fab.style.display = window.innerWidth <= 768 ? 'flex' : 'none';
+  });
+
+  // Status bar zoom init
+  const sz = document.getElementById('statusZoom');
+  if (sz) sz.textContent = Math.round(scale * 100) + '%';
+});
+
+// Patch toggleBubblePanel so it updates its position based on rightpanel width
+const _origToggleBubblePanel = toggleBubblePanel;
+window.toggleBubblePanel = function() {
+  _origToggleBubblePanel();
+  // Right var is already handled by CSS custom property
+};
+
+// Patch toggleLayersPanel similarly (already done via CSS)
+
+// Keep undo/redo buttons in the menu items in sync with disabled state
+const _origUpdateUndoButtons = updateUndoButtons;
+window.updateUndoButtons = function() {
+  _origUpdateUndoButtons();
+  // Sync menu Edit undo/redo buttons
+  document.querySelectorAll('.undo-btn').forEach(b => {
+    const stackLen = typeof undoStack !== 'undefined' ? undoStack.length : 0;
+    const ptr = typeof undoPtr !== 'undefined' ? undoPtr : -1;
+    b.disabled = ptr <= 0;
+  });
+  document.querySelectorAll('.redo-btn').forEach(b => {
+    const stackLen = typeof undoStack !== 'undefined' ? undoStack.length : 0;
+    const ptr = typeof undoPtr !== 'undefined' ? undoPtr : -1;
+    b.disabled = ptr >= stackLen - 1;
+  });
+};
+
+// Autosave label — sync to status bar too
+const _origSetAutosaveLabel = typeof setAutosaveLabel === 'function' ? setAutosaveLabel : null;
+if (_origSetAutosaveLabel) {
+  window.setAutosaveLabel = function(txt) {
+    _origSetAutosaveLabel(txt);
+  };
+}
+</script>
+
 </body>
 </html>
