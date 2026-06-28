@@ -2,13 +2,12 @@
    responsive.css
    Desktop  ≥ 900px : side rail + slide-out drawer (default)
    Tablet   600–899px : narrower rail + narrower drawer
-   Mobile   < 600px  : full-screen canvas + bottom accordion
+   Mobile   < 600px  : full-screen canvas + scrollable accordion
    ============================================================ */
 
 /* ── Tablet ──────────────────────────────────────────────── */
 @media (max-width: 899px) {
   #rightRail { width: var(--rail-w-tablet); }
-
   .rail-row button {
     font-size: 0;
     min-height: 56px;
@@ -30,42 +29,67 @@
 /* ── Mobile < 600px ──────────────────────────────────────── */
 @media (max-width: 599px) {
 
-  /* Body & html scroll freely */
-  html, body {
-    overflow-y: auto;
-    overflow-x: hidden;
-    height: auto;
+  /* Override the global overflow:hidden + height:100dvh from reset.css.
+     Body must scroll freely so content below 100dvh is reachable. */
+  html {
+    height: auto !important;
+    overflow: visible !important;
+  }
+  body {
+    height: auto !important;
     min-height: 100dvh;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;   /* body is the scroll container */
+    display: block !important;     /* not flex — let children stack naturally */
   }
 
-  /* mobileScroll becomes a real stacking column */
+  /* topbar stays at top, not flex-shrink */
+  #topbar {
+    position: sticky;
+    top: 0;
+    z-index: 300;
+  }
+
+  /* mobileScroll is a plain block column */
   #mobileScroll {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
-  }
-
-  /* workspace is the canvas-only first screen */
-  #workspace {
-    flex: none;
+    display: block;
     width: 100%;
-    height: 100dvh;
-    overflow: hidden;
   }
 
-  /* Hide desktop rail + drawer — mobile uses #mobileNav instead */
-  #rightRail { display: none; }
-  #drawer    { display: none; }
+  /* workspace = first full screen (canvas only) */
+  #workspace {
+    display: block;
+    width: 100%;
+    height: calc(100dvh - var(--topbar-h));
+    position: relative;
+    overflow: hidden;
+    flex: none;
+  }
 
-  /* Show the mobile accordion nav */
+  /* canvas fills workspace */
+  #canvasWrap {
+    display: block;
+    width: 100%;
+    height: 100%;
+    position: relative;
+  }
+  #canvasArea {
+    position: absolute;
+    inset: 0;
+  }
+
+  /* Hide desktop rail + drawer */
+  #rightRail { display: none !important; }
+  #drawer    { display: none !important; }
+
+  /* ── Mobile accordion nav ────────────────────────────── */
   #mobileNav {
     display: block;
     background: var(--surface);
     border-top: 1px solid var(--border);
+    width: 100%;
   }
 
-  /* ── Mobile accordion row ──────────────────────────── */
   .mob-row {
     border-bottom: 1px solid var(--border);
   }
@@ -75,7 +99,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: var(--sp-3) var(--sp-4);
+    padding: 0 var(--sp-4);
+    height: 48px;
     font-family: var(--font-ui);
     font-size: var(--type-xs);
     font-weight: 500;
@@ -86,65 +111,56 @@
     border: none;
     cursor: pointer;
     transition: background .12s, color .12s;
-    min-height: 48px;
   }
-  .mob-row-btn:hover {
-    background: var(--surface-2);
-    color: var(--text);
-  }
-  .mob-row.active .mob-row-btn {
-    color: var(--accent);
-    background: var(--surface-2);
-  }
+  .mob-row-btn:hover { background: var(--surface-2); color: var(--text); }
+  .mob-row.active .mob-row-btn { color: var(--accent); background: var(--surface-2); }
 
-  /* Chevron rotates when open */
   .mob-chevron {
     font-size: 18px;
     color: var(--text-3);
-    transition: transform .2s cubic-bezier(.4,0,.2,1);
-    line-height: 1;
     font-family: var(--font-body);
+    transition: transform .22s cubic-bezier(.4,0,.2,1);
+    line-height: 1;
   }
   .mob-row.active .mob-chevron {
     transform: rotate(90deg);
     color: var(--accent);
   }
 
-  /* ── Mobile drawer (accordion body) ─────────────────── */
+  /* Drawer: grid trick for smooth height animation */
   .mob-drawer {
     display: grid;
     grid-template-rows: 0fr;
     transition: grid-template-rows 0.24s cubic-bezier(.4,0,.2,1);
     background: var(--surface-2);
-    overflow: hidden;
   }
   .mob-drawer.open {
     grid-template-rows: 1fr;
   }
+  /* inner div must have overflow:hidden for the 0fr collapse to work */
+  .mob-drawer > div {
+    overflow: hidden;
+  }
 
-  /* inner wrapper needed for grid-row animation */
-  .mob-drawer > * { overflow: hidden; }
-
-  /* Tab bar inside mobile drawer */
+  /* Tab pills row */
   .mob-tabs {
     display: flex;
     gap: var(--sp-1);
     padding: var(--sp-2) var(--sp-3);
     border-bottom: 1px solid var(--border);
     overflow-x: auto;
-    flex-wrap: nowrap;
     background: var(--surface);
   }
 
-  /* Scrollable body inside mobile drawer */
+  /* Scrollable body */
   .mob-body {
     padding: var(--sp-4);
-    max-height: 55dvh;
+    max-height: 60dvh;
     overflow-y: auto;
   }
   .mob-body::-webkit-scrollbar { width: 3px; }
   .mob-body::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 2px; }
 
-  /* Toast above nav */
+  /* Toast */
   #toast { bottom: var(--sp-6); }
 }
