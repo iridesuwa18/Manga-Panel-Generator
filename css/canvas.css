@@ -1,0 +1,108 @@
+/* ============================================================
+   canvas.css — canvas-specific styles: viewport background,
+   empty state, page output containers, bubble overlays,
+   layer items. Per spec Section A: #canvasInner itself carries
+   NO chrome (no buttons/labels/overlays) — only page artwork.
+   ============================================================ */
+
+/* ── Canvas viewport background ──────────────────────────── */
+#canvasArea {
+  background: #111;
+  cursor: default;
+}
+#canvasArea.panning {
+  cursor: grabbing;
+}
+
+/* ── Empty state ──────────────────────────────────────────
+   Pure typographic placeholder per spec Section E — no emoji,
+   rendered inside the canvas as ordinary content (not an
+   overlay/icon), so it pans/zooms away once pages exist. */
+.empty-state {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 360px;
+  text-align: center;
+  color: var(--text-3);
+  font-size: var(--type-base);
+  line-height: 1.6;
+  pointer-events: none;
+}
+.empty-state .hint {
+  display: block;
+  margin-top: var(--sp-3);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: var(--type-xs);
+  color: var(--text-3);
+  opacity: .7;
+}
+/* Hidden once at least one page renders into #canvasInner */
+#canvasInner:has(.page-thumb-wrap) .empty-state {
+  display: none;
+}
+
+/* ── Page output containers (rendered manga pages) ────────── */
+.page-thumb-wrap {
+  position: relative;
+  display: inline-block;
+  margin: var(--sp-8);
+  vertical-align: top;
+}
+.page-output {
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.5);
+}
+
+/* ── Bubble overlays (interactive handles drawn over a page) ── */
+.bubble-wrap {
+  position: absolute;
+  pointer-events: auto;
+}
+.bubble-wrap.locked { pointer-events: none; }
+.bubble-wrap .bubble-handle {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 1px solid var(--ink);
+  cursor: grab;
+}
+
+/* ── Freeform text elements (Step 9) ─────────────────────── */
+.text-wrap {
+  position: absolute;
+  pointer-events: auto;
+  line-height: 1.3;
+}
+.text-wrap.selected {
+  outline: 2px dashed var(--accent);
+}
+
+/* ── Corner / split edit dots (Panel Editor) ─────────────── */
+.corner-dot, .split-dot {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 1px solid var(--ink);
+  transform: translate(-50%, -50%);
+  cursor: grab;
+  touch-action: none;
+}
+.split-dot { background: var(--success); }
+
+/* ── Layer item preview swatches (used inside Layers drawer,
+   referenced here since they key off canvas element types) ── */
+.layer-row .layer-type-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.layer-type-dot.panel { background: var(--accent); }
+.layer-type-dot.bubble { background: var(--success); }
+.layer-type-dot.text { background: var(--text-2); }

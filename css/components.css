@@ -1,0 +1,192 @@
+/* ============================================================
+   components.css — reusable UI components
+   ============================================================ */
+
+/* ── Buttons ──────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-1);
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--type-sm);
+  font-weight: 500;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-btn);
+  color: var(--text);
+  transition: background .12s, border-color .12s, color .12s;
+  white-space: nowrap;
+}
+.btn:hover { background: var(--surface-3); border-color: var(--border-2); }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--ink); }
+.btn.primary:hover { background: var(--accent-dim); }
+
+.btn.danger { background: transparent; border-color: var(--danger); color: var(--danger); }
+.btn.danger:hover { background: var(--danger); color: var(--ink); }
+
+.btn.small { padding: var(--sp-1) var(--sp-2); font-size: var(--type-xs); }
+.btn.full { display: flex; width: 100%; }
+
+/* ── Form elements ────────────────────────────────────── */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  margin-bottom: var(--sp-3);
+}
+.field label {
+  font-size: var(--type-xs);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-2);
+}
+
+input[type="text"], input[type="number"], input[type="search"],
+select, textarea {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-input);
+  padding: var(--sp-2);
+  font-size: var(--type-base);
+  color: var(--text);
+}
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--border-2);
+}
+textarea { resize: vertical; min-height: 64px; font-family: 'IBM Plex Mono', monospace; font-size: var(--type-xs); }
+
+input[type="checkbox"] { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; }
+input[type="range"] { accent-color: var(--accent); }
+input[type="color"] { width: 28px; height: 24px; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-input); cursor: pointer; }
+
+/* ── Tab pills (inside drawer headers) ───────────────────── */
+.tab-pill {
+  padding: var(--sp-1) var(--sp-3);
+  font-size: var(--type-xs);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-2);
+  background: var(--surface-2);
+  flex-shrink: 0;
+}
+.tab-pill.active { background: var(--accent); border-color: var(--accent); color: var(--ink); }
+
+/* ── Undo/Redo disabled state (Preview Options row, spec Section E:
+   "Wire updateUndoButtons() to update the Preview Options row label
+   text to show disabled state"). js/ui.js's updateUndoRowLabel()
+   toggles data-undo="disabled" / data-redo="disabled" on <body>
+   (the rail row and the drawer's tab pills are sibling subtrees,
+   so the state has to be readable from a shared ancestor) and this
+   dims the matching tab pill so Undo/Redo visibly reflect whether
+   there's anything to undo/redo — no floating .undo-btn/.redo-btn
+   elements needed (those no longer exist in the new layout). ──── */
+body[data-undo="disabled"] .tab-pill[onclick*="'undo'"],
+body[data-redo="disabled"] .tab-pill[onclick*="'redo'"] {
+  opacity: .4;
+  pointer-events: none;
+}
+
+/* ── Table ────────────────────────────────────────────── */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-family: 'IBM Plex Mono', monospace; font-size: var(--type-xs); }
+th, td { padding: var(--sp-1) var(--sp-2); border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
+th { color: var(--text-2); font-weight: 500; text-transform: uppercase; letter-spacing: .04em; }
+tr:hover td { background: var(--surface-2); }
+
+/* ── Drop zone ────────────────────────────────────────── */
+.drop-zone {
+  border: 1px dashed var(--border-2);
+  border-radius: var(--radius-float);
+  padding: var(--sp-6) var(--sp-4);
+  text-align: center;
+  color: var(--text-2);
+  font-size: var(--type-sm);
+}
+.drop-zone.drag-over { border-color: var(--accent); background: var(--surface-2); }
+
+/* ── Page entry (collapsible per-page settings) ───────────── */
+.page-entry {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-float);
+  margin-bottom: var(--sp-2);
+  overflow: hidden;
+}
+.page-entry-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--surface-2);
+  cursor: pointer;
+  font-size: var(--type-sm);
+}
+.page-entry-body {
+  padding: var(--sp-3);
+  display: none;
+}
+.page-entry.open .page-entry-body { display: block; }
+
+/* ── Chips ────────────────────────────────────────────── */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--sp-2);
+  font-size: var(--type-xs);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-2);
+}
+
+/* ── Section (collapsible group within drawer) ───────────── */
+.section { margin-bottom: var(--sp-4); }
+.section-title {
+  font-size: var(--type-sm);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-2);
+  margin-bottom: var(--sp-2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* ── Toast ────────────────────────────────────────────── */
+#toast {
+  position: fixed;
+  bottom: var(--sp-6);
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--surface-3);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-btn);
+  padding: var(--sp-2) var(--sp-4);
+  font-size: var(--type-sm);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .15s, transform .15s;
+  z-index: 500;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── Layer list rows (Row 4) ──────────────────────────── */
+.layer-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2);
+  border-radius: var(--radius-input);
+  font-size: var(--type-sm);
+}
+.layer-row:hover { background: var(--surface-2); }
+.layer-row.selected { background: var(--surface-3); outline: 1px solid var(--border-2); }
+.layer-row .layer-name { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.layer-row button { color: var(--text-2); }
+.layer-row button:hover { color: var(--text); }

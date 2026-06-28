@@ -1,0 +1,94 @@
+/* ============================================================
+   reset.css — box model reset + design tokens (:root vars)
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600&family=Bangers&family=Permanent+Marker&family=Caveat:wght@600&display=swap');
+
+@font-face { font-family: 'BubbleSans';    src: url('../Bubble_Sans.otf') format('opentype'); }
+@font-face { font-family: 'XLTightBoo';    src: url('../XL-TightBoo.otf') format('opentype'); }
+@font-face { font-family: 'TGLEngschrift'; src: url('../TGL_0-1451Eng.ttf') format('truetype'); }
+
+:root {
+  /* Color palette — saturated blues / neutral grays */
+  --bg: #0f1117;
+  --surface: #181c27;
+  --surface-2: #1f2435;
+  --surface-3: #262d42;
+  --border: #2a3350;
+  --border-2: #3a4d7a;
+  --accent: #4a7fff;
+  --accent-dim: #2c5acc;
+  --text: #e8ecf5;
+  --text-2: #8a96b5;
+  --text-3: #505a78;
+  --danger: #e05a5a;
+  --success: #3dba72;
+  --ink: #0a0d14;
+
+  /* Typography scale */
+  --type-xs: 10px;
+  --type-sm: 11px;
+  --type-base: 13px;
+  --type-lg: 15px;
+  --type-xl: 20px;
+
+  /* Spacing (4px base unit) */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+
+  /* Radii */
+  --radius-btn: 3px;
+  --radius-input: 2px;
+  --radius-float: 4px;
+
+  /* Chrome dimensions */
+  --topbar-h: 40px;
+  --rail-w: 48px;
+  --rail-w-tablet: 40px;
+  --rail-h-mobile: 56px;
+  --drawer-w: 320px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100dvh;
+  overflow: hidden;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: var(--type-base);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+}
+
+button {
+  cursor: pointer;
+}
+
+ul, ol {
+  list-style: none;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}

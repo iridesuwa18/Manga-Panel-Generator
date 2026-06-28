@@ -1,0 +1,74 @@
+/* ============================================================
+   responsive.css — single fluid layout, no duplicated DOM.
+   Visual breakpoints use @media. The body[data-layout] attr
+   (set by a ResizeObserver in js/canvas.js) is reserved for
+   rules that need to key off layout in JS-driven logic only.
+   ============================================================ */
+
+/* ── Tablet: 600px–899px ─────────────────────────────────
+   Rail collapses to icon-width, labels hidden (title attr
+   used for native tooltip). Drawer narrows. */
+@media (max-width: 899px) {
+  #rightRail { width: var(--rail-w-tablet); }
+  .rail-row button { font-size: 0; }
+  .rail-row button::after {
+    content: attr(data-short);
+    font-size: var(--type-xs);
+  }
+  #drawer {
+    right: var(--rail-w-tablet);
+    width: min(320px, 85vw);
+  }
+}
+
+/* ── Mobile: < 600px ──────────────────────────────────────
+   Rail becomes a bottom bar; drawer becomes a bottom sheet.
+   Same #rightRail / #drawer elements — reflowed, not duplicated. */
+@media (max-width: 599px) {
+  #workspace { flex-direction: column; }
+
+  #rightRail {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: auto;
+    width: auto;
+    height: var(--rail-h-mobile);
+    flex-direction: row;
+    border-left: none;
+    border-top: 1px solid var(--border);
+    overflow-x: auto;
+    z-index: 250;
+  }
+  .rail-row { flex: 1 0 auto; min-width: 64px; }
+  .rail-row button {
+    height: var(--rail-h-mobile);
+    writing-mode: horizontal-tb;
+    border-left: none;
+    border-top: 2px solid transparent;
+  }
+  .rail-row.active button {
+    border-left-color: transparent;
+    border-top-color: var(--accent);
+  }
+  .rail-row button::after { content: none; }
+
+  #drawer {
+    position: fixed;
+    top: auto;
+    right: 0;
+    left: 0;
+    bottom: var(--rail-h-mobile);
+    width: auto;
+    height: 70dvh;
+    max-height: 70dvh;
+    border-left: none;
+    border-top: 1px solid var(--border);
+    border-radius: var(--radius-float) var(--radius-float) 0 0;
+    transform: translateY(100%);
+  }
+  #drawer.open { transform: translateY(0); }
+
+  #canvasWrap { flex: 1; }
+}
