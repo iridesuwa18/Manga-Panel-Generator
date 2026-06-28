@@ -664,4 +664,14 @@
   window.closeDrawer = closeDrawer;
   window.showToast = showToast;
   window.renderDrawer = renderDrawer;
+
+  // ── Exposed for mobile.js accordion system ────────────────
+  // buildMobTabContent / afterMobDrawerRender mirror the desktop
+  // equivalents but target the mobile drawer containers.
+  window.buildMobTabContent = function(rowId, tabId) {
+    return buildTabContent(rowId, tabId);
+  };
+  window.afterMobDrawerRender = function(rowId, tabId) {
+    afterDrawerRender(rowId, tabId);
+  };
 })();
