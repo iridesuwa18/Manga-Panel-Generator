@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Manga Panel Generator</title>
+<link rel="stylesheet" href="css/reset.css">
+<link rel="stylesheet" href="css/layout.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/canvas.css">
+<link rel="stylesheet" href="css/responsive.css">
+</head>
+<body>
+
+<!-- ── TOP BAR ── -->
+<header id="topbar">
+  <span class="app-logo">MPG</span>
+  <span id="autosaveLabel" class="chip"></span>
+</header>
+
+<!-- ── WORKSPACE ── -->
+<main id="workspace">
+
+  <!-- CANVAS — pure viewport, no overlay UI of any kind -->
+  <div id="canvasWrap">
+    <div id="canvasArea">
+      <div id="canvasInner">
+        <div class="empty-state" id="emptyState">
+          <p>
+            Import panel data or add rows manually, then generate.
+            <span class="hint">Ctrl+scroll zoom · Space+drag pan · Ctrl+Z undo</span>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT RAIL -->
+  <nav id="rightRail">
+    <div class="rail-row" data-row="export" data-short="EXP">
+      <button onclick="openDrawer('export')">EXPORT</button>
+    </div>
+    <div class="rail-row" data-row="pages" data-short="PG">
+      <button onclick="openDrawer('pages')">PAGES</button>
+    </div>
+    <div class="rail-row" data-row="bubbles" data-short="BUB">
+      <button onclick="openDrawer('bubbles')">BUBBLES</button>
+    </div>
+    <div class="rail-row" data-row="layers" data-short="LYR">
+      <button onclick="openDrawer('layers')">LAYERS</button>
+    </div>
+    <div class="rail-row" data-row="preview" data-short="PRV">
+      <button onclick="openDrawer('preview')">PREVIEW</button>
+    </div>
+  </nav>
+
+  <!-- DRAWER — single element, inner HTML swapped per row by ui.js -->
+  <aside id="drawer"></aside>
+
+</main>
+
+<div id="toast" aria-live="polite"></div>
+
+<!-- Scripts -->
+<script src="js/state.js"></script>
+<script src="js/undo.js"></script>
+<script src="js/canvas.js"></script>
+<script src="js/generate.js"></script>
+<script src="js/data.js"></script>
+<script src="js/pages.js"></script>
+<script src="js/bubbles.js"></script>
+<script src="js/text.js"></script>
+<script src="js/panels.js"></script>
+<script src="js/layers.js"></script>
+<script src="js/export.js"></script>
+<script src="js/github.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/init.js"></script>
+</body>
+</html>
