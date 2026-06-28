@@ -182,3 +182,51 @@
   justify-content: center;
   pointer-events: none;
 }
+
+/* ── Mobile scroll hint (only visible on mobile) ────────── */
+#scrollHint {
+  display: none;
+}
+
+@media (max-width: 599px) {
+  #scrollHint {
+    display: flex;
+    position: absolute;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    background: rgba(19, 23, 32, 0.82);
+    border: 1px solid var(--border-2);
+    border-radius: 20px;
+    font-family: var(--font-ui);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    color: var(--text-3);
+    pointer-events: none;
+    z-index: 10;
+    backdrop-filter: blur(6px);
+    animation: hintBob 2s ease-in-out infinite;
+  }
+
+  #scrollHint .hint-arrow {
+    font-size: 14px;
+    line-height: 1;
+    animation: hintArrow 2s ease-in-out infinite;
+  }
+
+  @keyframes hintBob {
+    0%, 100% { opacity: 0.7; transform: translateX(-50%) translateY(0); }
+    50%       { opacity: 1;   transform: translateX(-50%) translateY(4px); }
+  }
+
+  @keyframes hintArrow {
+    0%, 100% { transform: translateY(0); }
+    50%       { transform: translateY(3px); }
+  }
+
+  /* Hide hint after first scroll */
+  body.scrolled #scrollHint { display: none; }
+}
