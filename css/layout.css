@@ -2,6 +2,18 @@
    layout.css — structural layout only
    ============================================================ */
 
+/* ── Mobile scroll wrapper ───────────────────────────────── */
+/* On desktop: transparent (display:contents passes flex through).
+   On mobile: becomes a real scrolling column.                */
+#mobileScroll {
+  flex: 1;
+  display: contents;
+  min-height: 0;
+}
+
+/* ── Mobile accordion nav (hidden on desktop) ────────────── */
+#mobileNav { display: none; }
+
 /* ── Top bar ─────────────────────────────────────────────── */
 #topbar {
   height: var(--topbar-h);
@@ -17,13 +29,12 @@
 
 .app-logo {
   font-family: var(--font-ui);
-  font-weight: 600;
+  font-weight: 500;
   font-size: var(--type-base);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-2);
 }
-
 .app-logo strong {
   color: var(--accent);
   font-weight: 600;
@@ -69,7 +80,6 @@
   background: var(--surface);
   border-left: 1px solid var(--border);
   z-index: 250;
-  gap: 0;
 }
 
 .rail-row {
@@ -84,7 +94,7 @@
   justify-content: center;
   width: 100%;
   padding: var(--sp-4) 0;
-  min-height: 64px;
+  min-height: 68px;
   font-family: var(--font-ui);
   font-size: var(--type-xs);
   font-weight: 500;

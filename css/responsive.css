@@ -1,16 +1,17 @@
 /* ============================================================
    responsive.css
-   Desktop  ≥ 900px : side rail + slide-out drawer
-   Tablet   600-899px : narrower rail, narrower drawer
-   Mobile   < 600px  : full-screen canvas + bottom accordion drawers
+   Desktop  ≥ 900px : side rail + slide-out drawer (default)
+   Tablet   600–899px : narrower rail + narrower drawer
+   Mobile   < 600px  : full-screen canvas + bottom accordion
    ============================================================ */
 
 /* ── Tablet ──────────────────────────────────────────────── */
 @media (max-width: 899px) {
   #rightRail { width: var(--rail-w-tablet); }
+
   .rail-row button {
     font-size: 0;
-    min-height: 52px;
+    min-height: 56px;
     padding: var(--sp-3) 0;
   }
   .rail-row button::after {
@@ -26,135 +27,124 @@
   }
 }
 
-/* ── Mobile ──────────────────────────────────────────────── */
+/* ── Mobile < 600px ──────────────────────────────────────── */
 @media (max-width: 599px) {
 
-  /* workspace stacks vertically */
-  #workspace {
-    flex-direction: column;
-    overflow: visible; /* allow the outer scroll container */
-    height: auto;
-  }
-
-  /* The whole body scrolls vertically on mobile */
+  /* Body & html scroll freely */
   html, body {
-    overflow: auto;
+    overflow-y: auto;
+    overflow-x: hidden;
     height: auto;
     min-height: 100dvh;
   }
 
-  /* Canvas fills full viewport width, aspect-ratio roughly A4 */
-  #canvasWrap {
+  /* mobileScroll becomes a real stacking column */
+  #mobileScroll {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+
+  /* workspace is the canvas-only first screen */
+  #workspace {
     flex: none;
     width: 100%;
-    height: 100dvh; /* first screenful = canvas */
-    position: relative;
-  }
-  #canvasArea {
-    position: absolute;
-    inset: 0;
+    height: 100dvh;
+    overflow: hidden;
   }
 
-  /* Rail becomes horizontal bottom accordion nav */
-  #rightRail {
-    position: relative; /* part of normal flow */
-    bottom: auto;
-    top: auto;
-    left: auto;
-    right: auto;
-    width: 100%;
-    height: auto;
-    flex-direction: column; /* each row stacks vertically */
-    border-left: none;
+  /* Hide desktop rail + drawer — mobile uses #mobileNav instead */
+  #rightRail { display: none; }
+  #drawer    { display: none; }
+
+  /* Show the mobile accordion nav */
+  #mobileNav {
+    display: block;
+    background: var(--surface);
     border-top: 1px solid var(--border);
-    z-index: 10;
-    overflow: visible;
   }
 
-  .rail-row {
-    width: 100%;
+  /* ── Mobile accordion row ──────────────────────────── */
+  .mob-row {
     border-bottom: 1px solid var(--border);
   }
 
-  /* Horizontal row header */
-  .rail-row button {
-    writing-mode: horizontal-tb;
-    text-orientation: mixed;
+  .mob-row-btn {
     width: 100%;
-    min-height: 44px;
-    height: 44px;
-    padding: 0 var(--sp-4);
-    flex-direction: row;
+    display: flex;
+    align-items: center;
     justify-content: space-between;
+    padding: var(--sp-3) var(--sp-4);
+    font-family: var(--font-ui);
     font-size: var(--type-xs);
+    font-weight: 500;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    border-left: none;
-    border-bottom: 2px solid transparent;
-    border-top: none;
     color: var(--text-2);
+    background: var(--surface);
+    border: none;
+    cursor: pointer;
+    transition: background .12s, color .12s;
+    min-height: 48px;
   }
-
-  .rail-row button::after {
-    content: '›';
-    font-size: var(--type-md);
-    writing-mode: horizontal-tb;
-    color: var(--text-3);
-    transition: transform .2s;
+  .mob-row-btn:hover {
+    background: var(--surface-2);
+    color: var(--text);
   }
-
-  .rail-row.active button {
+  .mob-row.active .mob-row-btn {
     color: var(--accent);
-    border-left-color: transparent;
-    border-bottom-color: var(--accent);
     background: var(--surface-2);
   }
-  .rail-row.active button::after {
+
+  /* Chevron rotates when open */
+  .mob-chevron {
+    font-size: 18px;
+    color: var(--text-3);
+    transition: transform .2s cubic-bezier(.4,0,.2,1);
+    line-height: 1;
+    font-family: var(--font-body);
+  }
+  .mob-row.active .mob-chevron {
     transform: rotate(90deg);
     color: var(--accent);
   }
 
-  /* Drawer becomes inline content below each row header */
-  #drawer {
-    position: relative;
-    right: auto;
-    top: auto;
-    width: 100%;
-    height: auto;
-    max-height: 60dvh;
-    transform: none !important; /* override desktop transform */
-    border-left: none;
-    border-top: 1px solid var(--border);
+  /* ── Mobile drawer (accordion body) ─────────────────── */
+  .mob-drawer {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.24s cubic-bezier(.4,0,.2,1);
+    background: var(--surface-2);
     overflow: hidden;
-    transition: max-height 0.22s cubic-bezier(.4,0,.2,1), opacity .2s;
-    opacity: 0;
-    max-height: 0;
-    pointer-events: none;
-    z-index: 5;
+  }
+  .mob-drawer.open {
+    grid-template-rows: 1fr;
   }
 
-  #drawer.open {
-    opacity: 1;
-    max-height: 60dvh;
-    pointer-events: auto;
-    transform: none !important;
+  /* inner wrapper needed for grid-row animation */
+  .mob-drawer > * { overflow: hidden; }
+
+  /* Tab bar inside mobile drawer */
+  .mob-tabs {
+    display: flex;
+    gap: var(--sp-1);
+    padding: var(--sp-2) var(--sp-3);
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    background: var(--surface);
   }
 
-  .drawer-body {
-    max-height: calc(60dvh - 84px); /* header + tabs */
+  /* Scrollable body inside mobile drawer */
+  .mob-body {
+    padding: var(--sp-4);
+    max-height: 55dvh;
     overflow-y: auto;
   }
+  .mob-body::-webkit-scrollbar { width: 3px; }
+  .mob-body::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 2px; }
 
-  /* Stack all pages vertically */
-  #canvasInner {
-    /* on mobile pages are visible without needing to pan */
-  }
-
-  .page-thumb-wrap {
-    display: block;
-    margin: 24px auto;
-  }
-
-  /* Toast stays above bottom nav */
-  #toast { bottom: calc(var(--sp-6) + var(--rail-h-mobile)); }
+  /* Toast above nav */
+  #toast { bottom: var(--sp-6); }
 }
