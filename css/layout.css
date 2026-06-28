@@ -1,0 +1,125 @@
+/* ============================================================
+   layout.css — #workspace, #canvasWrap, #canvasArea, #rightRail,
+   drawer system. Structural layout only (no component styling).
+   ============================================================ */
+
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Top bar ───────────────────────────────────────────── */
+#topbar {
+  height: var(--topbar-h);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: 0 var(--sp-4);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  z-index: 300;
+}
+
+/* ── Workspace: canvas + rail + drawer ───────────────────── */
+#workspace {
+  flex: 1;
+  display: flex;
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+}
+
+#canvasWrap {
+  flex: 1;
+  display: flex;
+  position: relative;
+  min-width: 0;
+}
+
+#canvasArea {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+/* canvasInner is transformed via JS (translate/scale) for pan & zoom */
+#canvasInner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+/* ── Right rail ───────────────────────────────────────────
+   Fixed-height, flush-right, narrow vertical column of rows. */
+#rightRail {
+  width: var(--rail-w);
+  flex-shrink: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  z-index: 250;
+}
+
+.rail-row {
+  flex-shrink: 0;
+  position: relative;
+}
+
+/* ── Drawer ───────────────────────────────────────────────
+   Single <aside id="drawer">; its inner HTML is replaced by
+   ui.js per row. Slides in from the right, overlaps canvas. */
+#drawer {
+  position: absolute;
+  top: 0;
+  right: var(--rail-w);
+  width: var(--drawer-w);
+  height: 100%;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  z-index: 240;
+  transform: translateX(100%);
+  transition: transform 0.18s ease;
+  pointer-events: none;
+}
+
+#drawer.open {
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+.drawer-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.drawer-tabs {
+  flex-shrink: 0;
+  display: flex;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-4);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+
+.drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sp-4);
+}
+
+/* ============================================================
+   Adaptive layout — body[data-layout] keys JS-relevant rules.
+   Pure visual breakpoints below still use @media directly;
+   responsive.css carries the full set of overrides.
+   ============================================================ */
