@@ -18,46 +18,85 @@
   <span id="autosaveLabel" class="chip"></span>
 </header>
 
-<!-- ── WORKSPACE ── -->
-<main id="workspace">
+<!-- ── MOBILE SCROLL WRAPPER ── -->
+<div id="mobileScroll">
 
-  <!-- CANVAS — pure viewport, no overlay UI of any kind -->
-  <div id="canvasWrap">
-    <div id="canvasArea">
-      <div id="canvasInner">
-        <div class="empty-state" id="emptyState">
-          <p>
-            Import panel data or add rows manually, then generate.
-            <span class="hint">Ctrl+scroll zoom · Space+drag pan · Ctrl+Z undo</span>
-          </p>
+  <!-- ── WORKSPACE (canvas + desktop rail + desktop drawer) ── -->
+  <main id="workspace">
+
+    <!-- CANVAS -->
+    <div id="canvasWrap">
+      <div id="canvasArea">
+        <div id="canvasInner">
+          <div class="empty-state" id="emptyState">
+            <p>
+              Import panel data or add rows manually, then generate.
+              <span class="hint">Ctrl+scroll zoom · Space+drag pan · Ctrl+Z undo</span>
+            </p>
+          </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- RIGHT RAIL -->
-  <nav id="rightRail">
-    <div class="rail-row" data-row="export" data-short="EXP">
-      <button onclick="openDrawer('export')">EXPORT</button>
+    <!-- DESKTOP RIGHT RAIL -->
+    <nav id="rightRail">
+      <div class="rail-row" data-row="export" data-short="EXP">
+        <button onclick="openDrawer('export')">EXPORT</button>
+      </div>
+      <div class="rail-row" data-row="pages" data-short="PG">
+        <button onclick="openDrawer('pages')">PAGES</button>
+      </div>
+      <div class="rail-row" data-row="bubbles" data-short="BUB">
+        <button onclick="openDrawer('bubbles')">BUBBLES</button>
+      </div>
+      <div class="rail-row" data-row="layers" data-short="LYR">
+        <button onclick="openDrawer('layers')">LAYERS</button>
+      </div>
+      <div class="rail-row" data-row="preview" data-short="PRV">
+        <button onclick="openDrawer('preview')">PREVIEW</button>
+      </div>
+    </nav>
+
+    <!-- DESKTOP DRAWER -->
+    <aside id="drawer"></aside>
+
+  </main>
+
+  <!-- ── MOBILE ACCORDION NAV (below canvas) ── -->
+  <nav id="mobileNav">
+    <div class="mob-row" data-row="export">
+      <button class="mob-row-btn" onclick="openMobileSection('export')">
+        <span>Import / Export</span><span class="mob-chevron">›</span>
+      </button>
+      <div class="mob-drawer" id="mob-export"></div>
     </div>
-    <div class="rail-row" data-row="pages" data-short="PG">
-      <button onclick="openDrawer('pages')">PAGES</button>
+    <div class="mob-row" data-row="pages">
+      <button class="mob-row-btn" onclick="openMobileSection('pages')">
+        <span>Pages &amp; Panels</span><span class="mob-chevron">›</span>
+      </button>
+      <div class="mob-drawer" id="mob-pages"></div>
     </div>
-    <div class="rail-row" data-row="bubbles" data-short="BUB">
-      <button onclick="openDrawer('bubbles')">BUBBLES</button>
+    <div class="mob-row" data-row="bubbles">
+      <button class="mob-row-btn" onclick="openMobileSection('bubbles')">
+        <span>Bubbles &amp; Text</span><span class="mob-chevron">›</span>
+      </button>
+      <div class="mob-drawer" id="mob-bubbles"></div>
     </div>
-    <div class="rail-row" data-row="layers" data-short="LYR">
-      <button onclick="openDrawer('layers')">LAYERS</button>
+    <div class="mob-row" data-row="layers">
+      <button class="mob-row-btn" onclick="openMobileSection('layers')">
+        <span>Layers</span><span class="mob-chevron">›</span>
+      </button>
+      <div class="mob-drawer" id="mob-layers"></div>
     </div>
-    <div class="rail-row" data-row="preview" data-short="PRV">
-      <button onclick="openDrawer('preview')">PREVIEW</button>
+    <div class="mob-row" data-row="preview">
+      <button class="mob-row-btn" onclick="openMobileSection('preview')">
+        <span>Preview / Generate</span><span class="mob-chevron">›</span>
+      </button>
+      <div class="mob-drawer" id="mob-preview"></div>
     </div>
   </nav>
 
-  <!-- DRAWER — single element, inner HTML swapped per row by ui.js -->
-  <aside id="drawer"></aside>
-
-</main>
+</div><!-- /mobileScroll -->
 
 <div id="toast" aria-live="polite"></div>
 
@@ -76,5 +115,6 @@
 <script src="js/github.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/init.js"></script>
+<script src="js/mobile.js"></script>
 </body>
 </html>
