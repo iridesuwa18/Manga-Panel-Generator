@@ -42,7 +42,7 @@
   }
 
   function resetCanvasView() {
-    scale = 0.06;
+    scale = 0.18;
     panX = 0;
     panY = 0;
     applyCanvasTransform();
@@ -232,3 +232,22 @@
     initCanvas();
   }
 })();
+
+// ── Smart initial scale: fit a manga page to ~80% of canvas height ──
+function computeAutoScale() {
+  const area = document.getElementById('canvasArea');
+  if (!area) return 0.18;
+  const availH = area.clientHeight * 0.82;
+  const availW = area.clientWidth * 0.72;
+  const scaleByH = availH / 4677;
+  const scaleByW = availW / 3300;
+  return Math.max(0.06, Math.min(scaleByH, scaleByW));
+}
+
+// Override resetCanvasView with smart auto-scale
+window.resetCanvasView = function() {
+  scale = computeAutoScale();
+  panX = 40;
+  panY = 30;
+  window.applyCanvasTransform?.();
+};

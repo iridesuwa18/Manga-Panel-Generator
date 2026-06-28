@@ -154,6 +154,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Make sure the canvas/drawer reflect whatever state.js started with.
   window.renderTable?.();
   window.refreshPageSettings?.();
-  window.applyCanvasTransform?.();
+  window.resetCanvasView?.();
   window.updateUndoRowLabel?.();
 });

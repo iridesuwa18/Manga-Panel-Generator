@@ -9,7 +9,7 @@
 // ── App state ────────────────────────────────────────────
 let rows = [];          // raw panel data rows
 let pageSettings = {};  // keyed by pageKey "PG X"
-let scale = 0.06;       // canvas zoom level (replaces desktop/mobile dual default —
+let scale = 0.18;       // canvas zoom level (replaces desktop/mobile dual default —
                          // single value now, adjusted via Ctrl+scroll/pinch only)
 let panX = 0, panY = 0; // canvas pan offset, applied via #canvasInner transform
 
