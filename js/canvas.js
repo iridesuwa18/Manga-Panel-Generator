@@ -118,9 +118,14 @@
   // ── Pinch to zoom + single-finger pan on touch ───────────
   let pinchStartDist = 0, pinchStartZoom = 1;
   let pinchStartMidX = 0, pinchStartMidY = 0, pinchStartPanX = 0, pinchStartPanY = 0;
-  let touch1StartX = 0, touch1StartY = 0, touchPanOriginX = 0, touchPanOriginY = 0, touchPanning = false;
+  let touch1StartX = 0, touch1StartY = 0, touchPanOriginX = 0, touchPanOriginY = 0;
+  let touchPanning = false;
+  let touchScrollPass = false; // true = pass gesture to body scroll
+
+  function _isMobileLayout() { return window.innerWidth < 600; }
 
   function onTouchStart(e) {
+    touchScrollPass = false;
     if (e.touches.length === 2) {
       e.preventDefault();
       const t0 = e.touches[0], t1 = e.touches[1];
@@ -132,9 +137,6 @@
       pinchStartPanY = panY;
       touchPanning = false;
     } else if (e.touches.length === 1) {
-      // Don't pan when touching interactive overlay elements
-      // (corner/split dots, bubble handles) — they need their
-      // own pointermove drag to keep firing underneath.
       if (e.target.closest('.bubble-wrap') || e.target.closest('.corner-dot') || e.target.closest('.split-dot')) {
         touchPanning = false;
         return;
@@ -165,11 +167,36 @@
     } else if (e.touches.length === 1) {
       if (e.target.closest('.corner-dot') || e.target.closest('.split-dot')) {
         e.preventDefault();
-        // fall through — pointer drag handlers for the dot keep receiving events
-      } else if (touchPanning) {
+        return;
+      }
+
+      if (touchPanning) {
+        const dx = e.touches[0].clientX - touch1StartX;
+        const dy = e.touches[0].clientY - touch1StartY;
+
+        // On mobile: if the gesture hasn't been committed yet, decide
+        // whether it's a downward page-scroll or a canvas pan.
+        if (_isMobileLayout() && !touchScrollPass) {
+          const absDx = Math.abs(dx), absDy = Math.abs(dy);
+          if (absDy > 8 || absDx > 8) {
+            // Predominantly downward swipe → body scroll, not canvas pan
+            if (absDy > absDx && dy > 0) {
+              touchScrollPass = true;
+              touchPanning = false;
+              // Don't preventDefault — let the browser scroll body
+              return;
+            }
+            // Otherwise it's a canvas pan — commit to that
+          } else {
+            return; // not enough movement yet to decide
+          }
+        }
+
+        if (touchScrollPass) return; // already handed off
+
         e.preventDefault();
-        panX = touchPanOriginX + (e.touches[0].clientX - touch1StartX);
-        panY = touchPanOriginY + (e.touches[0].clientY - touch1StartY);
+        panX = touchPanOriginX + dx;
+        panY = touchPanOriginY + dy;
         applyCanvasTransform();
       }
     }
@@ -177,7 +204,7 @@
 
   function onTouchEnd(e) {
     if (e.touches.length < 2) touchPanning = false;
-    if (e.touches.length === 0) touchPanning = false;
+    if (e.touches.length === 0) { touchPanning = false; touchScrollPass = false; }
   }
 
   // ── ResizeObserver → body[data-layout] (Section G) ───────

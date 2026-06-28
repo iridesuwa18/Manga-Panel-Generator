@@ -96,4 +96,13 @@
       document.querySelectorAll('.mob-drawer.open').forEach(d => d.classList.remove('open'));
     }
   });
+
+  // Hide scroll hint after first body scroll
+  let hintDismissed = false;
+  window.addEventListener('scroll', () => {
+    if (!hintDismissed && window.scrollY > 10) {
+      hintDismissed = true;
+      document.body.classList.add('scrolled');
+    }
+  }, { passive: true });
 })();
