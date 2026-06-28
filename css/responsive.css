@@ -1,74 +1,160 @@
 /* ============================================================
-   responsive.css — single fluid layout, no duplicated DOM.
-   Visual breakpoints use @media. The body[data-layout] attr
-   (set by a ResizeObserver in js/canvas.js) is reserved for
-   rules that need to key off layout in JS-driven logic only.
+   responsive.css
+   Desktop  ≥ 900px : side rail + slide-out drawer
+   Tablet   600-899px : narrower rail, narrower drawer
+   Mobile   < 600px  : full-screen canvas + bottom accordion drawers
    ============================================================ */
 
-/* ── Tablet: 600px–899px ─────────────────────────────────
-   Rail collapses to icon-width, labels hidden (title attr
-   used for native tooltip). Drawer narrows. */
+/* ── Tablet ──────────────────────────────────────────────── */
 @media (max-width: 899px) {
   #rightRail { width: var(--rail-w-tablet); }
-  .rail-row button { font-size: 0; }
+  .rail-row button {
+    font-size: 0;
+    min-height: 52px;
+    padding: var(--sp-3) 0;
+  }
   .rail-row button::after {
     content: attr(data-short);
     font-size: var(--type-xs);
+    font-family: var(--font-ui);
+    writing-mode: vertical-rl;
+    color: inherit;
   }
   #drawer {
     right: var(--rail-w-tablet);
-    width: min(320px, 85vw);
+    width: min(300px, 88vw);
   }
 }
 
-/* ── Mobile: < 600px ──────────────────────────────────────
-   Rail becomes a bottom bar; drawer becomes a bottom sheet.
-   Same #rightRail / #drawer elements — reflowed, not duplicated. */
+/* ── Mobile ──────────────────────────────────────────────── */
 @media (max-width: 599px) {
-  #workspace { flex-direction: column; }
 
+  /* workspace stacks vertically */
+  #workspace {
+    flex-direction: column;
+    overflow: visible; /* allow the outer scroll container */
+    height: auto;
+  }
+
+  /* The whole body scrolls vertically on mobile */
+  html, body {
+    overflow: auto;
+    height: auto;
+    min-height: 100dvh;
+  }
+
+  /* Canvas fills full viewport width, aspect-ratio roughly A4 */
+  #canvasWrap {
+    flex: none;
+    width: 100%;
+    height: 100dvh; /* first screenful = canvas */
+    position: relative;
+  }
+  #canvasArea {
+    position: absolute;
+    inset: 0;
+  }
+
+  /* Rail becomes horizontal bottom accordion nav */
   #rightRail {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    position: relative; /* part of normal flow */
+    bottom: auto;
     top: auto;
-    width: auto;
-    height: var(--rail-h-mobile);
-    flex-direction: row;
+    left: auto;
+    right: auto;
+    width: 100%;
+    height: auto;
+    flex-direction: column; /* each row stacks vertically */
     border-left: none;
     border-top: 1px solid var(--border);
-    overflow-x: auto;
-    z-index: 250;
+    z-index: 10;
+    overflow: visible;
   }
-  .rail-row { flex: 1 0 auto; min-width: 64px; }
+
+  .rail-row {
+    width: 100%;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Horizontal row header */
   .rail-row button {
-    height: var(--rail-h-mobile);
     writing-mode: horizontal-tb;
+    text-orientation: mixed;
+    width: 100%;
+    min-height: 44px;
+    height: 44px;
+    padding: 0 var(--sp-4);
+    flex-direction: row;
+    justify-content: space-between;
+    font-size: var(--type-xs);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
     border-left: none;
-    border-top: 2px solid transparent;
+    border-bottom: 2px solid transparent;
+    border-top: none;
+    color: var(--text-2);
   }
-  .rail-row.active button {
-    border-left-color: transparent;
-    border-top-color: var(--accent);
-  }
-  .rail-row button::after { content: none; }
 
+  .rail-row button::after {
+    content: '›';
+    font-size: var(--type-md);
+    writing-mode: horizontal-tb;
+    color: var(--text-3);
+    transition: transform .2s;
+  }
+
+  .rail-row.active button {
+    color: var(--accent);
+    border-left-color: transparent;
+    border-bottom-color: var(--accent);
+    background: var(--surface-2);
+  }
+  .rail-row.active button::after {
+    transform: rotate(90deg);
+    color: var(--accent);
+  }
+
+  /* Drawer becomes inline content below each row header */
   #drawer {
-    position: fixed;
+    position: relative;
+    right: auto;
     top: auto;
-    right: 0;
-    left: 0;
-    bottom: var(--rail-h-mobile);
-    width: auto;
-    height: 70dvh;
-    max-height: 70dvh;
+    width: 100%;
+    height: auto;
+    max-height: 60dvh;
+    transform: none !important; /* override desktop transform */
     border-left: none;
     border-top: 1px solid var(--border);
-    border-radius: var(--radius-float) var(--radius-float) 0 0;
-    transform: translateY(100%);
+    overflow: hidden;
+    transition: max-height 0.22s cubic-bezier(.4,0,.2,1), opacity .2s;
+    opacity: 0;
+    max-height: 0;
+    pointer-events: none;
+    z-index: 5;
   }
-  #drawer.open { transform: translateY(0); }
 
-  #canvasWrap { flex: 1; }
+  #drawer.open {
+    opacity: 1;
+    max-height: 60dvh;
+    pointer-events: auto;
+    transform: none !important;
+  }
+
+  .drawer-body {
+    max-height: calc(60dvh - 84px); /* header + tabs */
+    overflow-y: auto;
+  }
+
+  /* Stack all pages vertically */
+  #canvasInner {
+    /* on mobile pages are visible without needing to pan */
+  }
+
+  .page-thumb-wrap {
+    display: block;
+    margin: 24px auto;
+  }
+
+  /* Toast stays above bottom nav */
+  #toast { bottom: calc(var(--sp-6) + var(--rail-h-mobile)); }
 }

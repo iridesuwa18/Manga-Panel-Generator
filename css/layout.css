@@ -1,27 +1,35 @@
 /* ============================================================
-   layout.css — #workspace, #canvasWrap, #canvasArea, #rightRail,
-   drawer system. Structural layout only (no component styling).
+   layout.css — structural layout only
    ============================================================ */
 
-body {
-  display: flex;
-  flex-direction: column;
-}
-
-/* ── Top bar ───────────────────────────────────────────── */
+/* ── Top bar ─────────────────────────────────────────────── */
 #topbar {
   height: var(--topbar-h);
   flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: var(--sp-4);
-  padding: 0 var(--sp-4);
+  padding: 0 var(--sp-5);
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   z-index: 300;
 }
 
-/* ── Workspace: canvas + rail + drawer ───────────────────── */
+.app-logo {
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: var(--type-base);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+
+.app-logo strong {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ── Workspace ───────────────────────────────────────────── */
 #workspace {
   flex: 1;
   display: flex;
@@ -43,7 +51,6 @@ body {
   overflow: hidden;
 }
 
-/* canvasInner is transformed via JS (translate/scale) for pan & zoom */
 #canvasInner {
   position: absolute;
   top: 0;
@@ -52,8 +59,7 @@ body {
   will-change: transform;
 }
 
-/* ── Right rail ───────────────────────────────────────────
-   Fixed-height, flush-right, narrow vertical column of rows. */
+/* ── Right rail ──────────────────────────────────────────── */
 #rightRail {
   width: var(--rail-w);
   flex-shrink: 0;
@@ -63,6 +69,7 @@ body {
   background: var(--surface);
   border-left: 1px solid var(--border);
   z-index: 250;
+  gap: 0;
 }
 
 .rail-row {
@@ -70,9 +77,38 @@ body {
   position: relative;
 }
 
-/* ── Drawer ───────────────────────────────────────────────
-   Single <aside id="drawer">; its inner HTML is replaced by
-   ui.js per row. Slides in from the right, overlaps canvas. */
+.rail-row button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: var(--sp-4) 0;
+  min-height: 64px;
+  font-family: var(--font-ui);
+  font-size: var(--type-xs);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  border-left: 2px solid transparent;
+  transition: color .14s, border-color .14s, background .14s;
+}
+
+.rail-row button:hover {
+  color: var(--text-2);
+  background: var(--surface-2);
+}
+
+.rail-row.active button {
+  color: var(--accent);
+  border-left-color: var(--accent);
+  background: var(--surface-2);
+}
+
+/* ── Drawer ──────────────────────────────────────────────── */
 #drawer {
   position: absolute;
   top: 0;
@@ -85,7 +121,7 @@ body {
   flex-direction: column;
   z-index: 240;
   transform: translateX(100%);
-  transition: transform 0.18s ease;
+  transition: transform 0.2s cubic-bezier(.4,0,.2,1);
   pointer-events: none;
 }
 
@@ -101,13 +137,19 @@ body {
   justify-content: space-between;
   padding: var(--sp-3) var(--sp-4);
   border-bottom: 1px solid var(--border);
+  font-family: var(--font-ui);
+  font-size: var(--type-xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-2);
 }
 
 .drawer-tabs {
   flex-shrink: 0;
   display: flex;
-  gap: var(--sp-2);
-  padding: var(--sp-2) var(--sp-4);
+  gap: var(--sp-1);
+  padding: var(--sp-2) var(--sp-3);
   border-bottom: 1px solid var(--border);
   overflow-x: auto;
 }
@@ -118,8 +160,6 @@ body {
   padding: var(--sp-4);
 }
 
-/* ============================================================
-   Adaptive layout — body[data-layout] keys JS-relevant rules.
-   Pure visual breakpoints below still use @media directly;
-   responsive.css carries the full set of overrides.
-   ============================================================ */
+.drawer-body::-webkit-scrollbar { width: 4px; }
+.drawer-body::-webkit-scrollbar-track { background: transparent; }
+.drawer-body::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 2px; }
