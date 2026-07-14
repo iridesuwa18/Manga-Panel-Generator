@@ -26,35 +26,93 @@
   }
 }
 
+/* Hamburger + full-screen menu only ever exist on mobile — hidden by
+   default so they can't appear on desktop/tablet regardless of any
+   other rule below. */
+#mobHamburgerBtn { display: none; }
+#mobMenuOverlay  { display: none; }
+
 /* ── Mobile < 600px ──────────────────────────────────────── */
 @media (max-width: 599px) {
 
-  /* Override the global overflow:hidden + height:100dvh from reset.css.
-     Body must scroll freely so content below 100dvh is reachable. */
-  html {
-    height: auto !important;
-    overflow: visible !important;
-  }
-  body {
-    height: auto !important;
-    min-height: 100dvh;
-    overflow-x: hidden !important;
-    overflow-y: auto !important;   /* body is the scroll container */
-    display: block !important;     /* not flex — let children stack naturally */
-  }
-
-  /* topbar stays at top, not flex-shrink */
-  #topbar {
-    position: sticky;
-    top: 0;
-    z-index: 300;
-  }
+  /* Body keeps the default height:100dvh + overflow:hidden from
+     reset.css — nothing lives below the canvas anymore (the old
+     accordion moved into the hamburger overlay below), so there's
+     nothing to scroll down to, and nothing for a pull-to-refresh
+     gesture to accidentally trigger. */
 
   /* mobileScroll is a plain block column */
   #mobileScroll {
     display: block;
     width: 100%;
+    height: 100%;
   }
+
+  /* ── Hamburger button (sits in #topbar) ────────────────── */
+  #mobHamburgerBtn {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+    width: 32px;
+    height: 32px;
+    margin-left: auto;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    flex: none;
+  }
+  #mobHamburgerBtn span {
+    display: block;
+    width: 20px;
+    height: 2px;
+    background: var(--text-2);
+    border-radius: 1px;
+  }
+
+  /* ── Full-screen menu overlay ───────────────────────────── */
+  #mobMenuOverlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 500;
+    flex-direction: column;
+    background: var(--surface);
+    overscroll-behavior: contain;
+  }
+  #mobMenuOverlay.open {
+    display: flex;
+  }
+  .mob-menu-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: var(--topbar-h);
+    flex: none;
+    padding: 0 var(--sp-4);
+    border-bottom: 1px solid var(--border);
+  }
+  .mob-menu-title {
+    font-family: var(--font-ui);
+    font-size: var(--type-xs);
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-2);
+  }
+  #mobMenuCloseBtn {
+    width: 32px;
+    height: 32px;
+    font-size: 22px;
+    line-height: 1;
+    color: var(--text-2);
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+  #mobMenuCloseBtn:hover { color: var(--text); }
 
   /* workspace = first full screen (canvas only) */
   #workspace {
@@ -82,13 +140,18 @@
   #rightRail { display: none !important; }
   #drawer    { display: none !important; }
 
-  /* ── Mobile accordion nav ────────────────────────────── */
+  /* ── Mobile accordion nav (now the overlay's scrollable body) ── */
   #mobileNav {
-    display: block;
-    background: var(--surface);
-    border-top: 1px solid var(--border);
+    display: block;   /* overrides layout.css's default display:none */
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
     width: 100%;
+    background: var(--surface);
+    overscroll-behavior: contain;
   }
+  #mobileNav::-webkit-scrollbar { width: 3px; }
+  #mobileNav::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 2px; }
 
   .mob-row {
     border-bottom: 1px solid var(--border);
@@ -152,14 +215,9 @@
     background: var(--surface);
   }
 
-  /* Scrollable body */
   .mob-body {
     padding: var(--sp-4);
-    max-height: 60dvh;
-    overflow-y: auto;
   }
-  .mob-body::-webkit-scrollbar { width: 3px; }
-  .mob-body::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 2px; }
 
   /* Toast */
   #toast { bottom: var(--sp-6); }

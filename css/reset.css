@@ -64,6 +64,10 @@
 html, body {
   height: 100dvh;
   overflow: hidden;
+  /* Belt-and-suspenders against the browser's native pull-to-refresh /
+     rubber-band chaining. The mobile layout no longer needs body
+     scroll at all, but this keeps things safe if that ever changes. */
+  overscroll-behavior: none;
 }
 
 body {
