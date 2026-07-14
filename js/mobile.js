@@ -45,7 +45,13 @@
     const firstTabs = { export:'svg', pages:'page', bubbles:'bubble', layers:'layers', preview:'generate' };
     const activeTab = _mobActiveTab[rowId] || firstTabs[rowId];
 
-    function render(tabId) {
+    // `isExplicitTap` distinguishes "just opened this row" (false) from
+    // "user tapped a specific tab pill" (true). Only an explicit tap on
+    // an action tab (Undo/Redo/Generate) should actually run it — the
+    // very first render of a row must never auto-fire an action, or the
+    // row closes itself before the person ever sees the tab bar (this is
+    // what was hiding Create Blank / Sample behind Preview Options).
+    function render(tabId, isExplicitTap) {
       _mobActiveTab[rowId] = tabId;
 
       const tabs = tabDefs[rowId] || [];
@@ -65,8 +71,9 @@
       // Run after-render hooks (populate selects, lists, etc.)
       window.afterMobDrawerRender?.(rowId, tabId);
 
-      // For preview action tabs, fire immediately
-      if (rowId === 'preview') {
+      // For preview action tabs, fire only on an explicit tab tap —
+      // never on the initial row-open (see comment above render()).
+      if (rowId === 'preview' && isExplicitTap) {
         const actionTabs = { undo:'undo', redo:'redo', generate:'generate' };
         if (actionTabs[tabId]) {
           container.innerHTML = '';
@@ -84,9 +91,14 @@
       container.classList.add('open');
     }
 
-    // Expose so tab pills can re-render
-    window._mobRender = render;
-    render(activeTab);
+    // Expose so tab pills can re-render. Tab pills call this with
+    // (rowId, tabId) — only tabId is needed here since this closure
+    // already knows its own rowId, but we must NOT forward rowId into
+    // render()'s tabId slot (that was the tab-switch bug: every pill
+    // tap was rendering content for e.g. tabId="export" instead of
+    // tabId="png", which doesn't exist, so the body came back empty).
+    window._mobRender = function (_rowId, tabId) { render(tabId, true); };
+    render(activeTab, false);
   };
 
   // Collapse all mobile sections on resize to desktop
