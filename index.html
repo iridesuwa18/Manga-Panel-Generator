@@ -16,6 +16,9 @@
 <header id="topbar">
   <span class="app-logo"><strong>Manga</strong> Panel Gen</span>
   <span id="autosaveLabel" class="chip"></span>
+  <button id="mobHamburgerBtn" aria-label="Open menu" onclick="openMobileMenu()">
+    <span></span><span></span><span></span>
+  </button>
 </header>
 
 <!-- ── MOBILE SCROLL WRAPPER ── -->
@@ -34,11 +37,6 @@
               <span class="hint">Ctrl+scroll zoom · Space+drag pan · Ctrl+Z undo</span>
             </p>
           </div>
-        </div>
-        <!-- Mobile scroll hint -->
-        <div id="scrollHint">
-          <span class="hint-arrow">↓</span>
-          <span>Swipe down for tools</span>
         </div>
       </div>
     </div>
@@ -67,8 +65,15 @@
 
   </main>
 
-  <!-- ── MOBILE ACCORDION NAV (below canvas) ── -->
-  <nav id="mobileNav">
+  <!-- ── MOBILE FULL-SCREEN MENU (opened by the hamburger button) ── -->
+  <div id="mobMenuOverlay">
+    <div class="mob-menu-header">
+      <span class="mob-menu-title">Menu</span>
+      <button id="mobMenuCloseBtn" aria-label="Close menu" onclick="closeMobileMenu()">&times;</button>
+    </div>
+
+    <!-- ── MOBILE ACCORDION NAV ── -->
+    <nav id="mobileNav">
     <div class="mob-row" data-row="export">
       <button class="mob-row-btn" onclick="openMobileSection('export')">
         <span>Import / Export</span><span class="mob-chevron">›</span>
@@ -99,7 +104,8 @@
       </button>
       <div class="mob-drawer" id="mob-preview"></div>
     </div>
-  </nav>
+    </nav>
+  </div>
 
 </div><!-- /mobileScroll -->
 
@@ -121,6 +127,5 @@
 <script src="js/ui.js"></script>
 <script src="js/init.js"></script>
 <script src="js/mobile.js"></script>
-<script src="js/mobile-scrollbar.js"></script>
 </body>
 </html>
