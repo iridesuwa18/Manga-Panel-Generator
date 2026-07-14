@@ -261,20 +261,36 @@
 })();
 
 // ── Smart initial scale: fit a manga page to ~80% of canvas height ──
+// On mobile there's no side rail/drawer competing for horizontal
+// space (canvasArea is the full screen width), so we can afford to
+// fill much more of the viewport than on desktop/tablet.
 function computeAutoScale() {
   const area = document.getElementById('canvasArea');
   if (!area) return 0.18;
-  const availH = area.clientHeight * 0.82;
-  const availW = area.clientWidth * 0.72;
+  const mobile = document.body.dataset.layout === 'mobile';
+  const hRatio = mobile ? 0.94 : 0.82;
+  const wRatio = mobile ? 0.92 : 0.72;
+  const availH = area.clientHeight * hRatio;
+  const availW = area.clientWidth * wRatio;
   const scaleByH = availH / 4677;
   const scaleByW = availW / 3300;
   return Math.max(0.06, Math.min(scaleByH, scaleByW));
 }
 
-// Override resetCanvasView with smart auto-scale
+// Override resetCanvasView with smart auto-scale, centered in the
+// visible canvas area (used on boot, Ctrl/Cmd+0, and — on mobile —
+// automatically after every Generate; see generate.js) so the page
+// always lands fully on-screen instead of requiring a manual pinch
+// to fit.
 window.resetCanvasView = function() {
+  const area = document.getElementById('canvasArea');
   scale = computeAutoScale();
-  panX = 40;
-  panY = 30;
+  if (area) {
+    panX = (area.clientWidth  - 3300 * scale) / 2;
+    panY = (area.clientHeight - 4677 * scale) / 2;
+  } else {
+    panX = 40;
+    panY = 30;
+  }
   window.applyCanvasTransform?.();
 };

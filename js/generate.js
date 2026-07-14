@@ -673,8 +673,17 @@ function generateAll() {
   window.renderAllTextElements?.();
 
   // Re-apply pan/zoom transform now that canvasInner has new content
-  // (js/canvas.js owns the transform; generate.js only triggers a refresh)
-  window.applyCanvasTransform?.();
+  // (js/canvas.js owns the transform; generate.js only triggers a refresh).
+  // On mobile, auto-fit + center the page instead — there's no comfortable
+  // way to pinch-zoom-to-fit blind on a phone, so Generate should just
+  // land the page fully on-screen every time. Desktop/tablet keep
+  // whatever pan/zoom the person had, since regenerating there is often
+  // a quick check after tweaking a panel, not a first look at the page.
+  if (document.body.dataset.layout === 'mobile') {
+    window.resetCanvasView?.();
+  } else {
+    window.applyCanvasTransform?.();
+  }
 
   // Per spec Implementation Note #3 — generate.js writes autosave
   // after each generation (init.js owns the actual write/timer logic).

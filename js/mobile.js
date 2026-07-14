@@ -1,7 +1,12 @@
 // ============================================================
-// js/mobile.js — Mobile accordion drawer system
-// Works independently of the desktop #drawer. Uses #mobileNav
-// with .mob-row / .mob-drawer elements for each section.
+// js/mobile.js — Mobile full-screen menu (hamburger overlay)
+// #mobMenuOverlay is a fixed, full-screen panel (hidden until the
+// hamburger button in #topbar is tapped) that contains #mobileNav —
+// the same .mob-row / .mob-drawer accordion as before, just living
+// inside a modal instead of inline below the canvas. This means the
+// canvas/workspace always fills the screen and the body never needs
+// to scroll on mobile, which also removes the earlier accidental
+// pull-to-refresh risk from scrolling down to reach the drawer.
 // Reuses the same tab content builders from ui.js.
 // ============================================================
 
@@ -11,6 +16,17 @@
 
   const _mobActiveTab = {};
 
+  // ── Hamburger open/close ─────────────────────────────────
+  function openMobileMenu() {
+    document.getElementById('mobMenuOverlay')?.classList.add('open');
+  }
+  function closeMobileMenu() {
+    document.getElementById('mobMenuOverlay')?.classList.remove('open');
+  }
+  window.openMobileMenu = openMobileMenu;
+  window.closeMobileMenu = closeMobileMenu;
+
+  // ── Row expand/collapse + tab render ─────────────────────
   window.openMobileSection = function (rowId) {
     if (!isMobileLayout()) {
       window.openDrawer?.(rowId);
@@ -42,15 +58,15 @@
       preview: [{ id: 'undo', label: 'Undo' }, { id: 'redo', label: 'Redo' }, { id: 'generate', label: 'Generate' }, { id: 'blank', label: 'Create Blank' }, { id: 'sample', label: 'Sample' }],
     };
 
-    const firstTabs = { export:'svg', pages:'page', bubbles:'bubble', layers:'layers', preview:'generate' };
+    const firstTabs = { export:'svg', pages:'page', bubbles:'bubble', layers:'layers', preview:'undo' };
     const activeTab = _mobActiveTab[rowId] || firstTabs[rowId];
 
     // `isExplicitTap` distinguishes "just opened this row" (false) from
     // "user tapped a specific tab pill" (true). Only an explicit tap on
     // an action tab (Undo/Redo/Generate) should actually run it — the
     // very first render of a row must never auto-fire an action, or the
-    // row closes itself before the person ever sees the tab bar (this is
-    // what was hiding Create Blank / Sample behind Preview Options).
+    // row closes itself before the person ever sees the tab bar (this
+    // was hiding Create Blank / Sample behind Preview Options).
     function render(tabId, isExplicitTap) {
       _mobActiveTab[rowId] = tabId;
 
@@ -92,29 +108,21 @@
     }
 
     // Expose so tab pills can re-render. Tab pills call this with
-    // (rowId, tabId) — only tabId is needed here since this closure
-    // already knows its own rowId, but we must NOT forward rowId into
-    // render()'s tabId slot (that was the tab-switch bug: every pill
-    // tap was rendering content for e.g. tabId="export" instead of
-    // tabId="png", which doesn't exist, so the body came back empty).
+    // (rowId, tabId) — only tabId is passed through to render() here;
+    // forwarding rowId into render()'s tabId slot was the earlier bug
+    // where every pill tap rendered content for e.g. tabId="export"
+    // instead of tabId="png" (which doesn't exist), so the body came
+    // back empty for every tab switch in every drawer.
     window._mobRender = function (_rowId, tabId) { render(tabId, true); };
     render(activeTab, false);
   };
 
-  // Collapse all mobile sections on resize to desktop
+  // Collapse everything (including the overlay itself) on resize to desktop
   window.addEventListener('resize', () => {
     if (!isMobileLayout()) {
+      closeMobileMenu();
       document.querySelectorAll('.mob-row.active').forEach(r => r.classList.remove('active'));
       document.querySelectorAll('.mob-drawer.open').forEach(d => d.classList.remove('open'));
     }
   });
-
-  // Hide scroll hint after first body scroll
-  let hintDismissed = false;
-  window.addEventListener('scroll', () => {
-    if (!hintDismissed && window.scrollY > 10) {
-      hintDismissed = true;
-      document.body.classList.add('scrolled');
-    }
-  }, { passive: true });
 })();
