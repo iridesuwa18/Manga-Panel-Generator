@@ -260,7 +260,7 @@ function computePanelRects(pageRows, mode, gutter, flow = 'v-first') {
 // ─────────────────────────────────────────────
 // SVG GENERATION
 // ─────────────────────────────────────────────
-function buildSVG(pg, pgNum, panelRects, fillColor, strokeColor, strokeW, forExport = false, ovs = null) {
+function buildSVG(pg, pgNum, panelRects, fillColor, strokeColor, strokeW, forExport = false, ovs = null, isBlank = false) {
   const isOdd = pgNum % 2 !== 0;
   const drawX = getDrawX(isOdd);
   const safe = getSafeRect(isOdd);
@@ -275,6 +275,24 @@ function buildSVG(pg, pgNum, panelRects, fillColor, strokeColor, strokeW, forExp
     svg += `<rect x="${FRAME_X}" y="${FRAME_Y}" width="${FRAME_W}" height="${FRAME_H}" fill="none" stroke="#ccc" stroke-width="2" stroke-dasharray="20,10"/>`;
     svg += `<rect x="${drawX}" y="${DRAW_Y}" width="${DRAW_W}" height="${DRAW_H}" fill="none" stroke="#ddd" stroke-width="2" stroke-dasharray="10,6"/>`;
     svg += `<rect x="${safe.x}" y="${safe.y}" width="${safe.w}" height="${safe.h}" fill="none" stroke="#e8d5a3" stroke-width="2" stroke-dasharray="6,4" opacity="0.4"/>`;
+
+    // On-canvas "+ Add Panels" affordance — screen only (forExport is
+    // already false in this branch), never baked into an exported page.
+    // Clicking it jumps straight to this page's Panel Editor / Quick
+    // Layout, since a blank page otherwise has no obvious next step.
+    if (isBlank) {
+      const cx = safe.x + safe.w / 2, cy = safe.y + safe.h / 2;
+      const btnW = 640, btnH = 220;
+      svg += `
+        <g class="blank-page-cta" style="cursor:pointer" onclick="window.openQuickLayoutFor('${pg}')">
+          <rect x="${cx - btnW / 2}" y="${cy - btnH / 2}" width="${btnW}" height="${btnH}" rx="16"
+            fill="#f4f1ea" stroke="#c9a34e" stroke-width="4" stroke-dasharray="14,8"/>
+          <text x="${cx}" y="${cy - 20}" text-anchor="middle" font-family="Inter, sans-serif"
+            font-size="60" font-weight="600" fill="#3a3a3a">+ Add Panels</text>
+          <text x="${cx}" y="${cy + 50}" text-anchor="middle" font-family="Inter, sans-serif"
+            font-size="32" fill="#8a8a8a">Tap for a quick rows &#215; columns grid</text>
+        </g>`;
+    }
   }
 
   const pgCorners = cornerOffsets[pg] || {};
@@ -626,7 +644,13 @@ function generateAll() {
 
     _lastPanelRects[pg] = panelRects;
 
-    const svgStr = buildSVG(pg, pgNum, panelRects, fillColor, strokeColor, strokeW, false, _pgOvs);
+    // A page is "blank" if it has no real panel rows yet — either it
+    // was created via Create Blank Page (a single _blankPlaceholder
+    // row) or every panel was otherwise removed. Used to show the
+    // on-canvas "+ Add Panels" affordance (screen only, see buildSVG).
+    const isBlank = pageRows.every(r => r._blankPlaceholder) || !panelRects.some(r => r.pnl);
+
+    const svgStr = buildSVG(pg, pgNum, panelRects, fillColor, strokeColor, strokeW, false, _pgOvs, isBlank);
 
     const w = Math.round(PAGE_W * scale);
     const h = Math.round(PAGE_H * scale);

@@ -116,22 +116,30 @@ let _pbpCurrentPage = null;
 function setPbpMode(enabled, targetPage) {
   pageBypageMode = enabled;
   const inner = document.getElementById('canvasInner');
-  if (!inner) return;
 
-  if (!enabled) {
-    inner.classList.remove('pbp-mode');
-    document.querySelectorAll('.page-thumb-wrap').forEach(w => w.classList.remove('pbp-active'));
-    _pbpCurrentPage = null;
-    panY = 0;
-    window.applyCanvasTransform?.();
-    return;
+  if (inner) {
+    if (!enabled) {
+      inner.classList.remove('pbp-mode');
+      document.querySelectorAll('.page-thumb-wrap').forEach(w => w.classList.remove('pbp-active'));
+      _pbpCurrentPage = null;
+      panY = 0;
+      window.applyCanvasTransform?.();
+    } else {
+      inner.classList.add('pbp-mode');
+      const pages = getPages();
+      if (pages.length) {
+        const pg = targetPage || _pbpCurrentPage || pages[0].pg;
+        navigateToPbpPage(pg);
+      }
+    }
   }
 
-  inner.classList.add('pbp-mode');
-  const pages = getPages();
-  if (!pages.length) return;
-  const pg = targetPage || _pbpCurrentPage || pages[0].pg;
-  navigateToPbpPage(pg);
+  // The Page Editor's Mode buttons (All Pages / Page-by-Page) and the
+  // prev/next page nav both depend on pageBypageMode — refresh the
+  // drawer tab in place (desktop or mobile, whichever is open) so the
+  // change shows immediately instead of needing a close/reopen.
+  window.refreshDrawerTabIfOpen?.('pages');
+  window.refreshMobDrawerTab?.('pages');
 }
 
 function navigateToPbpPage(pg) {

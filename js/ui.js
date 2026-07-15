@@ -104,15 +104,12 @@
     const def = ROWS[rowId];
     if (!def) return;
 
-    // Row 5 action tabs fire-and-forget; some don't need the
-    // drawer to stay open at all.
+    // Row 5's action tabs (Undo/Redo/Generate) fire immediately, but
+    // still need the drawer to re-render + mark the clicked pill as
+    // active — otherwise the tab bar visibly stays on whatever tab
+    // was showing before, which looks like the click did nothing.
     if (def.action) {
       runPreviewAction(tabId);
-      if (tabId === 'blank' || tabId === 'sample') {
-        activeDrawerTab[rowId] = tabId;
-        openDrawer(rowId, tabId);
-      }
-      return;
     }
 
     activeDrawerTab[rowId] = tabId;
@@ -175,6 +172,8 @@
     }
     if (rowId === 'bubbles' && tabId === 'bubble') {
       window.refreshBubblePageSelect?.();
+      const pg = document.getElementById('bubblePageSel')?.value || window.getPages?.()[0]?.pg;
+      window.refreshQuickBubblePanelSel?.(pg);
     }
     if (rowId === 'bubbles' && tabId === 'text') {
       const pg = window.selectedTextElement?.pgKey || window.getPages?.()[0]?.pg;
@@ -361,6 +360,32 @@
             ${pageOptionsHTML()}
           </select>
         </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Quick Layout</div>
+        <p style="color:var(--text-3);font-size:var(--type-sm);margin-bottom:var(--sp-2)">
+          Fill the page above with an evenly-spaced grid of panels —
+          works the same as typing out that many rows of data by hand.
+        </p>
+        <div class="field" style="flex-direction:row;gap:var(--sp-2)">
+          <div class="field" style="flex:1">
+            <label>Rows</label>
+            <input type="number" id="qlRows" min="1" max="8" value="2">
+          </div>
+          <div class="field" style="flex:1">
+            <label>Columns</label>
+            <input type="number" id="qlCols" min="1" max="6" value="2">
+          </div>
+        </div>
+        <button class="btn primary full" onclick="window.applyQuickLayout?.(
+            document.getElementById('panelEditorPageSel')?.value,
+            +document.getElementById('qlRows').value,
+            +document.getElementById('qlCols').value
+          )">Generate Grid</button>
+      </div>
+
+      <div class="section">
         <div style="display:flex;gap:var(--sp-2);margin-bottom:var(--sp-3);">
           <button id="pp-lock-btn" class="btn small full" onclick="window.ppToggleLockAll?.()">Lock Layout</button>
           <button class="btn small danger" onclick="window.ppResetAll?.(document.getElementById('panelEditorPageSel')?.value)">Reset All</button>
@@ -376,16 +401,55 @@
   function tplBubbles(tabId) {
     if (tabId === 'bubble') return `
       <div class="section">
-        <div class="section-title">Import Bubbles</div>
         <div class="field">
           <label>Target Page</label>
-          <select id="bubblePageSel">${pageOptionsHTML()}</select>
+          <select id="bubblePageSel" onchange="window.refreshQuickBubblePanelSel?.(this.value)">${pageOptionsHTML()}</select>
         </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Insert Bubble</div>
+        <p style="color:var(--text-3);font-size:var(--type-sm);margin-bottom:var(--sp-2)">
+          Drop a bubble straight onto a panel — no dialogue needed yet,
+          edit its text after by clicking it on the canvas.
+        </p>
+        <div class="field">
+          <label>Panel</label>
+          <select id="qbPanelSel"></select>
+        </div>
+        <div class="field">
+          <label>Type</label>
+          <select id="qbType">
+            <option value="circle">Circle</option>
+            <option value="bold">Bold</option>
+            <option value="square">Square</option>
+            <option value="rectangle">Rectangle</option>
+            <option value="thought">Thought</option>
+            <option value="fading">Fading</option>
+            <option value="dashed">Dashed</option>
+            <option value="spiked">Spiked</option>
+            <option value="lilypad">Lilypad</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Dialogue (optional)</label>
+          <input type="text" id="qbText" placeholder="Leave blank and edit later">
+        </div>
+        <button class="btn primary full" onclick="window.insertBubbleToPanel?.(
+            document.getElementById('bubblePageSel').value,
+            +document.getElementById('qbPanelSel').value,
+            document.getElementById('qbType').value,
+            document.getElementById('qbText').value
+          )">&#43; Insert Bubble</button>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Import Bubbles</div>
         <div class="field">
           <label>Paste Bubble Data (Type &middot; Speaker &middot; Dialogue, tab-separated)</label>
           <textarea id="bubblePasteArea" rows="5" placeholder="circle&#9;Hero&#9;Hello world!"></textarea>
         </div>
-        <button class="btn primary full" onclick="window.importBubbles?.()">&#43; Add Bubbles</button>
+        <button class="btn full" onclick="window.importBubbles?.()">&#43; Add Bubbles from Text</button>
       </div>
 
       <div class="section" id="bp-nosel" style="color:var(--text-3);font-size:var(--type-sm);">
@@ -664,6 +728,14 @@
   window.closeDrawer = closeDrawer;
   window.showToast = showToast;
   window.renderDrawer = renderDrawer;
+
+  // Re-render rowId's tab in place, but only if it's the row currently
+  // open — used by code outside ui.js (e.g. pages.js's setPbpMode())
+  // that changes state the open drawer should reflect immediately,
+  // instead of requiring a close/reopen to see the change.
+  window.refreshDrawerTabIfOpen = function (rowId) {
+    if (activeRow === rowId) renderDrawer(rowId);
+  };
 
   // ── Exposed for mobile.js accordion system ────────────────
   // buildMobTabContent / afterMobDrawerRender mirror the desktop
