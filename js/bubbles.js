@@ -61,14 +61,14 @@ window.loadCustomFont = loadCustomFont;
 // ── Snap helpers (snapEnabled and _lastPanelRects declared in state.js) ──
 function getSnapX(x, pg) {
   if (!snapEnabled) return x;
-  const rects = (window._lastPanelRects || {})[pg] || [];
+  const rects = _lastPanelRects[pg] || [];
   let best = x, bestDist = SNAP_THRESHOLD;
   rects.forEach(r => { [r.x, r.x + r.w].forEach(sx => { const d = Math.abs(x - sx); if (d < bestDist) { bestDist = d; best = sx; } }); });
   return best;
 }
 function getSnapY(y, pg) {
   if (!snapEnabled) return y;
-  const rects = (window._lastPanelRects || {})[pg] || [];
+  const rects = _lastPanelRects[pg] || [];
   let best = y, bestDist = SNAP_THRESHOLD;
   rects.forEach(r => { [r.y, r.y + r.h].forEach(sy => { const d = Math.abs(y - sy); if (d < bestDist) { bestDist = d; best = sy; } }); });
   return best;
@@ -219,6 +219,49 @@ function refreshBubblePageSelect() {
 }
 window.refreshBubblePageSelect = refreshBubblePageSelect;
 
+// ── Quick Insert: drop a bubble straight onto a chosen panel ──
+// Populates the Panel dropdown in the Bubbles & Text drawer from
+// this page's last-generated panel rects (same array panels.js's
+// editor cards are numbered from, so "Panel 3" here is the same
+// panel as "PNL 3" there).
+function refreshQuickBubblePanelSel(pg) {
+  const sel = document.getElementById('qbPanelSel');
+  if (!sel) return;
+  const all = (_lastPanelRects[pg]?.length ? _lastPanelRects[pg] : _lastBaseRects[pg]) || [];
+  const rects = all.filter(r => r.pnl); // exclude the blank-page placeholder rect
+  if (!rects.length) {
+    sel.innerHTML = '<option value="">Generate panels on this page first</option>';
+    return;
+  }
+  sel.innerHTML = rects.map((r, i) => `<option value="${i}">Panel ${i + 1}</option>`).join('');
+}
+window.refreshQuickBubblePanelSel = refreshQuickBubblePanelSel;
+
+// type/text can come straight from the picker with no pre-written
+// dialogue — text defaults to empty and is editable afterward by
+// clicking the bubble on the canvas (opens the Selected Bubble editor).
+function insertBubbleToPanel(pg, panelIdx, type, text) {
+  if (!pg) { showToast('Pick a page first!'); return; }
+  const rects = (_lastPanelRects[pg]?.length ? _lastPanelRects[pg] : _lastBaseRects[pg]) || [];
+  if (!rects.length) { showToast('Generate this page first!'); return; }
+  const r = rects[panelIdx];
+  if (!r) { showToast('Pick a panel first!'); return; }
+
+  if (!bubbles[pg]) bubbles[pg] = [];
+  const b = defaultBubble(type || 'circle', text || '', '', bubbles[pg].length);
+  // Center the bubble within the chosen panel, same placement logic
+  // importBubbles() uses for panel centers.
+  b.x = (r.x + r.w / 2) - b.w / 2;
+  b.y = (r.y + r.h / 2) - b.h / 2;
+  bubbles[pg].push(b);
+
+  renderBubblesOnPage(pg);
+  refreshLayersPanel?.(pg);
+  window.scheduleAutoSave?.();
+  showToast(`Added a ${type} bubble to Panel ${+panelIdx + 1}`);
+}
+window.insertBubbleToPanel = insertBubbleToPanel;
+
 // ── Render bubbles on a page ──────────────────────────────────
 function renderBubblesOnPage(pg) {
   const containers = document.querySelectorAll('.page-output[data-pg]');
@@ -286,7 +329,7 @@ function applyBubbleClip(wrap, b) {
   };
   if (b.clipPanel == null) { clearClip(); return; }
   const pgKey = wrap.dataset.pgKey;
-  const rects = pgKey ? ((window._lastPanelRects || {})[pgKey] || []) : [];
+  const rects = pgKey ? (_lastPanelRects[pgKey] || []) : [];
   const r = rects[b.clipPanel]; if (!r) { clearClip(); return; }
   const sw = (parseInt(document.getElementById('strokeWidth')?.value) || 8) / 2;
   const co = (cornerOffsets[pgKey]||{})[b.clipPanel];

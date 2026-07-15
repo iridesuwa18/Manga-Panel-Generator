@@ -71,7 +71,7 @@ window.ppResetAll = ppResetAll;
 
 // ── Layout lock (bake positions so Generate won't re-roll) ────
 function lockAllPanels(pg) {
-  const base = (window._lastBaseRects || {})[pg];
+  const base = _lastBaseRects[pg];
   if (!base?.length) { showToast?.('Generate pages first!'); return; }
   if (!panelOverrides[pg]) panelOverrides[pg] = {};
   const ovs = panelOverrides[pg];
@@ -81,7 +81,7 @@ function lockAllPanels(pg) {
   });
   panelOverrides[pg]._lockedRects = finalRects;
   finalRects.forEach((r, idx) => { if (!ovs[idx]) ovs[idx] = {}; Object.assign(ovs[idx], { x: r.x, y: r.y, w: r.w, h: r.h, locked: true }); });
-  if (window._lastBaseRects) window._lastBaseRects[pg] = finalRects;
+  _lastBaseRects[pg] = finalRects;
   refreshPanelsPanel(pg);
   rebuildPageList?.();
   scheduleAutoSave?.();
@@ -319,7 +319,7 @@ function refreshPanelsPanel(pg) {
   if (sel && pg) sel.value = pg;
   syncLockBtn(pg);
 
-  const baseRects = (window._lastBaseRects || {})[pg] || [];
+  const baseRects = _lastBaseRects[pg] || [];
   const ovs = panelOverrides[pg] || {};
 
   if (!baseRects.length) {
@@ -363,3 +363,77 @@ function refreshPanelsPanel(pg) {
   }
 }
 window.refreshPanelsPanel = refreshPanelsPanel;
+
+// ── Quick Layout: fill a page with an evenly-spaced grid ──────
+// Generates `rowsCount` row-groups of `colsCount` panels each and
+// writes them into `rows` exactly the way a pasted/imported CSV
+// would describe a uniform grid — same fields (chp/scn/pg/pnl/row/
+// lh/maxL/maxH), same layout engine (js/generate.js's
+// computePanelRects). Each row group gets maxH = 100/rowsCount (so
+// the rows stack to fill the page) and every panel in it gets
+// lh = (100/colsCount) x (100/rowsCount) (so it exactly fills its
+// row, which makes the skyline packer place `colsCount` panels
+// side-by-side with no special-casing needed).
+function applyQuickLayout(pg, rowsCount, colsCount) {
+  if (!pg) { showToast?.('Pick a page first!'); return; }
+  rowsCount = Math.max(1, Math.min(8, Math.round(rowsCount) || 1));
+  colsCount = Math.max(1, Math.min(6, Math.round(colsCount) || 1));
+
+  const existing = rows.filter(r => r.pg === pg && !r._blankPlaceholder);
+  if (existing.length && !confirm(
+    `This page already has ${existing.length} panel row(s). Replace them with a ${rowsCount}\u00d7${colsCount} grid?`
+  )) return;
+
+  window.snapshotState?.();
+
+  // Preserve chapter/scene from whatever this page already had.
+  const ref = rows.find(r => r.pg === pg) || {};
+  const chp = ref.chp || (getPages().find(p => p.pg === pg)?.chp) || 'CHP 1';
+  const scn = ref.scn || 'S1';
+
+  // Remove every existing row for this page (including the blank
+  // placeholder, if any) — the new grid fully replaces them.
+  rows = rows.filter(r => r.pg !== pg);
+
+  const rowHpct = +(100 / rowsCount).toFixed(2);
+  const colWpct = +(100 / colsCount).toFixed(2);
+
+  for (let ri = 1; ri <= rowsCount; ri++) {
+    for (let ci = 1; ci <= colsCount; ci++) {
+      rows.push({
+        chp, scn, pg,
+        pnl: `PNL ${(ri - 1) * colsCount + ci}`,
+        row: `RW ${ri}`,
+        lh: `${colWpct}x${rowHpct}`,
+        maxL: '100',
+        maxH: String(rowHpct),
+      });
+    }
+  }
+
+  if (!pageSettings[pg]) pageSettings[pg] = { mode: 'safe', gutter: 12 };
+
+  renderTable();
+  refreshPageSettings();
+  window.generateAll?.();
+  showToast?.(`Added a ${rowsCount}\u00d7${colsCount} grid to ${pg}`);
+}
+window.applyQuickLayout = applyQuickLayout;
+
+// ── On-canvas "+ Add Panels" button for blank pages ───────────
+// generate.js renders this button directly into a blank page's SVG
+// (screen-only, never in exports) — clicking it jumps straight to
+// this page's Panel Editor tab so Quick Layout is right there,
+// instead of needing to go hunting for the right drawer/page first.
+function openQuickLayoutFor(pg) {
+  if (isMobile()) {
+    window.openMobileMenu?.();
+    window.openMobileSection?.('pages', 'panel');
+  } else {
+    window.openDrawer?.('pages', 'panel');
+  }
+  const sel = document.getElementById('panelEditorPageSel');
+  if (sel) sel.value = pg;
+  refreshPanelsPanel(pg);
+}
+window.openQuickLayoutFor = openQuickLayoutFor;
