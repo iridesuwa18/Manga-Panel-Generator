@@ -652,13 +652,18 @@ function generateAll() {
 
     const svgStr = buildSVG(pg, pgNum, panelRects, fillColor, strokeColor, strokeW, false, _pgOvs, isBlank);
 
-    const w = Math.round(PAGE_W * scale);
-    const h = Math.round(PAGE_H * scale);
-
-    // No .page-label here — per spec Section A, #canvasInner is a pure
-    // viewport with no labels/overlays of any kind. Page metadata
-    // (chapter, odd/even, panel count, mode) moves to the Page Editor
-    // drawer's per-page entries (js/pages.js, Step 4) instead.
+    // Each page renders at NATIVE size — canvasInner's own transform
+    // (js/canvas.js) is the only place zoom is applied. This used to
+    // ALSO multiply by `scale` here, which double-applied it: canvasInner
+    // scales the whole canvas, and then each page was independently
+    // pre-shrunk by the same factor again, so pages actually rendered at
+    // scale² instead of scale (tiny), and — because that per-page scale
+    // was baked in at Generate time while canvasInner's scale keeps
+    // changing live as you pinch/zoom — the two drift apart the moment
+    // you zoom, which is what caused the zoom "glitching" and made
+    // bubble drag math (bubbles.js/text.js, which convert screen pixels
+    // to page coordinates by dividing by `scale` once) land bubbles in
+    // the wrong place.
     const wrap = document.createElement('div');
     wrap.className = 'page-thumb-wrap';
     wrap.dataset.chp = chp;
@@ -666,20 +671,18 @@ function generateAll() {
 
     const container = document.createElement('div');
     container.className = 'page-output';
-    container.style.width = w + 'px';
-    container.style.height = h + 'px';
+    container.style.width = PAGE_W + 'px';
+    container.style.height = PAGE_H + 'px';
     container.style.overflow = 'hidden';
     container.style.position = 'relative';
     container.dataset.svg = svgStr;
     container.dataset.pg = pg;
 
-    // Render inline SVG scaled via transform
     const svgWrap = document.createElement('div');
     svgWrap.style.position = 'absolute';
     svgWrap.style.top = '0';
     svgWrap.style.left = '0';
     svgWrap.style.transformOrigin = 'top left';
-    svgWrap.style.transform = `scale(${scale})`;
     svgWrap.style.width = PAGE_W + 'px';
     svgWrap.style.height = PAGE_H + 'px';
     svgWrap.innerHTML = svgStr;
