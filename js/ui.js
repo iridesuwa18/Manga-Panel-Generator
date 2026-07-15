@@ -386,10 +386,6 @@
       </div>
 
       <div class="section">
-        <div style="display:flex;gap:var(--sp-2);margin-bottom:var(--sp-3);">
-          <button id="pp-lock-btn" class="btn small full" onclick="window.ppToggleLockAll?.()">Lock Layout</button>
-          <button class="btn small danger" onclick="window.ppResetAll?.(document.getElementById('panelEditorPageSel')?.value)">Reset All</button>
-        </div>
         <div id="panelEditorBody" style="color:var(--text-3);font-size:var(--type-sm)">
           Generate pages first to see panel controls.
         </div>

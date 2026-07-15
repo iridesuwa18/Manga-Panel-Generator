@@ -359,8 +359,12 @@ function refreshPanelsPanel(pg) {
     header.style.cssText = 'display:flex;gap:var(--sp-2);margin-bottom:var(--sp-3);';
     header.innerHTML = `<button id="pp-lock-btn" class="btn small full" onclick="ppToggleLockAll()">Lock Layout</button><button class="btn small danger" onclick="ppResetAll('${pg}')">Reset All</button>`;
     body.insertAdjacentElement('beforebegin', header);
-    syncLockBtn(pg);
+  } else {
+    // Keep Reset All targeting whichever page is currently selected —
+    // this header is reused across page switches, not recreated.
+    header.querySelector('.btn.danger')?.setAttribute('onclick', `ppResetAll('${pg}')`);
   }
+  syncLockBtn(pg);
 }
 window.refreshPanelsPanel = refreshPanelsPanel;
 
