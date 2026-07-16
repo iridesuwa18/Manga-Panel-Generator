@@ -37,6 +37,7 @@
   // ── Apply current scale/panX/panY to #canvasInner ──────────
   function applyCanvasTransform() {
     if (!getEls()) return;
+    canvasInner.style.willChange = 'transform';
     canvasInner.style.transform = `translate(${panX}px,${panY}px) scale(${scale})`;
     canvasInner.style.transformOrigin = '0 0';
   }
@@ -152,6 +153,7 @@
   function onTouchMove(e) {
     if (e.touches.length === 2) {
       e.preventDefault();
+      if (pinchStartDist < 1) return; // guard divide-by-near-zero on gesture start
       const t0 = e.touches[0], t1 = e.touches[1];
       const dist = Math.hypot(t0.clientX - t1.clientX, t0.clientY - t1.clientY);
       const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, pinchStartZoom * (dist / pinchStartDist)));
