@@ -82,13 +82,24 @@
 /* ── Corner / split dots ─────────────────────────────────── */
 .corner-dot, .split-dot {
   position: absolute;
-  width: 12px; height: 12px;
+  width: 22px; height: 22px;
   border-radius: 50%;
   background: var(--accent);
-  border: 1px solid var(--ink);
-  transform: translate(-50%, -50%);
+  border: 2px solid var(--ink);
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--ink);
   cursor: grab;
   touch-action: none;
+  /* Same zoom-compensation as the bubble resize/rotate handles
+     (see .sel-handle) — grows when zoomed out, capped at 3x. */
+  transform: translate(-50%, -50%) scale(max(1, min(3, calc(1 / var(--zoom-scale, 1)))));
 }
 .split-dot { background: var(--success); }
 
@@ -118,15 +129,19 @@
   border: 1px solid var(--ink);
   border-radius: 1px;
   pointer-events: all;
+  /* Grows as the canvas zooms out (small --zoom-scale), stays at its
+     base size once zoomed to 100% or closer. Capped at 3x so it
+     doesn't balloon at extreme zoom-out levels. */
+  --handle-scale: max(1, min(3, calc(1 / var(--zoom-scale, 1))));
 }
-.sel-handle.nw { top:-5px; left:-5px; cursor:nw-resize; }
-.sel-handle.n  { top:-5px; left:50%; transform:translateX(-50%); cursor:n-resize; }
-.sel-handle.ne { top:-5px; right:-5px; cursor:ne-resize; }
-.sel-handle.e  { top:50%; right:-5px; transform:translateY(-50%); cursor:e-resize; }
-.sel-handle.se { bottom:-5px; right:-5px; cursor:se-resize; }
-.sel-handle.s  { bottom:-5px; left:50%; transform:translateX(-50%); cursor:s-resize; }
-.sel-handle.sw { bottom:-5px; left:-5px; cursor:sw-resize; }
-.sel-handle.w  { top:50%; left:-5px; transform:translateY(-50%); cursor:w-resize; }
+.sel-handle.nw { top:-5px; left:-5px; cursor:nw-resize; transform: scale(var(--handle-scale)); }
+.sel-handle.n  { top:-5px; left:50%; cursor:n-resize; transform: translateX(-50%) scale(var(--handle-scale)); }
+.sel-handle.ne { top:-5px; right:-5px; cursor:ne-resize; transform: scale(var(--handle-scale)); }
+.sel-handle.e  { top:50%; right:-5px; cursor:e-resize; transform: translateY(-50%) scale(var(--handle-scale)); }
+.sel-handle.se { bottom:-5px; right:-5px; cursor:se-resize; transform: scale(var(--handle-scale)); }
+.sel-handle.s  { bottom:-5px; left:50%; cursor:s-resize; transform: translateX(-50%) scale(var(--handle-scale)); }
+.sel-handle.sw { bottom:-5px; left:-5px; cursor:sw-resize; transform: scale(var(--handle-scale)); }
+.sel-handle.w  { top:50%; left:-5px; cursor:w-resize; transform: translateY(-50%) scale(var(--handle-scale)); }
 
 .rotate-stem {
   position: absolute;
@@ -140,7 +155,7 @@
 .rotate-handle {
   position: absolute;
   top: -38px; left: 50%;
-  transform: translateX(-50%);
+  transform: translateX(-50%) scale(max(1, min(3, calc(1 / var(--zoom-scale, 1)))));
   width: 12px; height: 12px;
   background: var(--accent);
   border: 1px solid var(--ink);
@@ -157,7 +172,7 @@
   background: #fff;
   border: 2px solid var(--accent);
   border-radius: 50%;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%) scale(max(1, min(3, calc(1 / var(--zoom-scale, 1)))));
   cursor: grab;
   pointer-events: all;
   display: none;
