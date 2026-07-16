@@ -261,7 +261,7 @@ function computePanelRects(pageRows, mode, gutter, flow = 'v-first') {
 // SVG GENERATION
 // ─────────────────────────────────────────────
 function buildSVG(pg, pgNum, panelRects, fillColor, strokeColor, strokeW, forExport = false, ovs = null, isBlank = false, flushColor = null) {
-  const _flushColor = flushColor !== null ? flushColor : fillColor;
+  const _flushColor = flushColor !== null ? flushColor : 'none';
   const isOdd = pgNum % 2 !== 0;
   const drawX = getDrawX(isOdd);
   const safe = getSafeRect(isOdd);
@@ -318,7 +318,8 @@ function buildSVG(pg, pgNum, panelRects, fillColor, strokeColor, strokeW, forExp
 
   // Build clipPath defs for panels with splits so lines/gaps never surpass the panel boundary
   let _defsContent = '';
-  panelRects.filter(r => !r._hidden).forEach((r, idx) => {
+  panelRects.forEach((r, idx) => {
+    if (r._hidden) return;
     const _co2 = pgCorners[idx];
     const _ena2 = pgCornerEnabled[idx] !== false;
     const _ov2 = _ovs[idx] || {};
@@ -337,7 +338,8 @@ function buildSVG(pg, pgNum, panelRects, fillColor, strokeColor, strokeW, forExp
   });
   if (_defsContent) svg += `<defs>${_defsContent}</defs>`;
 
-  panelRects.filter(r => !r._hidden).forEach((r, idx) => {
+  panelRects.forEach((r, idx) => {
+    if (r._hidden) return;
     const co = pgCorners[idx];
     const isEnabled = pgCornerEnabled[idx] !== false; // default true if set, but default off if never set
     const hasCorners = co && isEnabled;
