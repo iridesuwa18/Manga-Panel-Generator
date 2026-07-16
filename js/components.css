@@ -1,0 +1,306 @@
+/* ============================================================
+   components.css — reusable UI components
+   All chrome uses --font-ui (IBM Plex Mono)
+   ============================================================ */
+
+/* ── Buttons ─────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-1);
+  padding: 5px var(--sp-3);
+  font-family: var(--font-ui);
+  font-size: var(--type-xs);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: var(--surface-2);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-btn);
+  color: var(--text-2);
+  transition: background .12s, border-color .12s, color .12s;
+  white-space: nowrap;
+}
+.btn:hover { background: var(--surface-3); color: var(--text); border-color: var(--border-2); }
+.btn:disabled { opacity: .35; cursor: not-allowed; }
+
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--ink);
+  font-weight: 600;
+}
+.btn.primary:hover { background: var(--accent-dim); border-color: var(--accent-dim); }
+
+.btn.danger { background: transparent; border-color: var(--danger); color: var(--danger); }
+.btn.danger:hover { background: var(--danger); color: var(--ink); }
+
+.btn.small { padding: 3px var(--sp-2); font-size: 9px; }
+.btn.full { display: flex; width: 100%; }
+.btn.muted { opacity: .45; }
+
+/* Toggle state for bold/italic/lock-move/lock-resize/lock-rotate
+   buttons (and any other .btn using classList.toggle('active', ...)).
+   Without this rule, toggling the class did nothing visible. */
+.btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--ink);
+  font-weight: 600;
+}
+.btn.active:hover { background: var(--accent-dim); border-color: var(--accent-dim); }
+
+/* ── Form elements ───────────────────────────────────────── */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  margin-bottom: var(--sp-3);
+}
+.field label {
+  font-family: var(--font-ui);
+  font-size: var(--type-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+}
+
+input[type="text"],
+input[type="number"],
+input[type="search"],
+input[type="password"],
+select,
+textarea {
+  font-family: var(--font-ui);
+  font-size: var(--type-xs);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-input);
+  padding: 5px var(--sp-2);
+  color: var(--text);
+  transition: border-color .12s;
+}
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+textarea {
+  resize: vertical;
+  min-height: 60px;
+  font-family: var(--font-ui);
+  font-size: var(--type-xs);
+  line-height: 1.6;
+}
+
+input[type="checkbox"] {
+  accent-color: var(--accent);
+  width: 13px;
+  height: 13px;
+  cursor: pointer;
+}
+input[type="range"] { accent-color: var(--accent); }
+input[type="color"] {
+  width: 28px;
+  height: 24px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-input);
+  cursor: pointer;
+}
+
+/* ── Tab pills ───────────────────────────────────────────── */
+.tab-pill {
+  padding: 3px var(--sp-3);
+  font-family: var(--font-ui);
+  font-size: var(--type-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border: 1px solid var(--border);
+  border-radius: 1px;
+  color: var(--text-3);
+  background: transparent;
+  flex-shrink: 0;
+  transition: background .12s, color .12s, border-color .12s;
+}
+.tab-pill:hover { color: var(--text-2); border-color: var(--border-2); }
+.tab-pill.active { background: var(--accent); border-color: var(--accent); color: var(--ink); font-weight: 600; }
+
+/* Undo/redo disabled state */
+body[data-undo="disabled"] .tab-pill[onclick*="'undo'"],
+body[data-redo="disabled"] .tab-pill[onclick*="'redo'"] {
+  opacity: .3;
+  pointer-events: none;
+}
+
+/* ── Table ───────────────────────────────────────────────── */
+.table-wrap { overflow-x: auto; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-ui);
+  font-size: var(--type-xs);
+}
+th, td {
+  padding: var(--sp-1) var(--sp-2);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  white-space: nowrap;
+}
+th { color: var(--text-3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; }
+tr:hover td { background: var(--surface-2); }
+td input { background: transparent; border: none; width: 100%; padding: 0; font-family: var(--font-ui); font-size: var(--type-xs); }
+td input:focus { outline: none; border-bottom: 1px solid var(--accent); }
+
+/* ── Drop zone ───────────────────────────────────────────── */
+.drop-zone {
+  border: 1px dashed var(--border-2);
+  border-radius: var(--radius-float);
+  padding: var(--sp-5) var(--sp-4);
+  text-align: center;
+  color: var(--text-3);
+  font-family: var(--font-ui);
+  font-size: var(--type-xs);
+  letter-spacing: 0.04em;
+  transition: border-color .12s, background .12s;
+}
+.drop-zone.drag-over { border-color: var(--accent); background: var(--surface-2); }
+
+/* ── Page entry ──────────────────────────────────────────── */
+.page-entry {
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  margin-bottom: var(--sp-2);
+  overflow: hidden;
+}
+.page-entry-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--surface-2);
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: var(--type-xs);
+  color: var(--text-2);
+  transition: background .12s;
+}
+.page-entry-head:hover { background: var(--surface-3); }
+.page-entry-body {
+  padding: var(--sp-3);
+  display: none;
+  border-top: 1px solid var(--border);
+}
+.page-entry.open .page-entry-body { display: block; }
+
+/* ── Chips ───────────────────────────────────────────────── */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px var(--sp-2);
+  font-family: var(--font-ui);
+  font-size: 9px;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: 1px;
+  color: var(--text-3);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ── Sections ────────────────────────────────────────────── */
+.section { margin-bottom: var(--sp-5); }
+.section-title {
+  font-family: var(--font-ui);
+  font-size: var(--type-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-3);
+  margin-bottom: var(--sp-3);
+  padding-bottom: var(--sp-1);
+  border-bottom: 1px solid var(--border);
+}
+
+/* ── Toast ───────────────────────────────────────────────── */
+#toast {
+  position: fixed;
+  bottom: var(--sp-6);
+  left: 50%;
+  transform: translateX(-50%) translateY(12px);
+  background: var(--surface-3);
+  border: 1px solid var(--border-2);
+  border-radius: 2px;
+  padding: var(--sp-2) var(--sp-4);
+  font-family: var(--font-ui);
+  font-size: var(--type-xs);
+  letter-spacing: 0.04em;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .15s, transform .15s;
+  z-index: 500;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── Layer rows ──────────────────────────────────────────── */
+.layer-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-2);
+  border-radius: 2px;
+  font-family: var(--font-ui);
+  font-size: var(--type-xs);
+  cursor: pointer;
+  transition: background .1s;
+}
+.layer-row:hover { background: var(--surface-2); }
+.layer-row.active { background: var(--surface-3); outline: 1px solid var(--border-2); }
+.layer-row .layer-name { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.layer-row button { color: var(--text-3); font-size: 9px; padding: 1px 3px; }
+.layer-row button:hover { color: var(--text); }
+
+/* ── PP (panel editor) cards ─────────────────────────────── */
+.pp-card {
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: var(--sp-3);
+  margin-bottom: var(--sp-2);
+}
+.pp-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
+}
+.pp-pnl-lbl {
+  font-family: var(--font-ui);
+  font-size: var(--type-xs);
+  color: var(--accent);
+  font-weight: 600;
+  flex: 1;
+  letter-spacing: 0.06em;
+}
+.pp-input-grid {
+  display: grid;
+  grid-template-columns: 20px 1fr 20px 1fr;
+  gap: var(--sp-1);
+  align-items: center;
+  margin-bottom: var(--sp-2);
+}
+.pp-lbl {
+  font-family: var(--font-ui);
+  font-size: 9px;
+  color: var(--text-3);
+  text-align: right;
+  text-transform: uppercase;
+}
+.pp-input-grid input {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 2px var(--sp-2);
+  font-size: var(--type-xs);
+  width: 100%;
+}
+.pp-locked-inputs { opacity: .4; pointer-events: none; }

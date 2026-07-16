@@ -32,6 +32,24 @@ window.BUBBLE_FONTS = BUBBLE_FONTS;
 const _customFontDataURLs = {};
 window._customFontDataURLs = _customFontDataURLs;
 
+// ── Per-type default font/size presets ────────────────────────
+// Applied only when a NEW bubble is created (defaultBubble below) —
+// editing a bubble afterward always overrides these via the Bubble
+// Editor. Tweak the values here to change what a fresh bubble of a
+// given type starts out looking like.
+const BUBBLE_TYPE_PRESETS = {
+  circle:    { font: 'BubbleSans',        fontSize: 60 },                    // normal speech
+  thought:   { font: 'Caveat',            fontSize: 56, italic: true },      // thought bubble
+  spiked:    { font: 'Bangers',           fontSize: 72, bold: true },        // shout/yell
+  bold:      { font: 'Permanent Marker',  fontSize: 64, bold: true },        // intense/monster
+  fading:    { font: 'BubbleSans',        fontSize: 52, italic: true },      // weak/trailing off
+  dashed:    { font: 'BubbleSans',        fontSize: 44, italic: true },      // whisper
+  lilypad:   { font: 'BubbleSans',        fontSize: 54 },                    // off-panel aside
+  square:    { font: 'TGLEngschrift',     fontSize: 50, italic: true },      // narration/inner monologue
+  rectangle: { font: 'TGLEngschrift',     fontSize: 58, bold: true },        // caption/title box
+};
+window.BUBBLE_TYPE_PRESETS = BUBBLE_TYPE_PRESETS;
+
 let customFontCount = 0;
 
 function loadCustomFont(e) {
@@ -76,13 +94,12 @@ function getSnapY(y, pg) {
 
 // ── defaultBubble ────────────────────────────────────────────
 function defaultBubble(type, text, speaker, index) {
-  const isRect = type === 'rectangle', isYell = type === 'spiked';
-  const fontSize = 60, font = isRect ? 'TGLEngschrift' : 'BubbleSans';
+  const preset = BUBBLE_TYPE_PRESETS[type] || { font: 'BubbleSans', fontSize: 60 };
   const b = {
     id: 'b' + Date.now() + Math.random().toString(36).slice(2, 6),
     type, text, speaker: speaker || '',
     x: -9999, y: -9999, w: 600, h: 400, rotate: 0,
-    font, fontSize, bold: isYell, italic: false,
+    font: preset.font, fontSize: preset.fontSize, bold: !!preset.bold, italic: !!preset.italic,
     tailAngle: 225, tailLen: 150, tailBreadth: 7,
     extraTails: [], dotCount: 4, spikeCount: 16, dashCount: 7,
     lineHeight: 1.3, padRatio: 0.14,

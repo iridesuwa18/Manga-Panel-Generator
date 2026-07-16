@@ -58,6 +58,10 @@
     markTransformActive();
     canvasInner.style.transform = `translate(${panX}px,${panY}px) scale(${scale})`;
     canvasInner.style.transformOrigin = '0 0';
+    // Selection/resize/rotate handles counter-scale against this so they
+    // stay grabbable at a comfortable size when zoomed out, instead of
+    // shrinking along with the page (see canvas.css .sel-handle etc).
+    document.documentElement.style.setProperty('--zoom-scale', scale);
   }
 
   function resetCanvasView() {
