@@ -548,6 +548,10 @@
           <label>Padding Ratio</label>
           <input type="number" id="bp-pad-ratio" min="0.01" max="0.4" step="0.01" oninput="window.bpUpdate?.('padRatio',+this.value)">
         </div>
+        <div class="field">
+          <label>Border Width</label>
+          <input type="number" id="bp-border-width" min="1" max="12" step="0.5" oninput="window.bpUpdate?.('borderWidth',+this.value)">
+        </div>
 
         <div class="section-title" style="margin-top:var(--sp-3);">Position &amp; Size</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-2);">

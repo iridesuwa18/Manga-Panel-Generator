@@ -41,7 +41,7 @@ const BUBBLE_TYPE_PRESETS = {
   circle:    { font: 'BubbleSans',        fontSize: 60 },                    // normal speech
   thought:   { font: 'Caveat',            fontSize: 56, italic: true },      // thought bubble
   spiked:    { font: 'Bangers',           fontSize: 72, bold: true },        // shout/yell
-  bold:      { font: 'Permanent Marker',  fontSize: 64, bold: true },        // intense/monster
+  bold:      { font: 'Permanent Marker',  fontSize: 64, bold: true, borderWidth: 6 }, // intense/monster
   fading:    { font: 'BubbleSans',        fontSize: 52, italic: true },      // weak/trailing off
   dashed:    { font: 'BubbleSans',        fontSize: 44, italic: true },      // whisper
   lilypad:   { font: 'BubbleSans',        fontSize: 54 },                    // off-panel aside
@@ -49,6 +49,14 @@ const BUBBLE_TYPE_PRESETS = {
   rectangle: { font: 'TGLEngschrift',     fontSize: 58, bold: true },        // caption/title box
 };
 window.BUBBLE_TYPE_PRESETS = BUBBLE_TYPE_PRESETS;
+
+// Default speech-bubble outline thickness (px). Thicker than the old
+// hardcoded 2.5px outline, but intentionally kept under the manga panel
+// border default (8px, see #strokeWidth) so bubbles read as secondary
+// to panel borders. Per-bubble override lives in b.borderWidth and is
+// editable via the "Border Width" field in the Bubble Editor panel.
+const DEFAULT_BUBBLE_BORDER = 4;
+window.DEFAULT_BUBBLE_BORDER = DEFAULT_BUBBLE_BORDER;
 
 let customFontCount = 0;
 
@@ -103,6 +111,7 @@ function defaultBubble(type, text, speaker, index) {
     tailAngle: 225, tailLen: 150, tailBreadth: 7,
     extraTails: [], dotCount: 4, spikeCount: 16, dashCount: 7,
     lineHeight: 1.3, padRatio: 0.14,
+    borderWidth: preset.borderWidth != null ? preset.borderWidth : DEFAULT_BUBBLE_BORDER,
     lockMove: false, lockResize: false, lockRotate: false,
     zIndex: (index || 0) + 1,
     color: '#111111', clipPanel: null,
@@ -417,17 +426,18 @@ function buildBubbleSVG(b) {
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
   svg.setAttribute('width',b.w); svg.setAttribute('height',b.h);
   svg.setAttribute('viewBox',`0 0 ${b.w} ${b.h}`); svg.setAttribute('overflow','visible');
-  const cx=b.w/2, cy=b.h/2, rx=b.w/2-4, ry=b.h/2-4, sw=b.type==='bold'?5:2.5;
+  const cx=b.w/2, cy=b.h/2, rx=b.w/2-4, ry=b.h/2-4;
+  const sw = b.borderWidth != null ? b.borderWidth : (b.type==='bold'?5:2.5); // fallback for bubbles saved before borderWidth existed
   switch(b.type) {
     case 'circle': svgCircleWithTail(svg,cx,cy,rx,ry,b,sw,'#111','#fff'); break;
     case 'bold':   svgCircleWithTail(svg,cx,cy,rx,ry,b,sw,'#111','#fff'); break;
-    case 'square': svgRect(svg,4,4,b.w-8,b.h-8,2.5,'#111','#fff'); break;
-    case 'rectangle': svgRect(svg,4,4,b.w-8,b.h-8,2.5,'#111','#fff'); svgRect(svg,9,9,b.w-18,b.h-18,1.2,'#111','none'); break;
-    case 'thought': svgThought(svg,cx,cy,rx,ry,b); break;
-    case 'fading':  svgFading(svg,cx,cy,rx,ry,b); break;
-    case 'dashed':  svgDashedBubble(svg,cx,cy,rx,ry,b); break;
-    case 'spiked':  svgSpikedBubble(svg,cx,cy,rx,ry,b); break;
-    case 'lilypad': svgLilypad(svg,cx,cy,rx,ry,b); break;
+    case 'square': svgRect(svg,4,4,b.w-8,b.h-8,sw,'#111','#fff'); break;
+    case 'rectangle': svgRect(svg,4,4,b.w-8,b.h-8,sw,'#111','#fff'); svgRect(svg,9,9,b.w-18,b.h-18,Math.max(1,sw*0.35),'#111','none'); break;
+    case 'thought': svgThought(svg,cx,cy,rx,ry,b,sw); break;
+    case 'fading':  svgFading(svg,cx,cy,rx,ry,b,sw); break;
+    case 'dashed':  svgDashedBubble(svg,cx,cy,rx,ry,b,sw); break;
+    case 'spiked':  svgSpikedBubble(svg,cx,cy,rx,ry,b,sw); break;
+    case 'lilypad': svgLilypad(svg,cx,cy,rx,ry,b,sw); break;
   }
   if (b.extraTails && b.extraTails.length) {
     b.extraTails.forEach(et => {
@@ -446,20 +456,22 @@ function svgCircleWithTail(svg,cx,cy,rx,ry,b,sw,stroke,fill) {
   const tipX=cx+(rx+b.tailLen)*Math.cos(tar), tipY=cy+(ry+b.tailLen)*Math.sin(tar);
   mkPath(svg,`M ${x2} ${y2} A ${rx} ${ry} 0 1 1 ${x1} ${y1} L ${tipX} ${tipY} Z`,stroke,fill,sw);
 }
-function svgThought(svg,cx,cy,rx,ry,b) {
+function svgThought(svg,cx,cy,rx,ry,b,sw) {
+  sw = sw != null ? sw : 2.5;
   const n=Math.max(5,b.spikeCount||Math.round((rx+ry)/9)); let d='';
   for(let i=0;i<n;i++){const a1=(i/n)*Math.PI*2,a2=((i+1)/n)*Math.PI*2,am=(a1+a2)/2,bump=0.14;const ox=cx+rx*(1+bump*1.9)*Math.cos(am),oy=cy+ry*(1+bump*1.9)*Math.sin(am);const x1=cx+rx*(1+bump)*Math.cos(a1),y1=cy+ry*(1+bump)*Math.sin(a1);const x2=cx+rx*(1+bump)*Math.cos(a2),y2=cy+ry*(1+bump)*Math.sin(a2);d+=(i===0?`M ${x1} ${y1} `:'')+`Q ${ox} ${oy} ${x2} ${y2} `;}
-  mkPath(svg,d+'Z','#111','#fff',2.5);
+  mkPath(svg,d+'Z','#111','#fff',sw);
   if(b.tailLen<=0)return;
   const tar=(b.tailAngle*Math.PI)/180, bx=cx+rx*Math.cos(tar), by_=cy+ry*Math.sin(tar);
   const tipX=cx+(rx+b.tailLen)*Math.cos(tar), tipY=cy+(ry+b.tailLen)*Math.sin(tar);
   const dots=Math.max(1,b.dotCount||4);
   for(let i=0;i<dots;i++){const t=(i+1)/(dots+1),px=bx+(tipX-bx)*t,py=by_+(tipY-by_)*t,r=Math.max(1,5.5*(b.tailBreadth||1)*(1-t*0.6));const c=document.createElementNS('http://www.w3.org/2000/svg','circle');c.setAttribute('cx',px);c.setAttribute('cy',py);c.setAttribute('r',r);c.setAttribute('stroke','#111');c.setAttribute('stroke-width',1.5);c.setAttribute('fill','#fff');svg.appendChild(c);}
 }
-function svgFading(svg,cx,cy,rx,ry,b) {
+function svgFading(svg,cx,cy,rx,ry,b,sw) {
+  sw = sw != null ? sw : 2;
   const n=Math.max(4,b.spikeCount||Math.round((rx+ry)/16)); let d='';
   for(let i=0;i<n;i++){const a1=(i/n)*Math.PI*2,a2=((i+1)/n)*Math.PI*2,am=(a1+a2)/2,bump=0.07;const ox=cx+rx*(1+bump*1.3)*Math.cos(am),oy=cy+ry*(1+bump*1.3)*Math.sin(am);const x1=cx+rx*(1+bump)*Math.cos(a1),y1=cy+ry*(1+bump)*Math.sin(a1);const x2=cx+rx*(1+bump)*Math.cos(a2),y2=cy+ry*(1+bump)*Math.sin(a2);d+=(i===0?`M ${x1} ${y1} `:'')+`Q ${ox} ${oy} ${x2} ${y2} `;}
-  mkPath(svg,d+'Z','#111','#fff',2);
+  mkPath(svg,d+'Z','#111','#fff',sw);
   if(b.tailLen<=0)return;
   const tar=(b.tailAngle*Math.PI)/180, perp=tar+Math.PI/2;
   const bx=cx+rx*Math.cos(tar), by_=cy+ry*Math.sin(tar);
@@ -473,23 +485,26 @@ function svgFading(svg,cx,cy,rx,ry,b) {
   const cp4x=(bx+(tipX-bx)*m2)+amp*Math.cos(perp),cp4y=(by_+(tipY-by_)*m2)+amp*Math.sin(perp);
   mkPath(svg,`M ${s1x} ${s1y} Q ${cp1x} ${cp1y} ${bx+(tipX-bx)*m2} ${by_+(tipY-by_)*m2} Q ${cp2x} ${cp2y} ${tipX} ${tipY} Q ${cp3x} ${cp3y} ${bx+(tipX-bx)*m1} ${by_+(tipY-by_)*m1} Q ${cp4x} ${cp4y} ${s2x} ${s2y} Z`,'#111','#fff',1.5);
 }
-function svgDashedBubble(svg,cx,cy,rx,ry,b) {
+function svgDashedBubble(svg,cx,cy,rx,ry,b,sw) {
+  sw = sw != null ? sw : 2.5;
   const dc=b.dashCount||7, dashArr=`${dc},5`;
-  if(b.tailLen<=0){const el=document.createElementNS('http://www.w3.org/2000/svg','ellipse');el.setAttribute('cx',cx);el.setAttribute('cy',cy);el.setAttribute('rx',rx);el.setAttribute('ry',ry);el.setAttribute('stroke','#111');el.setAttribute('stroke-width',2.5);el.setAttribute('fill','#fff');el.setAttribute('stroke-dasharray',dashArr);svg.appendChild(el);return;}
+  if(b.tailLen<=0){const el=document.createElementNS('http://www.w3.org/2000/svg','ellipse');el.setAttribute('cx',cx);el.setAttribute('cy',cy);el.setAttribute('rx',rx);el.setAttribute('ry',ry);el.setAttribute('stroke','#111');el.setAttribute('stroke-width',sw);el.setAttribute('fill','#fff');el.setAttribute('stroke-dasharray',dashArr);svg.appendChild(el);return;}
   const tar=(b.tailAngle*Math.PI)/180, baseGapD=Math.min(0.25,7/Math.max(rx,ry)), gapHalf=baseGapD*(b.tailBreadth||1.0);
   const [x1,y1]=ep(cx,cy,rx,ry,tar-gapHalf),[x2,y2]=ep(cx,cy,rx,ry,tar+gapHalf);
   const tipX=cx+(rx+b.tailLen)*Math.cos(tar), tipY=cy+(ry+b.tailLen)*Math.sin(tar);
-  mkPath(svg,`M ${x2} ${y2} A ${rx} ${ry} 0 1 1 ${x1} ${y1} L ${tipX} ${tipY} Z`,'#111','#fff',2.5,dashArr);
+  mkPath(svg,`M ${x2} ${y2} A ${rx} ${ry} 0 1 1 ${x1} ${y1} L ${tipX} ${tipY} Z`,'#111','#fff',sw,dashArr);
 }
-function svgSpikedBubble(svg,cx,cy,rx,ry,b) {
+function svgSpikedBubble(svg,cx,cy,rx,ry,b,sw) {
+  sw = sw != null ? sw : 2;
   const n=Math.max(5,b.spikeCount||16), tar=(b.tailAngle*Math.PI)/180, tailLen=b.tailLen||0, breadth=b.tailBreadth||1, total=n*2;
   const pts=[];
   for(let i=0;i<total;i++){const a=(i/total)*Math.PI*2-Math.PI/2,r=(i%2===0)?1:0.62;pts.push({x:cx+rx*r*Math.cos(a),y:cy+ry*r*Math.sin(a),a,isOuter:i%2===0});}
   if(tailLen>0){const spikeStep=(2*Math.PI)/total, halfSpread=spikeStep*Math.max(0.5,(breadth-1)*0.5);
     pts.forEach(p=>{if(!p.isOuter)return;let diff=p.a-tar;while(diff>Math.PI)diff-=Math.PI*2;while(diff<-Math.PI)diff+=Math.PI*2;const absDiff=Math.abs(diff);if(absDiff<=halfSpread+spikeStep){const inf=Math.max(0,1-absDiff/(halfSpread+spikeStep));p.x=cx+(rx+tailLen*inf)*Math.cos(p.a);p.y=cy+(ry+tailLen*inf)*Math.sin(p.a);}});}
-  mkPath(svg,pts.map((p,i)=>`${i===0?'M':'L'} ${p.x} ${p.y}`).join(' ')+' Z','#111','#fff',2);
+  mkPath(svg,pts.map((p,i)=>`${i===0?'M':'L'} ${p.x} ${p.y}`).join(' ')+' Z','#111','#fff',sw);
 }
-function svgLilypad(svg,cx,cy,rx,ry,b) {
+function svgLilypad(svg,cx,cy,rx,ry,b,sw) {
+  sw = sw != null ? sw : 2.5;
   const a=(b.tailAngle*Math.PI)/180, rawBreadth=(b.tailBreadth!=null)?b.tailBreadth:1.0;
   const nw=(rawBreadth/20)*Math.PI, a1=a-nw, a2=a+nw;
   const [x1,y1]=ep(cx,cy,rx,ry,a1), [x2,y2]=ep(cx,cy,rx,ry,a2);
@@ -497,7 +512,7 @@ function svgLilypad(svg,cx,cy,rx,ry,b) {
   const ix=cx+(rx-depth)*Math.cos(a), iy=cy+(ry-depth)*Math.sin(a);
   const d=depth<0.5?`M ${cx+rx} ${cy} A ${rx} ${ry} 0 1 1 ${cx+rx-0.001} ${cy} Z`:`M ${x2} ${y2} A ${rx} ${ry} 0 1 1 ${x1} ${y1} L ${ix} ${iy} Z`;
   const path=document.createElementNS('http://www.w3.org/2000/svg','path');
-  path.setAttribute('d',d);path.setAttribute('fill','#fff');path.setAttribute('stroke','#111');path.setAttribute('stroke-width',2.5);path.setAttribute('stroke-linejoin','round');svg.appendChild(path);
+  path.setAttribute('d',d);path.setAttribute('fill','#fff');path.setAttribute('stroke','#111');path.setAttribute('stroke-width',sw);path.setAttribute('stroke-linejoin','round');svg.appendChild(path);
 }
 function svgExtraTail(svg,cx,cy,rx,ry,b,sw,type) {
   const tar=(b.tailAngle*Math.PI)/180;
@@ -594,6 +609,7 @@ function syncBubbleEditorFields(b) {
   set('bp-color', b.color || '#111111');
   set('bp-line-height', b.lineHeight != null ? b.lineHeight : 1.3);
   set('bp-pad-ratio', b.padRatio != null ? b.padRatio : 0.14);
+  set('bp-border-width', b.borderWidth != null ? b.borderWidth : DEFAULT_BUBBLE_BORDER);
   set('bp-x', Math.round(b.x));
   set('bp-y', Math.round(b.y));
   set('bp-w', Math.round(b.w));
