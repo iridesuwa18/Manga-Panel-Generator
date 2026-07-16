@@ -81,6 +81,12 @@
     flex-direction: column;
     background: var(--surface);
     overscroll-behavior: contain;
+    /* Force this into its own compositor layer, isolated from the
+       canvas's zoom/pan layer. Without this it can end up sharing/
+       reusing GPU tile memory with #canvasInner, which is how a
+       pinch-zoom glitch there ends up showing as a blank menu here. */
+    transform: translateZ(0);
+    backface-visibility: hidden;
   }
   #mobMenuOverlay.open {
     display: flex;

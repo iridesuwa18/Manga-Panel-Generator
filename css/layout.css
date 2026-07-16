@@ -60,6 +60,10 @@
   flex: 1;
   position: relative;
   overflow: hidden;
+  /* Scope painting/layout to this box so a large composited layer
+     inside it (see #canvasInner) can't cause repaint issues to bleed
+     into sibling UI (rail, drawer, mobile menu overlay). */
+  contain: layout paint;
 }
 
 #canvasInner {
@@ -67,7 +71,8 @@
   top: 0;
   left: 0;
   transform-origin: 0 0;
-  will-change: transform;
+  /* will-change is toggled dynamically by canvas.js — only held during
+     an active pan/zoom gesture, not permanently (see applyCanvasTransform). */
 }
 
 /* ── Right rail ──────────────────────────────────────────── */
