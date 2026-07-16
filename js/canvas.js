@@ -35,9 +35,27 @@
   }
 
   // ── Apply current scale/panX/panY to #canvasInner ──────────
+  // will-change:transform is only held while a gesture is actively
+  // in flight (pan/zoom/pinch), then released ~200ms after the last
+  // change. Full-res manga pages inside #canvasInner can be large
+  // enough that pinning this permanently keeps a giant GPU-composited
+  // layer alive at all times — on some mobile GPUs that's what causes
+  // visual corruption after pinch-zooming (and can leave stale/blank
+  // tiles behind for the next layer that gets created, e.g. the
+  // hamburger menu overlay). Releasing it when idle lets the browser
+  // flatten that layer back down between gestures.
+  let _willChangeTimer = null;
+  function markTransformActive() {
+    canvasInner.style.willChange = 'transform';
+    clearTimeout(_willChangeTimer);
+    _willChangeTimer = setTimeout(() => {
+      if (canvasInner) canvasInner.style.willChange = 'auto';
+    }, 200);
+  }
+
   function applyCanvasTransform() {
     if (!getEls()) return;
-    canvasInner.style.willChange = 'transform';
+    markTransformActive();
     canvasInner.style.transform = `translate(${panX}px,${panY}px) scale(${scale})`;
     canvasInner.style.transformOrigin = '0 0';
   }

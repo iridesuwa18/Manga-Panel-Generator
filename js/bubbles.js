@@ -534,11 +534,11 @@ function setupTailDrag(handle,b,pgKey,wrap){handle.addEventListener('pointerdown
 
 function setupExtraTailDrag(handle,b,idx,wrap){handle.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();handle.setPointerCapture(e.pointerId);const onMove=ev=>{const wr=wrap.getBoundingClientRect();const lx=(ev.clientX-wr.left)/scale-b.w/2,ly=(ev.clientY-wr.top)/scale-b.h/2;if(!b.extraTails[idx])return;b.extraTails[idx].angle=((Math.atan2(ly,lx)*180/Math.PI)+360)%360;positionExtraTailHandle(handle,b,idx);_rebuildSVGOnly(wrap,b);};const onUp=()=>{handle.removeEventListener('pointermove',onMove);handle.removeEventListener('pointerup',onUp);snapshotState?.();};handle.addEventListener('pointermove',onMove);handle.addEventListener('pointerup',onUp);});}
 
-function setupDrag(wrap,b,pgKey){let ox=0,oy=0;wrap.addEventListener('pointerdown',e=>{if(b.lockMove)return;if(['sel-handle','rotate-handle','tail-handle','extra-tail-handle'].some(c=>e.target.classList.contains(c)))return;e.preventDefault();e.stopPropagation();wrap.setPointerCapture(e.pointerId);ox=e.clientX/scale-b.x;oy=e.clientY/scale-b.y;const onMove=ev=>{b.x=getSnapX(ev.clientX/scale-ox,pgKey);b.y=getSnapY(ev.clientY/scale-oy,pgKey);wrap.style.left=b.x+'px';wrap.style.top=b.y+'px';if(b.clipPanel!==null&&b.clipPanel!==undefined)applyBubbleClip(wrap,b);};const onUp=()=>{wrap.removeEventListener('pointermove',onMove);wrap.removeEventListener('pointerup',onUp);};wrap.addEventListener('pointermove',onMove);wrap.addEventListener('pointerup',onUp);});}
+function setupDrag(wrap,b,pgKey){let ox=0,oy=0;wrap.addEventListener('pointerdown',e=>{if(b.lockMove)return;if(['sel-handle','rotate-handle','tail-handle','extra-tail-handle'].some(c=>e.target.classList.contains(c)))return;e.preventDefault();e.stopPropagation();wrap.setPointerCapture(e.pointerId);ox=e.clientX/scale-b.x;oy=e.clientY/scale-b.y;const onMove=ev=>{b.x=getSnapX(ev.clientX/scale-ox,pgKey);b.y=getSnapY(ev.clientY/scale-oy,pgKey);wrap.style.left=b.x+'px';wrap.style.top=b.y+'px';if(b.clipPanel!==null&&b.clipPanel!==undefined)applyBubbleClip(wrap,b);};const onUp=()=>{wrap.removeEventListener('pointermove',onMove);wrap.removeEventListener('pointerup',onUp);if(selectedBubble&&selectedBubble.data===b)syncBubbleEditorFields(b);};wrap.addEventListener('pointermove',onMove);wrap.addEventListener('pointerup',onUp);});}
 
-function setupResize(handle,wrap,b,pgKey){if(!handle)return;let sx=0,sy=0,ox=0,oy=0,ow=0,oh=0;handle.addEventListener('pointerdown',e=>{if(b.lockResize)return;e.preventDefault();e.stopPropagation();handle.setPointerCapture(e.pointerId);sx=e.clientX;sy=e.clientY;ox=b.x;oy=b.y;ow=b.w;oh=b.h;const dir=handle.dataset.dir||'se';const onMove=ev=>{const dx=(ev.clientX-sx)/scale,dy=(ev.clientY-sy)/scale;let nx=ox,ny=oy,nw=ow,nh=oh;if(dir.includes('e'))nw=Math.max(100,ow+dx);if(dir.includes('s'))nh=Math.max(80,oh+dy);if(dir.includes('w')){nw=Math.max(100,ow-dx);nx=ox+ow-nw;}if(dir.includes('n')){nh=Math.max(80,oh-dy);ny=oy+oh-nh;}b.x=nx;b.y=ny;b.w=nw;b.h=nh;wrap.style.left=b.x+'px';wrap.style.top=b.y+'px';wrap.style.width=b.w+'px';wrap.style.height=b.h+'px';rebuildSVG(wrap,b);const td=wrap.querySelector('.bubble-text');if(td)updateTextStyle(td,b);positionTailHandleInWrap(wrap,b);};const onUp=()=>{handle.removeEventListener('pointermove',onMove);handle.removeEventListener('pointerup',onUp);};handle.addEventListener('pointermove',onMove);handle.addEventListener('pointerup',onUp);});}
+function setupResize(handle,wrap,b,pgKey){if(!handle)return;let sx=0,sy=0,ox=0,oy=0,ow=0,oh=0;handle.addEventListener('pointerdown',e=>{if(b.lockResize)return;e.preventDefault();e.stopPropagation();handle.setPointerCapture(e.pointerId);sx=e.clientX;sy=e.clientY;ox=b.x;oy=b.y;ow=b.w;oh=b.h;const dir=handle.dataset.dir||'se';const onMove=ev=>{const dx=(ev.clientX-sx)/scale,dy=(ev.clientY-sy)/scale;let nx=ox,ny=oy,nw=ow,nh=oh;if(dir.includes('e'))nw=Math.max(100,ow+dx);if(dir.includes('s'))nh=Math.max(80,oh+dy);if(dir.includes('w')){nw=Math.max(100,ow-dx);nx=ox+ow-nw;}if(dir.includes('n')){nh=Math.max(80,oh-dy);ny=oy+oh-nh;}b.x=nx;b.y=ny;b.w=nw;b.h=nh;wrap.style.left=b.x+'px';wrap.style.top=b.y+'px';wrap.style.width=b.w+'px';wrap.style.height=b.h+'px';rebuildSVG(wrap,b);const td=wrap.querySelector('.bubble-text');if(td)updateTextStyle(td,b);positionTailHandleInWrap(wrap,b);};const onUp=()=>{handle.removeEventListener('pointermove',onMove);handle.removeEventListener('pointerup',onUp);if(selectedBubble&&selectedBubble.data===b)syncBubbleEditorFields(b);};handle.addEventListener('pointermove',onMove);handle.addEventListener('pointerup',onUp);});}
 
-function setupRotate(handle,wrap,b){if(!handle)return;handle.addEventListener('pointerdown',e=>{if(b.lockRotate)return;e.preventDefault();e.stopPropagation();handle.setPointerCapture(e.pointerId);const onMove=ev=>{const r=wrap.getBoundingClientRect();const cx=r.left+r.width/2,cy=r.top+r.height/2;b.rotate=Math.round(Math.atan2(ev.clientY-cy,ev.clientX-cx)*180/Math.PI+90);wrap.style.transform=`rotate(${b.rotate}deg)`;};const onUp=()=>{handle.removeEventListener('pointermove',onMove);handle.removeEventListener('pointerup',onUp);};handle.addEventListener('pointermove',onMove);handle.addEventListener('pointerup',onUp);});}
+function setupRotate(handle,wrap,b){if(!handle)return;handle.addEventListener('pointerdown',e=>{if(b.lockRotate)return;e.preventDefault();e.stopPropagation();handle.setPointerCapture(e.pointerId);const onMove=ev=>{const r=wrap.getBoundingClientRect();const cx=r.left+r.width/2,cy=r.top+r.height/2;b.rotate=Math.round(Math.atan2(ev.clientY-cy,ev.clientX-cx)*180/Math.PI+90);wrap.style.transform=`rotate(${b.rotate}deg)`;};const onUp=()=>{handle.removeEventListener('pointermove',onMove);handle.removeEventListener('pointerup',onUp);if(selectedBubble&&selectedBubble.data===b)syncBubbleEditorFields(b);};handle.addEventListener('pointermove',onMove);handle.addEventListener('pointerup',onUp);});}
 
 // ── Select / Apply ────────────────────────────────────────────
 // selectedBubble is declared in state.js — used directly here
@@ -547,10 +547,61 @@ function selectBubble(el, data, pgKey) {
   document.querySelectorAll('.bubble-wrap.selected').forEach(e => e.classList.remove('selected'));
   el.classList.add('selected'); selectedBubble = { el, data, pgKey };
   refreshLayersPanel?.(pgKey);
+  showBubbleEditorPanel(true);
+  syncBubbleEditorFields(data);
   // Open bubble editor drawer tab
   openDrawerTab?.('bubbles', 'bubble');
 }
 window.selectBubble = selectBubble;
+
+// Show/hide the "Selected Bubble" section vs. the "click a bubble" hint.
+function showBubbleEditorPanel(show) {
+  const noSel  = document.getElementById('bp-nosel');
+  const editor = document.getElementById('bp-editor');
+  if (noSel)  noSel.style.display  = show ? 'none' : '';
+  if (editor) editor.style.display = show ? '' : 'none';
+}
+window.showBubbleEditorPanel = showBubbleEditorPanel;
+
+// Copy a bubble's current data into the bp-* editor fields. Called on
+// select, and again whenever the drawer re-renders (openDrawer/tab
+// switch wipes #drawer's innerHTML, which resets every field to blank).
+function syncBubbleEditorFields(b) {
+  if (!b) return;
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+  set('bp-type', b.type);
+  set('bp-speaker', b.speaker || '');
+  set('bp-text', b.text || '');
+  set('bp-font', b.font);
+  set('bp-fsize', b.fontSize);
+  set('bp-color', b.color || '#111111');
+  set('bp-line-height', b.lineHeight != null ? b.lineHeight : 1.3);
+  set('bp-pad-ratio', b.padRatio != null ? b.padRatio : 0.14);
+  set('bp-x', Math.round(b.x));
+  set('bp-y', Math.round(b.y));
+  set('bp-w', Math.round(b.w));
+  set('bp-h', Math.round(b.h));
+  set('bp-rot', b.rotate || 0);
+  set('bp-tail-angle', Math.round(b.tailAngle != null ? b.tailAngle : 225));
+  set('bp-tail-len', b.tailLen != null ? b.tailLen : 150);
+  set('bp-tail-breadth', b.tailBreadth != null ? b.tailBreadth : 1.0);
+  set('bp-dot-count', b.dotCount || 4);
+  set('bp-spike-count', b.spikeCount || 16);
+  set('bp-dash-count', b.dashCount || 7);
+  document.getElementById('bp-bold')?.classList.toggle('active', !!b.bold);
+  document.getElementById('bp-italic')?.classList.toggle('active', !!b.italic);
+  document.getElementById('lock-move')?.classList.toggle('active', !!b.lockMove);
+  document.getElementById('lock-resize')?.classList.toggle('active', !!b.lockResize);
+  document.getElementById('lock-rotate')?.classList.toggle('active', !!b.lockRotate);
+}
+window.syncBubbleEditorFields = syncBubbleEditorFields;
+
+function deselectBubble() {
+  document.querySelectorAll('.bubble-wrap.selected').forEach(el => el.classList.remove('selected'));
+  selectedBubble = null;
+  showBubbleEditorPanel(false);
+}
+window.deselectBubble = deselectBubble;
 
 function applyBubble(b, wrap, pgKey) {
   applyBubbleStyle(wrap, b); rebuildSVG(wrap, b);
@@ -598,7 +649,6 @@ window.duplicateBubbleById = duplicateBubbleById;
 // ── Deselect on canvas background click ──────────────────────
 document.addEventListener('pointerdown', e => {
   if (!e.target.closest('.bubble-wrap') && !e.target.closest('#drawer')) {
-    document.querySelectorAll('.bubble-wrap.selected').forEach(el => el.classList.remove('selected'));
-    selectedBubble = null;
+    deselectBubble();
   }
 });

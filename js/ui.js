@@ -174,6 +174,15 @@
       window.refreshBubblePageSelect?.();
       const pg = document.getElementById('bubblePageSel')?.value || window.getPages?.()[0]?.pg;
       window.refreshQuickBubblePanelSel?.(pg);
+      // The drawer's innerHTML was just rebuilt from scratch, which resets
+      // the Selected Bubble section back to its empty/hidden default —
+      // re-show + re-fill it here if a bubble is still selected.
+      if (selectedBubble) {
+        window.showBubbleEditorPanel?.(true);
+        window.syncBubbleEditorFields?.(selectedBubble.data);
+      } else {
+        window.showBubbleEditorPanel?.(false);
+      }
     }
     if (rowId === 'bubbles' && tabId === 'text') {
       const pg = window.selectedTextElement?.pgKey || window.getPages?.()[0]?.pg;

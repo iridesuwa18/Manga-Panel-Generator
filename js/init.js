@@ -92,12 +92,7 @@ document.addEventListener('keydown', e => {
 
   // Escape — deselect the active bubble or text element
   if (e.key === 'Escape') {
-    document.querySelectorAll('.bubble-wrap.selected').forEach(el => el.classList.remove('selected'));
-    selectedBubble = null;
-    const noSel  = document.getElementById('bp-nosel');
-    const editor = document.getElementById('bp-editor');
-    if (noSel)  noSel.style.display  = '';
-    if (editor) editor.style.display = 'none';
+    window.deselectBubble?.();
     window.deselectTextElement?.();
     return;
   }

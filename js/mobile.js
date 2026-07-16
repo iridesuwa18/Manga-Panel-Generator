@@ -25,7 +25,13 @@
 
   // ── Hamburger open/close ─────────────────────────────────
   function openMobileMenu() {
-    document.getElementById('mobMenuOverlay')?.classList.add('open');
+    const overlay = document.getElementById('mobMenuOverlay');
+    if (!overlay) return;
+    overlay.classList.add('open');
+    // Defensive repaint: forces the browser to recompute this layer's
+    // paint immediately rather than possibly reusing a stale/blank
+    // tile left over from a just-finished canvas pinch-zoom gesture.
+    void overlay.offsetHeight;
   }
   function closeMobileMenu() {
     document.getElementById('mobMenuOverlay')?.classList.remove('open');
