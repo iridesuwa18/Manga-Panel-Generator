@@ -40,6 +40,17 @@
 .btn.full { display: flex; width: 100%; }
 .btn.muted { opacity: .45; }
 
+/* Toggle state for bold/italic/lock-move/lock-resize/lock-rotate
+   buttons (and any other .btn using classList.toggle('active', ...)).
+   Without this rule, toggling the class did nothing visible. */
+.btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--ink);
+  font-weight: 600;
+}
+.btn.active:hover { background: var(--accent-dim); border-color: var(--accent-dim); }
+
 /* ── Form elements ───────────────────────────────────────── */
 .field {
   display: flex;
