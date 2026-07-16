@@ -213,6 +213,168 @@ function renderSVGtoPNG(svgStr, w, h, filename) {
   });
 }
 
+// ── Export Mask PNG (panel interior, excluding bubbles) ──────
+//
+// Purpose: replace the manual "magic wand each panel, exclude the
+// bubbles, mask a new layer" workflow in Procreate. Produces one
+// full-page PNG per page where:
+//   - inside-panel area (respecting corner skew + hollow gap splits,
+//     same geometry as the real panel render) = opaque white
+//   - everything else, INCLUDING the full silhouette of every
+//     speech bubble on that page (regardless of clipPanel) = fully
+//     transparent (real alpha, not just white/black)
+// Import straight into Procreate as a layer mask / clipping mask.
+//
+// Two SVGs are rendered separately and composited on a canvas with
+// destination-out, because that reliably punches true alpha holes
+// for arbitrary bubble silhouettes (tails, thought-bubble scallops,
+// spikes, etc.) without needing boolean path subtraction in SVG.
+
+function computeMaskPanelRects(pg) {
+  const ps = pageSettings[pg] || { mode: 'safe', gutter: 12 };
+  const pageRows = rows.filter(r => r.pg === pg);
+
+  let baseRects;
+  if (panelOverrides[pg]?._lockedRects?.length) {
+    baseRects = panelOverrides[pg]._lockedRects;
+  } else {
+    baseRects = computePanelRects(pageRows, ps.mode, ps.gutter, ps.flow || 'v-first');
+  }
+
+  const _pgOvs = panelOverrides[pg] || {};
+  return baseRects.map((r, idx) => {
+    const ov = _pgOvs[idx];
+    if (!ov) return r;
+    return { ...r,
+      x: ov.x !== undefined ? ov.x : r.x,
+      y: ov.y !== undefined ? ov.y : r.y,
+      w: ov.w !== undefined ? ov.w : r.w,
+      h: ov.h !== undefined ? ov.h : r.h,
+      _hidden: ov.visible === false,
+    };
+  });
+}
+
+function buildMaskPanelsSVGString(pg, onlyIdx = null) {
+  const pgNum = parseInt((pg.match(/\d+/) || [1])[0]);
+  const _pgOvs = panelOverrides[pg] || {};
+  let panelRects = computeMaskPanelRects(pg);
+  if (onlyIdx !== null) {
+    // Single-panel mask: keep target panel's geometry, hide every other
+    // panel so only that one shows up as white in the render.
+    panelRects = panelRects.map((r, idx) => idx === onlyIdx ? r : { ...r, _hidden: true });
+  }
+
+  // fillColor white (the "keep" area), strokeColor/strokeW off (no border
+  // baked into the mask), forExport=true (skips page/guide rects + the
+  // "+ Add Panels" CTA), flushColor 'none' so hollow gap-splits stay
+  // truly hollow instead of getting painted over by the fill color.
+  return buildSVG(pg, pgNum, panelRects, '#ffffff', 'none', 0, true, _pgOvs, false, 'none');
+}
+
+function buildMaskBubblesSVGString(pg, fontDefsStr) {
+  const pgBubbles = (bubbles || {})[pg] || [];
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${PAGE_W}" height="${PAGE_H}" viewBox="0 0 ${PAGE_W} ${PAGE_H}" overflow="visible">`;
+  if (fontDefsStr) svg += fontDefsStr; // real embedded fonts, so glyph shapes punched out match the actual rendered text
+  pgBubbles.forEach(b => {
+    const bsvgEl = buildBubbleSVG(b); // body + tail shape
+    let bsvgStr = new XMLSerializer().serializeToString(bsvgEl);
+    bsvgStr = bsvgStr.replace(/ style="[^"]*"/g, '');
+    const textStr = buildBubbleTextSVGNative(b); // glyphs, in case text overhangs the bubble body
+    svg += `<g transform="translate(${b.x},${b.y}) rotate(${b.rotate || 0},${b.w / 2},${b.h / 2})">${bsvgStr}${textStr}</g>`;
+  });
+  svg += `</svg>`;
+  return svg;
+}
+
+function renderMaskToPNG(panelsSvgStr, bubblesSvgStr, w, h, filename) {
+  return new Promise(resolve => {
+    const panelsBlob = new Blob([panelsSvgStr], { type: 'image/svg+xml;charset=utf-8' });
+    const panelsUrl  = URL.createObjectURL(panelsBlob);
+    const panelsImg  = new Image();
+    panelsImg.onload = () => {
+      setTimeout(() => {
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, w, h);
+        ctx.drawImage(panelsImg, 0, 0, w, h);
+        URL.revokeObjectURL(panelsUrl);
+
+        const bubblesBlob = new Blob([bubblesSvgStr], { type: 'image/svg+xml;charset=utf-8' });
+        const bubblesUrl  = URL.createObjectURL(bubblesBlob);
+        const bubblesImg  = new Image();
+        bubblesImg.onload = () => {
+          setTimeout(() => {
+            // Punch real alpha holes wherever a bubble sits, regardless
+            // of which panel (if any) it's clipped to on-screen.
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.drawImage(bubblesImg, 0, 0, w, h);
+            ctx.globalCompositeOperation = 'source-over';
+            URL.revokeObjectURL(bubblesUrl);
+
+            canvas.toBlob(pngBlob => {
+              const purl = URL.createObjectURL(pngBlob);
+              const a = document.createElement('a');
+              a.href = purl; a.download = filename;
+              document.body.appendChild(a); a.click(); document.body.removeChild(a);
+              setTimeout(() => URL.revokeObjectURL(purl), 2000);
+              resolve();
+            }, 'image/png');
+          }, 100);
+        };
+        bubblesImg.onerror = () => { URL.revokeObjectURL(bubblesUrl); resolve(); };
+        bubblesImg.src = bubblesUrl;
+      }, 100);
+    };
+    panelsImg.onerror = () => { URL.revokeObjectURL(panelsUrl); resolve(); };
+    panelsImg.src = panelsUrl;
+  });
+}
+
+async function exportAllMaskPNG(pageFilter, perPanel) {
+  let containers = Array.from(document.querySelectorAll('.page-output[data-svg]'));
+  if (!containers.length) { showToast('Generate pages first!'); return; }
+  if (pageFilter && pageFilter !== '__all__') {
+    containers = containers.filter(c => c.dataset.pg === pageFilter);
+  }
+  showToast('Rendering masks… this may take a moment');
+  const fontDefsStr = await buildFontDefs();
+
+  // Build the full task list up front so the progress count and
+  // filenames are correct whether we're doing one mask per page or
+  // one mask per panel.
+  const tasks = [];
+  containers.forEach(c => {
+    const pg     = c.dataset.pg;
+    const pgSafe = pg.replace(/\s/g, '_');
+    if (perPanel) {
+      const panelRects = computeMaskPanelRects(pg);
+      panelRects.forEach((r, idx) => {
+        if (r._hidden) return;
+        tasks.push({ pg, onlyIdx: idx, filename: `manga_${pgSafe}_panel${idx + 1}_mask.png` });
+      });
+    } else {
+      tasks.push({ pg, onlyIdx: null, filename: `manga_${pgSafe}_mask.png` });
+    }
+  });
+
+  const bubblesCache = {}; // same bubble-holes layer reused across every panel on a page
+  const total = tasks.length;
+  let done = 0;
+  for (const t of tasks) {
+    if (!bubblesCache[t.pg]) bubblesCache[t.pg] = buildMaskBubblesSVGString(t.pg, fontDefsStr);
+    const panelsSvgStr  = buildMaskPanelsSVGString(t.pg, t.onlyIdx);
+    const bubblesSvgStr = bubblesCache[t.pg];
+    await renderMaskToPNG(panelsSvgStr, bubblesSvgStr, PAGE_W, PAGE_H, t.filename);
+    done++;
+    showToast(`Exporting mask ${done}/${total}…`);
+    await new Promise(r => setTimeout(r, 100));
+  }
+  showToast(`Exported ${total} mask PNG(s) ✓`);
+}
+window.exportAllMaskPNG = exportAllMaskPNG;
+
 // ── Export All PNG ───────────────────────────────────────────
 
 async function exportAllPNG(pageFilter, transparent) {

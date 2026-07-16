@@ -260,7 +260,8 @@ function computePanelRects(pageRows, mode, gutter, flow = 'v-first') {
 // ─────────────────────────────────────────────
 // SVG GENERATION
 // ─────────────────────────────────────────────
-function buildSVG(pg, pgNum, panelRects, fillColor, strokeColor, strokeW, forExport = false, ovs = null, isBlank = false) {
+function buildSVG(pg, pgNum, panelRects, fillColor, strokeColor, strokeW, forExport = false, ovs = null, isBlank = false, flushColor = null) {
+  const _flushColor = flushColor !== null ? flushColor : fillColor;
   const isOdd = pgNum % 2 !== 0;
   const drawX = getDrawX(isOdd);
   const safe = getSafeRect(isOdd);
@@ -454,7 +455,7 @@ function buildSVG(pg, pgNum, panelRects, fillColor, strokeColor, strokeW, forExp
       // ── Draw all resulting sub-panels ──
       // Clear the panel background first (white flush)
       svg += `<g clip-path="url(#${_clipId})">`;
-      svg += `<polygon points="${polyAttr(corners.tl, corners.tr, corners.br, corners.bl)}" fill="white" stroke="none"/>`;
+      svg += `<polygon points="${polyAttr(corners.tl, corners.tr, corners.br, corners.bl)}" fill="${_flushColor}" stroke="none"/>`;
       regions.forEach(poly => {
         if (poly.length < 3) return;
         const pts = poly.map(p => p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ');

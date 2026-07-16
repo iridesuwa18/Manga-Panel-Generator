@@ -254,6 +254,27 @@
             ) ?? window.showToast?.('PNG export not wired yet')">&#8595; Export PNG</button>
         </div>
         <div class="section">
+          <div class="section-title">Export Mask</div>
+          <div class="field">
+            <label>Page</label>
+            <select id="maskPageSel">
+              <option value="__all__">All pages</option>
+              ${pageOptionsHTML()}
+            </select>
+          </div>
+          <div class="field" style="flex-direction:row;align-items:center;gap:var(--sp-2)">
+            <input type="checkbox" id="maskPerPanel">
+            <label style="text-transform:none;font-size:var(--type-sm)">Export each panel as its own file</label>
+          </div>
+          <div style="font-size:var(--type-sm);color:var(--text-3);margin-bottom:var(--sp-2)">
+            White = inside each panel, transparent = gaps + speech bubbles (body + text). For use as a Procreate clipping mask.
+          </div>
+          <button class="btn primary full" onclick="window.exportAllMaskPNG?.(
+              document.getElementById('maskPageSel').value,
+              document.getElementById('maskPerPanel').checked
+            ) ?? window.showToast?.('Mask export not wired yet')">&#8595; Export Mask PNG</button>
+        </div>
+        <div class="section">
           <div class="section-title">Export Data</div>
           <button class="btn full" onclick="exportExcel()">&#8595; Export Excel / CSV</button>
         </div>`;
