@@ -723,3 +723,430 @@ window.getPages = getPages;
 window.computePanelRects = computePanelRects;
 window.buildSVG = buildSVG;
 window.generateAll = generateAll;
+
+// ─────────────────────────────────────────────
+// SINGLE-PAGE RE-RENDER (panel position/size/visibility edits)
+// ─────────────────────────────────────────────
+// Ported from Old_index.html — js/panels.js has always called
+// rerenderPageSVG/rebuildPageSVG/refreshCornerOverlay (see its own
+// header comment listing them as a generate.js dependency), but they
+// were never actually carried over in the migration, so every panel
+// edit that used them (position/size fields, visibility, reset,
+// Edit Corners, Add Split) threw "X is not defined".
+function rerenderPageSVG(pg) {
+  const cont = document.querySelector(`.page-output[data-pg="${pg}"]`);
+  if (!cont) return;
+  const pgNum = parseInt((pg.match(/\d+/) || [1])[0]);
+  const ps = pageSettings[pg] || { mode: 'safe', gutter: 12 };
+  const fillColor = panelFillColor;
+  const strokeColor = panelStrokeColor;
+  const strokeW = panelStrokeWidth || 8;
+
+  // Use the locked snapshot if present, otherwise the cached base
+  // rects, recomputing only if neither exists yet.
+  const baseRects = panelOverrides[pg]?._lockedRects?.length
+    ? panelOverrides[pg]._lockedRects
+    : (_lastBaseRects[pg] || computePanelRects(rows.filter(r => r.pg === pg), ps.mode, ps.gutter, ps.flow || 'v-first'));
+  _lastBaseRects[pg] = baseRects;
+
+  const _pgOvs = panelOverrides[pg] || {};
+  const finalRects = baseRects.map((r, idx) => {
+    const ov = _pgOvs[idx];
+    if (!ov) return r;
+    return { ...r,
+      x: ov.x !== undefined ? ov.x : r.x,
+      y: ov.y !== undefined ? ov.y : r.y,
+      w: ov.w !== undefined ? ov.w : r.w,
+      h: ov.h !== undefined ? ov.h : r.h,
+      _hidden: ov.visible === false,
+    };
+  });
+  _lastPanelRects[pg] = finalRects;
+
+  const pageRows = rows.filter(r => r.pg === pg);
+  const isBlank = pageRows.every(r => r._blankPlaceholder) || !finalRects.some(r => r.pnl);
+
+  const svgStr = buildSVG(pg, pgNum, finalRects, fillColor, strokeColor, strokeW, false, _pgOvs, isBlank);
+  cont.dataset.svg = svgStr;
+
+  // Swap just the SVG element, leaving the bubble/text/corner overlays untouched
+  const svgWrap = cont.querySelector('div[style*="transform-origin"]');
+  if (!svgWrap) return;
+  const oldSvg = svgWrap.querySelector(':scope > svg');
+  const tmp = document.createElement('div');
+  tmp.innerHTML = svgStr;
+  const newSvg = tmp.querySelector('svg');
+  if (!newSvg) return;
+  if (oldSvg) svgWrap.replaceChild(newSvg, oldSvg);
+  else svgWrap.insertBefore(newSvg, svgWrap.firstChild);
+
+  refreshCornerOverlay(pg);
+
+  // Re-apply bubble clips (panel shape may have changed)
+  document.querySelectorAll(`.page-output[data-pg="${pg}"] .bubble-wrap`).forEach(wrap => {
+    const b = (bubbles[pg] || []).find(x => x.id === wrap.dataset.id);
+    if (b && b.clipPanel != null) applyBubbleClip?.(wrap, b);
+  });
+}
+window.rerenderPageSVG = rerenderPageSVG;
+
+// Lighter-weight re-render used mid-drag (corner/split dots) — reuses
+// whatever's already in _lastPanelRects instead of recomputing overrides,
+// so it stays cheap enough to call on every pointermove.
+function rebuildPageSVG(pg) {
+  const cont = document.querySelector(`.page-output[data-pg="${pg}"]`);
+  if (!cont) return;
+  const svgWrap = cont.querySelector('div[style*="transform-origin"]');
+  if (!svgWrap) return;
+
+  const pgNum = parseInt((pg.match(/\d+/) || [1])[0]);
+  const fillColor = panelFillColor;
+  const strokeColor = panelStrokeColor;
+  const strokeW = panelStrokeWidth || 8;
+  const rects = _lastPanelRects[pg] || [];
+
+  const newSvg = buildSVG(pg, pgNum, rects, fillColor, strokeColor, strokeW, false, panelOverrides[pg] || {});
+  const oldSvg = svgWrap.querySelector('svg');
+  if (oldSvg) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = newSvg;
+    svgWrap.replaceChild(tmp.firstElementChild, oldSvg);
+  }
+  cont.dataset.svg = newSvg;
+
+  document.querySelectorAll(`.page-output[data-pg="${pg}"] .bubble-wrap`).forEach(wrap => {
+    const b = (bubbles[pg] || []).find(x => x.id === wrap.dataset.id);
+    if (b && b.clipPanel != null) applyBubbleClip?.(wrap, b);
+  });
+}
+window.rebuildPageSVG = rebuildPageSVG;
+
+// ─────────────────────────────────────────────
+// CORNER-OFFSET & SPLIT-DOT DRAG OVERLAY ("Edit Corners" / split handles)
+// ─────────────────────────────────────────────
+function getCornerOverlay(pg) {
+  const cont = document.querySelector(`.page-output[data-pg="${pg}"]`);
+  if (!cont) return null;
+  const svgWrap = cont.querySelector('div[style*="transform-origin"]');
+  if (!svgWrap) return null;
+  let ov = svgWrap.querySelector('.corner-overlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.className = 'corner-overlay';
+    ov.style.cssText = `position:absolute;top:0;left:0;width:${PAGE_W}px;height:${PAGE_H}px;pointer-events:none;`;
+    svgWrap.appendChild(ov);
+  }
+  return ov;
+}
+window.getCornerOverlay = getCornerOverlay;
+
+function refreshCornerOverlay(pg) {
+  const ov = getCornerOverlay(pg);
+  if (!ov) return;
+  ov.innerHTML = '';
+
+  const rects  = _lastPanelRects[pg] || [];
+  const pgCo   = cornerOffsets[pg]   || {};
+  const pgLk   = cornerLocks[pg]     || {};
+  const pgEna  = cornerEnabled[pg]   || {};
+  const pgAxis = cornerAxisMode[pg]  || {};
+  const pgSo   = splitOffsets[pg]    || {};
+  const pgOvs  = panelOverrides[pg]  || {};
+
+  rects.forEach((r, idx) => {
+    if (r._hidden) return;
+
+    // ── Corner dots (only when corner editing is on for this panel) ──
+    if (cornerEditMode[pg] && pgEna[idx]) {
+      const co   = pgCo[idx]  || {};
+      const lk   = pgLk[idx]  || {};
+      const axis = pgAxis[idx] || 'free';
+      const allLocked = ['tl','tr','bl','br'].every(k => !!lk[k]);
+
+      [
+        { key:'tl', baseX: r.x,       baseY: r.y       },
+        { key:'tr', baseX: r.x + r.w, baseY: r.y       },
+        { key:'bl', baseX: r.x,       baseY: r.y + r.h },
+        { key:'br', baseX: r.x + r.w, baseY: r.y + r.h },
+      ].forEach(({ key, baseX, baseY }) => {
+        const isLk = allLocked || !!lk[key];
+        if (isLk) return; // hide dot when locked
+
+        const dot = document.createElement('div');
+        dot.className = 'corner-dot';
+        dot.textContent = key.toUpperCase();
+        dot.style.pointerEvents = 'auto';
+        dot.dataset.pg  = pg;
+        dot.dataset.idx = idx;
+        dot.dataset.key = key;
+
+        const cx = baseX + (co[key]   || 0);
+        const cy = baseY + (co[key+'Y'] || 0);
+        dot.style.left = cx + 'px';
+        dot.style.top  = cy + 'px';
+
+        setupCornerDotDrag(dot, pg, idx, key, baseX, baseY, axis);
+        ov.appendChild(dot);
+      });
+    }
+
+    // ── Split endpoint dots ──
+    const _ovEntry = pgOvs[idx] || {};
+    const _splitsArr = _ovEntry.splits ? _ovEntry.splits : (_ovEntry.split ? [_ovEntry.split] : []);
+    const _soByIdx = pgSo[idx] || {};
+
+    const _co  = pgCo[idx]  || {};
+    const _ena = pgEna[idx] !== false && !!(pgCo[idx]);
+    const _corners = (() => {
+      const x1 = r.x, y1 = r.y, x2 = r.x + r.w, y2 = r.y + r.h;
+      if (!_ena || !_co) return {
+        tl:{x:x1,y:y1}, tr:{x:x2,y:y1}, br:{x:x2,y:y2}, bl:{x:x1,y:y2}
+      };
+      return {
+        tl: { x: x1 + (_co.tl||0),  y: y1 + (_co.tlY||0) },
+        tr: { x: x2 + (_co.tr||0),  y: y1 + (_co.trY||0) },
+        br: { x: x2 + (_co.br||0),  y: y2 + (_co.brY||0) },
+        bl: { x: x1 + (_co.bl||0),  y: y2 + (_co.blY||0) },
+      };
+    })();
+
+    _splitsArr.forEach((sp, splitIdx) => {
+      if (!sp) return;
+      if (!!(splitLocks[pg]?.[idx]?.all)) return; // locked — no dots
+      const pct = Math.max(0.05, Math.min(0.95, (sp.pos || 50) / 100));
+      const dir = sp.dir || 'h';
+      const so  = _soByIdx[splitIdx] || {};
+
+      const aT = (so.aT !== undefined) ? so.aT : pct;
+      const bT = (so.bT !== undefined) ? so.bT : pct;
+
+      let aPt, bPt, aCursor, bCursor;
+      if (dir === 'h') {
+        aPt = { x: _corners.tl.x + (_corners.bl.x - _corners.tl.x) * aT,
+                y: _corners.tl.y + (_corners.bl.y - _corners.tl.y) * aT };
+        bPt = { x: _corners.tr.x + (_corners.br.x - _corners.tr.x) * bT,
+                y: _corners.tr.y + (_corners.br.y - _corners.tr.y) * bT };
+        aCursor = 'ns-resize'; bCursor = 'ns-resize';
+      } else {
+        aPt = { x: _corners.tl.x + (_corners.tr.x - _corners.tl.x) * aT,
+                y: _corners.tl.y + (_corners.tr.y - _corners.tl.y) * aT };
+        bPt = { x: _corners.bl.x + (_corners.br.x - _corners.bl.x) * bT,
+                y: _corners.bl.y + (_corners.br.y - _corners.bl.y) * bT };
+        aCursor = 'ew-resize'; bCursor = 'ew-resize';
+      }
+
+      const labelPrefix = _splitsArr.length > 1 ? String(splitIdx + 1) : '';
+
+      [
+        { key: 'a', pt: aPt, label: labelPrefix + 'A', cursor: aCursor },
+        { key: 'b', pt: bPt, label: labelPrefix + 'B', cursor: bCursor },
+      ].forEach(({ key, pt, label, cursor }) => {
+        const dot = document.createElement('div');
+        dot.className = 'split-dot';
+        dot.textContent = label;
+        dot.style.cursor = cursor;
+        dot.style.pointerEvents = 'auto';
+        dot.dataset.pg  = pg;
+        dot.dataset.idx = idx;
+        dot.dataset.key = key;
+        dot.dataset.splitIdx = splitIdx;
+        dot.style.left = pt.x + 'px';
+        dot.style.top  = pt.y + 'px';
+
+        setupSplitDotDrag(dot, pg, idx, splitIdx, key, dir, _corners);
+        ov.appendChild(dot);
+      });
+    });
+  });
+}
+window.refreshCornerOverlay = refreshCornerOverlay;
+
+function setupCornerDotDrag(dot, pg, idx, key, baseX, baseY, axis) {
+  let dragging = false;
+  let startClientX, startClientY, startOffX, startOffY, wrapScale;
+
+  dot.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    dot.setPointerCapture(e.pointerId);
+    dragging = true;
+    startClientX = e.clientX;
+    startClientY = e.clientY;
+    startOffX = (cornerOffsets[pg]?.[idx]?.[key])       || 0;
+    startOffY = (cornerOffsets[pg]?.[idx]?.[key + 'Y']) || 0;
+    // The new codebase has a single canvas-wide `scale` (js/canvas.js) —
+    // no separate per-page SVG scale to also multiply by.
+    wrapScale = scale || 1;
+  });
+
+  dot.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    e.preventDefault();
+
+    const rawDx = (e.clientX - startClientX) / wrapScale;
+    const rawDy = (e.clientY - startClientY) / wrapScale;
+
+    const dx = (axis === 'h') ? 0 : Math.round(rawDx); // 'h' = horizontal split = up/down only
+    const dy = (axis === 'v') ? 0 : Math.round(rawDy); // 'v' = vertical split   = left/right only
+
+    if (!cornerOffsets[pg]) cornerOffsets[pg] = {};
+    if (!cornerOffsets[pg][idx]) cornerOffsets[pg][idx] = {};
+
+    if (axis !== 'h') cornerOffsets[pg][idx][key]       = startOffX + dx;
+    if (axis !== 'v') cornerOffsets[pg][idx][key + 'Y'] = startOffY + dy;
+
+    // Live-update this dot's position directly — don't call
+    // refreshCornerOverlay mid-drag, it would wipe the dot + pointer capture.
+    dot.style.left = (baseX + (cornerOffsets[pg][idx][key]       || 0)) + 'px';
+    dot.style.top  = (baseY + (cornerOffsets[pg][idx][key + 'Y'] || 0)) + 'px';
+
+    rebuildPageSVG(pg);
+    refreshPanelsPanel?.(pg);
+
+    document.querySelectorAll(`.page-output[data-pg="${pg}"] .bubble-wrap`).forEach(wrap => {
+      const b = (bubbles[pg] || []).find(x => x.id === wrap.dataset.id);
+      if (b && b.clipPanel === idx) applyBubbleClip?.(wrap, b);
+    });
+  });
+
+  dot.addEventListener('pointerup', () => {
+    dragging = false;
+    refreshCornerOverlay(pg); // safe to fully rebuild the dots now
+    snapshotState?.();
+  });
+  dot.addEventListener('pointercancel', () => {
+    dragging = false;
+    refreshCornerOverlay(pg);
+  });
+}
+window.setupCornerDotDrag = setupCornerDotDrag;
+
+function setupSplitDotDrag(dot, pg, idx, splitIdx, key, dir, corners) {
+  let dragging = false;
+  let startClientX, startClientY, startT, wrapScale;
+
+  dot.addEventListener('pointerdown', e => {
+    if (splitLocks[pg]?.[idx]?.all) return;
+    e.preventDefault();
+    e.stopPropagation();
+    dot.setPointerCapture(e.pointerId);
+    dragging = true;
+    startClientX = e.clientX;
+    startClientY = e.clientY;
+
+    const so = splitOffsets[pg]?.[idx]?.[splitIdx] || {};
+    const sp = (panelOverrides[pg]?.[idx]?.splits || [])[splitIdx] || {};
+    const pct = Math.max(0.05, Math.min(0.95, (sp.pos || 50) / 100));
+    startT = (so[key + 'T'] !== undefined) ? so[key + 'T'] : pct;
+    wrapScale = scale || 1;
+  });
+
+  dot.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    e.preventDefault();
+
+    // Re-read corners fresh in case they moved since drag started
+    const r = (_lastPanelRects[pg] || [])[idx];
+    if (!r) return;
+    const _co  = (cornerOffsets[pg] || {})[idx] || {};
+    const _ena = (cornerEnabled[pg] || {})[idx] !== false && !!((cornerOffsets[pg]||{})[idx]);
+    const C = {
+      tl: { x: r.x + (_ena ? (_co.tl||0)  : 0), y: r.y         + (_ena ? (_co.tlY||0) : 0) },
+      tr: { x: r.x + r.w + (_ena ? (_co.tr||0)  : 0), y: r.y   + (_ena ? (_co.trY||0) : 0) },
+      br: { x: r.x + r.w + (_ena ? (_co.br||0)  : 0), y: r.y+r.h + (_ena ? (_co.brY||0) : 0) },
+      bl: { x: r.x + (_ena ? (_co.bl||0)  : 0), y: r.y + r.h   + (_ena ? (_co.blY||0) : 0) },
+    };
+
+    let edgeStart, edgeEnd;
+    if (dir === 'h') {
+      edgeStart = (key === 'a') ? C.tl : C.tr;
+      edgeEnd   = (key === 'a') ? C.bl : C.br;
+    } else {
+      edgeStart = (key === 'a') ? C.tl : C.bl;
+      edgeEnd   = (key === 'a') ? C.tr : C.br;
+    }
+
+    const edgeVec = { x: edgeEnd.x - edgeStart.x, y: edgeEnd.y - edgeStart.y };
+    const edgeLen = Math.hypot(edgeVec.x, edgeVec.y);
+    if (edgeLen < 1) return;
+
+    const rawDx = (e.clientX - startClientX) / wrapScale;
+    const rawDy = (e.clientY - startClientY) / wrapScale;
+    const deltaAlongEdge = (rawDx * edgeVec.x + rawDy * edgeVec.y) / edgeLen;
+    const deltaT = deltaAlongEdge / edgeLen;
+
+    const newT = Math.max(0.02, Math.min(0.98, startT + deltaT));
+
+    if (!splitOffsets[pg])                splitOffsets[pg]                = {};
+    if (!splitOffsets[pg][idx])           splitOffsets[pg][idx]           = {};
+    if (!splitOffsets[pg][idx][splitIdx]) splitOffsets[pg][idx][splitIdx] = {};
+    splitOffsets[pg][idx][splitIdx][key + 'T'] = newT;
+
+    const newPt = { x: edgeStart.x + edgeVec.x * newT, y: edgeStart.y + edgeVec.y * newT };
+    dot.style.left = newPt.x + 'px';
+    dot.style.top  = newPt.y + 'px';
+
+    rebuildPageSVG(pg);
+  });
+
+  dot.addEventListener('pointerup', () => {
+    dragging = false;
+    refreshPanelsPanel?.(pg);
+    snapshotState?.();
+  });
+  dot.addEventListener('pointercancel', () => { dragging = false; });
+}
+window.setupSplitDotDrag = setupSplitDotDrag;
+
+// ─────────────────────────────────────────────
+// CORNER OFFSET NUMBER FIELDS / RESET (Panel Editor "Edit Corners" inputs)
+// ─────────────────────────────────────────────
+function setCornerOffset(pg, idx, key, val) {
+  if (!cornerOffsets[pg]) cornerOffsets[pg] = {};
+  if (!cornerOffsets[pg][idx]) cornerOffsets[pg][idx] = { tl:0, tr:0, bl:0, br:0, tlY:0, trY:0, blY:0, brY:0 };
+  cornerOffsets[pg][idx][key] = Math.round(val);
+  rebuildPageSVG(pg);
+  refreshCornerOverlay(pg);
+  document.querySelectorAll(`.page-output[data-pg="${pg}"] .bubble-wrap`).forEach(wrap => {
+    const b = (bubbles[pg] || []).find(x => x.id === wrap.dataset.id);
+    if (b && b.clipPanel === idx) applyBubbleClip?.(wrap, b);
+  });
+  snapshotState?.();
+}
+window.setCornerOffset = setCornerOffset;
+
+function resetCorners(pg, idx) {
+  if (cornerOffsets[pg])  delete cornerOffsets[pg][idx];
+  if (cornerLocks[pg])    delete cornerLocks[pg][idx];
+  if (cornerAxisMode[pg]) delete cornerAxisMode[pg][idx];
+  if (cornerEnabled[pg])  delete cornerEnabled[pg][idx];
+  const anyEnabled = Object.values(cornerEnabled[pg]||{}).some(v => v === true);
+  cornerEditMode[pg] = anyEnabled;
+  rebuildPageSVG(pg);
+  refreshCornerOverlay(pg);
+  refreshPanelsPanel?.(pg);
+  snapshotState?.();
+}
+window.resetCorners = resetCorners;
+
+function resetAllCorners(pg) {
+  delete cornerOffsets[pg];
+  delete cornerLocks[pg];
+  delete cornerAxisMode[pg];
+  delete cornerEnabled[pg];
+  cornerEditMode[pg] = false;
+  rebuildPageSVG(pg);
+  refreshCornerOverlay(pg);
+  refreshPanelsPanel?.(pg);
+  snapshotState?.();
+}
+window.resetAllCorners = resetAllCorners;
+
+function toggleCornerLock(pg, idx, key) {
+  if (!cornerLocks[pg]) cornerLocks[pg] = {};
+  if (!cornerLocks[pg][idx]) cornerLocks[pg][idx] = {};
+  cornerLocks[pg][idx][key] = !cornerLocks[pg][idx][key];
+  refreshCornerOverlay(pg);
+  refreshPanelsPanel?.(pg);
+}
+window.toggleCornerLock = toggleCornerLock;

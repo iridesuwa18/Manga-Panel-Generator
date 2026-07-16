@@ -165,7 +165,7 @@ function ppToggleCornersEnabled(pg, idx, enabled) {
   if (!cornerEnabled[pg]) cornerEnabled[pg] = {};
   cornerEnabled[pg][idx] = enabled;
   const anyEnabled = Object.values(cornerEnabled[pg]||{}).some(v=>v===true);
-  if (window.cornerEditMode) window.cornerEditMode[pg] = anyEnabled;
+  cornerEditMode[pg] = anyEnabled;
   rebuildPageSVG?.(pg); refreshCornerOverlay?.(pg);
   refreshPanelsPanel(pg);
   scheduleAutoSave?.();
