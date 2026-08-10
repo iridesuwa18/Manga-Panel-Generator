@@ -159,22 +159,31 @@
   flex-shrink: 0;
   min-height: 28px;
 }
+/* The control bar sits as an overlay strip pinned to the TOP INSIDE of
+   its own row (not floated above it) — a fixed-offset "above the row"
+   bar has no way to know how tall the row above it rendered, so it was
+   colliding with whatever sat above it (previous row's panels, or the
+   canvas toolbar for row 1). Overlaying inside the row's own bounds
+   means it can never collide with a neighbor no matter how short a
+   row's H% makes it. */
 .pln-row-bar {
   position: absolute;
-  top: -22px;
+  top: 0;
   left: 0;
   right: 0;
+  z-index: 6;
   display: flex;
   align-items: center;
   gap: 6px;
+  padding: 2px 4px;
+  background: rgba(19,23,32,.94);
+  border-bottom: 1px solid rgba(91,143,255,.35);
   font-family: var(--font-ui);
   font-size: 9px;
-  color: var(--text-3);
+  color: var(--text-2);
   white-space: nowrap;
   overflow-x: auto;
-  padding-bottom: 2px;
 }
-.pln-row:first-child .pln-row-bar { top: -22px; }
 .pln-row-label {
   color: var(--accent);
   font-weight: 600;
@@ -218,6 +227,11 @@
   display: flex;
   flex-direction: row;
   min-height: 0;
+  /* Leaves room below the overlay bar (~18px) so panel labels/text
+     aren't hidden under it — panels still keep their correct relative
+     widths, they just start a little lower inside the row's box. */
+  padding-top: 18px;
+  box-sizing: border-box;
 }
 
 /* ── Panel ────────────────────────────────────────────────── */
