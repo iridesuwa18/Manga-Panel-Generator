@@ -124,6 +124,8 @@
   <div class="planner-header">
     <span class="planner-title"><strong>Manga</strong> Planner</span>
     <div class="planner-header-actions">
+      <input type="file" id="plannerImportInput" accept=".csv,.tsv,.xlsx,.xls" style="display:none" onchange="window.handlePlannerImport?.(event)">
+      <button class="btn small" onclick="document.getElementById('plannerImportInput').click()">&#8593; Import</button>
       <button class="btn small" onclick="window.exportPlannerCSV?.()">&#8595; CSV</button>
       <button class="btn small" onclick="window.exportPlannerXLSX?.()">&#8595; Excel</button>
       <button id="plannerCloseBtn" aria-label="Close planner" onclick="closePlanner()">&times;</button>
