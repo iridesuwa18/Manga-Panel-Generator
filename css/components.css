@@ -304,3 +304,19 @@ td input:focus { outline: none; border-bottom: 1px solid var(--accent); }
   width: 100%;
 }
 .pp-locked-inputs { opacity: .4; pointer-events: none; }
+
+/* ── Icon button (topbar icons: planner, etc.) ──────────────── */
+.icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  color: var(--text-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-btn);
+  transition: color .12s, background .12s, border-color .12s;
+}
+.icon-btn:hover { color: var(--accent); background: var(--surface-2); border-color: var(--border); }
+.icon-btn svg { display: block; }
