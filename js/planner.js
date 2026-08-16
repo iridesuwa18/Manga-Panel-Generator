@@ -52,6 +52,59 @@ const PLN_ANGLE_TYPES = [
   "Bird's-Eye – Top-down", "Worm's-Eye – From below", 'Dutch Angle – Tilted',
   'Over-the-Shoulder – Behind shoulder', 'Point of View – Character view', 'Reverse Shot – Opposite angle',
 ];
+
+// Speech Type dropdown — same 9 bubble shapes the generator's Bubble
+// Editor offers (js/ui.js #bp-type, js/bubbles.js BUBBLE_TYPE_PRESETS),
+// so a plan written here maps 1:1 onto an actual bubble later. Labels
+// pull from the semantic meaning already documented alongside each
+// preset's bold/italic flags in bubbles.js.
+const PLN_SPEECH_TYPES = [
+  { value: 'circle',    label: 'Circle — Speech' },
+  { value: 'spiked',    label: 'Spiked — Shout / Yell' },
+  { value: 'bold',      label: 'Bold — Intense / Monster' },
+  { value: 'thought',   label: 'Thought — Thinking' },
+  { value: 'fading',    label: 'Fading — Trailing Off' },
+  { value: 'dashed',    label: 'Dashed — Whisper' },
+  { value: 'lilypad',   label: 'Lilypad — Off-panel Aside' },
+  { value: 'square',    label: 'Square — Narration' },
+  { value: 'rectangle', label: 'Rectangle — Caption / Title' },
+];
+window.PLN_SPEECH_TYPES = PLN_SPEECH_TYPES;
+
+// Best-effort mapping from old free-text speechType values (this field
+// used to be a plain text input, placeholder'd "Speech / Thought /
+// Narration / SFX") onto the new canonical bubble-type values, so CSV
+// re-imports of older exports still land on a sensible dropdown option
+// instead of silently going blank. Unrecognized text is left blank
+// ("—") rather than guessed, since the person will want to intentionally
+// pick a bubble style anyway.
+const PLN_SPEECH_TYPE_ALIASES = {
+  speech: 'circle', normal: 'circle', talk: 'circle', talking: 'circle',
+  shout: 'spiked', shouting: 'spiked', yell: 'spiked', yelling: 'spiked', scream: 'spiked', screaming: 'spiked',
+  intense: 'bold', monster: 'bold', growl: 'bold', roar: 'bold',
+  thought: 'thought', thinking: 'thought', think: 'thought',
+  fading: 'fading', trailing: 'fading', 'trailing off': 'fading', weak: 'fading',
+  whisper: 'dashed', whispering: 'dashed', quiet: 'dashed', soft: 'dashed',
+  aside: 'lilypad', 'off-panel': 'lilypad', offpanel: 'lilypad',
+  narration: 'square', narrator: 'square', 'inner monologue': 'square',
+  caption: 'rectangle', title: 'rectangle', sfx: 'rectangle',
+};
+function pln_normalizeSpeechType(raw) {
+  const v = (raw || '').trim();
+  if (!v) return '';
+  const lower = v.toLowerCase();
+  if (PLN_SPEECH_TYPES.some(s => s.value === lower)) return lower;
+  return PLN_SPEECH_TYPE_ALIASES[lower] || '';
+}
+
+// Short label for a canonical speechType value (e.g. 'spiked' → 'Shout
+// / Yell') — used in the script preview tag so it reads naturally
+// instead of showing the raw bubble-shape keyword.
+function pln_speechTypeShortLabel(value) {
+  const found = PLN_SPEECH_TYPES.find(s => s.value === value);
+  return found ? found.label.split(' — ')[1] : (value || '');
+}
+
 const PLN_HEADERS = [
   'Chapter No.', 'Scene No.', 'Page No.', 'Panel No.', 'Row No.', 'Panel (L x H in %)',
   'Total Max Panel L per row (/100)', 'Total Max Panel H per row (/100)',
@@ -296,7 +349,7 @@ window.updatePanelField = updatePanelField;
 // ── Dialogue CRUD (stacked speaker lines on one panel) ──────────
 function addDialogue(pageId, rowId, panelId) {
   const { panel } = pln_findPanel(pageId, rowId, panelId); if (!panel) return;
-  panel.dialogues.push({ speechType: 'Speech', speaker: '', dialogue: '' });
+  panel.dialogues.push({ speechType: 'circle', speaker: '', dialogue: '' });
   pln_scheduleSave();
   renderPlanner();
 }
@@ -441,6 +494,29 @@ function parsePlannerPastedCSV() {
 }
 window.parsePlannerPastedCSV = parsePlannerPastedCSV;
 
+// Renders each dialogue line on a panel as "Speaker: Dialogue" —
+// reusing the SAME bold/italic flags the generator applies to the
+// actual bubble (BUBBLE_TYPE_PRESETS, js/bubbles.js: spiked=shout→bold,
+// dashed=whisper→italic, thought/square→italic, bold/rectangle→bold,
+// etc), so what you see planning here previews how it'll actually
+// read once bubbles are generated. Falls back to plain weight for
+// unset/unrecognized speechType values (e.g. un-migrated old imports).
+function pln_dialoguePreviewHTML(panel) {
+  if (!panel.dialogues || !panel.dialogues.length) return '';
+  const presets = window.BUBBLE_TYPE_PRESETS || {};
+  const lines = panel.dialogues.map(d => {
+    const text = (d.dialogue || '').trim();
+    if (!text) return '';
+    const preset = presets[d.speechType] || {};
+    const styleParts = [];
+    if (preset.bold) styleParts.push('font-weight:700');
+    if (preset.italic) styleParts.push('font-style:italic');
+    const speaker = _plnEsc(d.speaker || 'V.O.');
+    return `<div class="pln-panel-dialogue-line" style="${styleParts.join(';')}"><span class="pln-panel-dialogue-speaker">${speaker}:</span> ${_plnEsc(text)}</div>`;
+  }).filter(Boolean).join('');
+  return lines ? `<div class="pln-panel-dialogue">${lines}</div>` : '';
+}
+
 function pln_renderCanvas() {
   const page = pln_findPage(plannerState.selectedPageId);
   if (!page) return `<div class="pln-empty-canvas">Add a page to start planning your layout.</div>`;
@@ -462,7 +538,7 @@ function pln_renderCanvas() {
       return `${divider}<div class="pln-panel ${selected ? 'selected' : ''}" style="flex:0 0 ${p.l}%;width:${p.l}%;" onclick="selectPlannerPanel('${row.id}','${p.id}')">
         <span class="pln-panel-label">${p.pnl}${p.scn ? ' &middot; ' + _plnEsc(p.scn) : ''}</span>
         ${p.shotType ? `<span class="pln-panel-shot">${_plnEsc(p.shotType.split(' – ')[0])}</span>` : ''}
-        ${desc ? `<span class="pln-panel-desc">${desc}</span>` : ''}
+        ${pln_dialoguePreviewHTML(p) || (desc ? `<span class="pln-panel-desc">${desc}</span>` : '')}
         ${dcount ? `<span class="chip pln-dchip" title="Preview in script" onclick="event.stopPropagation();openScriptPreview('${page.id}','${row.id}','${p.id}')">${dcount} line${dcount > 1 ? 's' : ''}</span>` : ''}
         <div class="pln-panel-actions">
           <button title="Split panel in two" onclick="event.stopPropagation();splitPlannerPanel('${page.id}','${row.id}','${p.id}')">&#9707;</button>
@@ -527,7 +603,10 @@ function pln_renderInspector() {
       </div>
       <div class="field">
         <label>Speech Type</label>
-        <input type="text" value="${_plnAttr(d.speechType)}" placeholder="Speech / Thought / Narration / SFX" onchange="updateDialogueField('${plannerState.selectedPageId}','${row.id}','${panel.id}',${i},'speechType',this.value)">
+        <select onchange="updateDialogueField('${plannerState.selectedPageId}','${row.id}','${panel.id}',${i},'speechType',this.value)">
+          <option value="" ${!d.speechType ? 'selected' : ''}>—</option>
+          ${PLN_SPEECH_TYPES.map(s => `<option value="${s.value}" ${d.speechType === s.value ? 'selected' : ''}>${s.label}</option>`).join('')}
+        </select>
       </div>
       <div class="field" style="margin-bottom:0;">
         <label>Dialogue</label>
@@ -725,7 +804,7 @@ function parsePlannerCSVText(text) {
     const hasDialogue = ((speechType || '') + (speaker || '') + (dialogue || '')).trim();
     if (hasDialogue) {
       panel.dialogues.push({
-        speechType: (speechType || '').trim(),
+        speechType: pln_normalizeSpeechType(speechType),
         speaker: (speaker || '').trim(),
         dialogue: (dialogue || '').trim(),
       });
@@ -792,7 +871,7 @@ function pln_renderScript() {
         if (!p.dialogues.length) return;
         const lines = p.dialogues.map(d => `
           <div class="pln-script-line">
-            <span class="pln-script-speaker">${_plnEsc(d.speaker || 'V.O.')}</span>${d.speechType ? `<span class="pln-script-type">${_plnEsc(d.speechType)}</span>` : ''}
+            <span class="pln-script-speaker">${_plnEsc(d.speaker || 'V.O.')}</span>${d.speechType ? `<span class="pln-script-type">${_plnEsc(pln_speechTypeShortLabel(d.speechType))}</span>` : ''}
             <p>${_plnEsc(d.dialogue)}</p>
           </div>`).join('');
         panelBlocks.push(`<div class="pln-script-panel-block" id="pln-script-${row.id}-${p.id}">
