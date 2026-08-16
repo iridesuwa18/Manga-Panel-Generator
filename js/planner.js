@@ -282,16 +282,47 @@ function updateRowField(pageId, rowId, field, val) {
   pln_scheduleSave();
   renderPlanner();
 }
+
+// "Flood" this row's height (maxH) so every row on the page adds up
+// to exactly 100% — i.e. target = 100 - (sum of every OTHER row's
+// maxH). E.g. Row 1 at 40H + Row 2 at 20H → flooding Row 2 sets it
+// to 60H (40 + 60 = 100). Replaces the old "+P" row-bar button,
+// which was creating panels past a row's max L (see the note on
+// addPlannerPanel above) — this is a different axis (row height,
+// not panel width) but fixes the same underlying frustration: a
+// one-click way to make a row's numbers add up correctly.
+function floodPlannerRow(pageId, rowId) {
+  const { page, row } = pln_findRow(pageId, rowId); if (!row) return;
+  const othersTotal = page.rows.filter(r => r.id !== rowId).reduce((s, r) => s + (+r.maxH || 0), 0);
+  let target = snap5(100 - othersTotal);
+  if (target < 5) {
+    target = 5;
+    window.showToast?.('Other rows already total 100%+ — set to minimum 5%');
+  } else {
+    window.showToast?.(`Row height set to ${target}% — rows now total 100%`);
+  }
+  row.maxH = target;
+  pln_scheduleSave();
+  renderPlanner();
+}
+window.floodPlannerRow = floodPlannerRow;
 window.addPlannerRow = addPlannerRow;
 window.deletePlannerRow = deletePlannerRow;
 window.movePlannerRow = movePlannerRow;
 window.updateRowField = updateRowField;
 
 // ── Panel CRUD ───────────────────────────────────────────────
+// NOTE: no longer wired to a row-bar button (was "+P", replaced by
+// floodPlannerRow() above per the person's report that it kept
+// creating panels outside the row's max L). The bug was here: it
+// computed remaining space against a hardcoded 100 instead of the
+// row's own maxL target, so on any row with maxL < 100 the new panel
+// could push lTotal past maxL immediately. Fixed regardless, in case
+// this gets wired back up — cost nothing to fix correctly.
 function addPlannerPanel(pageId, rowId) {
   const { page, row } = pln_findRow(pageId, rowId); if (!row) return;
   const usedL = row.panels.reduce((s, p) => s + (+p.l || 0), 0);
-  const remain = snap5(Math.max(5, 100 - usedL));
+  const remain = snap5(Math.max(5, row.maxL - usedL));
   const last = row.panels[row.panels.length - 1];
   row.panels.push(pln_makePanel(remain > 0 ? remain : 20, last));
   pln_relabel(page);
@@ -394,6 +425,139 @@ function copySubjectToSpeaker(pageId, rowId, panelId, dIdx) {
   window.showToast?.('Copied Subjects to Speaker');
 }
 window.copySubjectToSpeaker = copySubjectToSpeaker;
+
+// ── Quick-pick popup: reuse a Subject/Speaker name already used
+//    anywhere else in the planner ───────────────────────────────
+// Built as a standalone floating element appended straight to
+// document.body — same pattern as showLayerPopup() in layers.js —
+// rather than going through renderPlanner()'s normal innerHTML
+// rebuild. That matters here specifically because this popup has
+// its own live-filtering search box: if the popup were part of the
+// main render tree, picking a value or any other state change would
+// tear down and recreate the search input on every keystroke,
+// dropping focus and the cursor position mid-type.
+let _plnPickerEl = null;
+
+function pln_collectAllSubjects() {
+  const set = new Set();
+  plannerState.pages.forEach(pg => pg.rows.forEach(r => r.panels.forEach(p => {
+    (p.subjects || '').split(',').forEach(s => { const v = s.trim(); if (v) set.add(v); });
+  })));
+  return [...set].sort((a, b) => a.localeCompare(b));
+}
+
+function pln_collectAllSpeakers() {
+  const set = new Set();
+  plannerState.pages.forEach(pg => pg.rows.forEach(r => r.panels.forEach(p => {
+    p.dialogues.forEach(d => { const v = (d.speaker || '').trim(); if (v) set.add(v); });
+  })));
+  return [...set].sort((a, b) => a.localeCompare(b));
+}
+
+function pln_closePicker() {
+  if (_plnPickerEl) { _plnPickerEl.remove(); _plnPickerEl = null; }
+  document.removeEventListener('pointerdown', pln_pickerOutsideClick, { capture: true });
+  document.removeEventListener('keydown', pln_pickerEscClose, { capture: true });
+}
+
+function pln_pickerOutsideClick(e) {
+  if (_plnPickerEl && !_plnPickerEl.contains(e.target)) pln_closePicker();
+}
+function pln_pickerEscClose(e) {
+  if (e.key === 'Escape') pln_closePicker();
+}
+
+// anchorEl: the "+" button the popup opens from; items: string[] of
+// existing values; onPick(value): called when the person picks one.
+function pln_openPicker(anchorEl, items, onPick, emptyLabel) {
+  pln_closePicker();
+
+  const pop = document.createElement('div');
+  pop.className = 'pln-picker-popup';
+
+  const searchWrap = document.createElement('div');
+  searchWrap.className = 'pln-picker-search';
+  const search = document.createElement('input');
+  search.type = 'text';
+  search.placeholder = 'Search…';
+  searchWrap.appendChild(search);
+  pop.appendChild(searchWrap);
+
+  const list = document.createElement('div');
+  list.className = 'pln-picker-list';
+  pop.appendChild(list);
+
+  function renderList(filter) {
+    const f = (filter || '').trim().toLowerCase();
+    const filtered = f ? items.filter(v => v.toLowerCase().includes(f)) : items;
+    list.innerHTML = '';
+    if (!filtered.length) {
+      const empty = document.createElement('div');
+      empty.className = 'pln-picker-empty';
+      empty.textContent = items.length ? 'No matches.' : (emptyLabel || 'Nothing used yet.');
+      list.appendChild(empty);
+      return;
+    }
+    filtered.forEach(v => {
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'pln-picker-item';
+      item.textContent = v;
+      item.addEventListener('click', () => { onPick(v); pln_closePicker(); });
+      list.appendChild(item);
+    });
+  }
+  renderList('');
+  search.addEventListener('input', () => renderList(search.value));
+
+  document.body.appendChild(pop);
+  _plnPickerEl = pop;
+
+  // Position under the anchor button, flipped left if it would
+  // overflow the right edge of the viewport.
+  const rect = anchorEl.getBoundingClientRect();
+  const popW = 220;
+  let left = rect.left;
+  if (left + popW > window.innerWidth) left = window.innerWidth - popW - 8;
+  pop.style.left = Math.max(4, left) + 'px';
+  pop.style.top = (rect.bottom + 4) + 'px';
+  pop.style.width = popW + 'px';
+
+  setTimeout(() => search.focus(), 0);
+  setTimeout(() => {
+    document.addEventListener('pointerdown', pln_pickerOutsideClick, { capture: true });
+    document.addEventListener('keydown', pln_pickerEscClose, { capture: true });
+  }, 0);
+}
+
+// Subjects "+" — appends the picked name onto the comma-list
+// (skipping a case-insensitive duplicate) rather than replacing it,
+// since Subjects in Scene is meant to hold everyone in the panel.
+function openSubjectPicker(pageId, rowId, panelId, btnEl) {
+  const { panel } = pln_findPanel(pageId, rowId, panelId); if (!panel) return;
+  pln_openPicker(btnEl, pln_collectAllSubjects(), (val) => {
+    const existing = (panel.subjects || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (!existing.some(e => e.toLowerCase() === val.toLowerCase())) existing.push(val);
+    panel.subjects = existing.join(', ');
+    pln_scheduleSave();
+    renderPlanner();
+    window.showToast?.(`Added "${val}" to Subjects in Scene`);
+  }, 'No subjects used anywhere yet.');
+}
+window.openSubjectPicker = openSubjectPicker;
+
+// Speaker "+" — replaces this single dialogue line's speaker outright,
+// since a dialogue line only ever has one speaker.
+function openSpeakerPicker(pageId, rowId, panelId, dIdx, btnEl) {
+  const { panel } = pln_findPanel(pageId, rowId, panelId); if (!panel?.dialogues[dIdx]) return;
+  pln_openPicker(btnEl, pln_collectAllSpeakers(), (val) => {
+    panel.dialogues[dIdx].speaker = val;
+    pln_scheduleSave();
+    renderPlanner();
+    window.showToast?.(`Set Speaker to "${val}"`);
+  }, 'No speakers used anywhere yet.');
+}
+window.openSpeakerPicker = openSpeakerPicker;
 
 // ── Divider drag: split a row's width at 5% increments ─────────
 function pln_wireDividers() {
@@ -582,7 +746,7 @@ function pln_renderCanvas() {
         <span class="pln-row-btns">
           <button title="Move row up" ${ri === 0 ? 'disabled' : ''} onclick="movePlannerRow('${page.id}','${row.id}',-1)">&#8593;</button>
           <button title="Move row down" ${ri === page.rows.length - 1 ? 'disabled' : ''} onclick="movePlannerRow('${page.id}','${row.id}',1)">&#8595;</button>
-          <button title="Add panel to row" onclick="addPlannerPanel('${page.id}','${row.id}')">+P</button>
+          <button title="Flood this row's height so all rows total 100%" onclick="floodPlannerRow('${page.id}','${row.id}')">Flood</button>
           <button title="Delete row" class="danger" onclick="deletePlannerRow('${page.id}','${row.id}')">&times;</button>
         </span>
       </div>
@@ -628,7 +792,10 @@ function pln_renderInspector() {
           <label>Speaker</label>
           <button class="btn small" title="Copy from Subjects in Scene" onclick="copySubjectToSpeaker('${plannerState.selectedPageId}','${row.id}','${panel.id}',${i})">Copy Subject</button>
         </div>
-        <input type="text" value="${_plnAttr(d.speaker)}" placeholder="e.g. Bond" onchange="updateDialogueField('${plannerState.selectedPageId}','${row.id}','${panel.id}',${i},'speaker',this.value)">
+        <div class="pln-input-with-picker">
+          <input type="text" value="${_plnAttr(d.speaker)}" placeholder="e.g. Bond" onchange="updateDialogueField('${plannerState.selectedPageId}','${row.id}','${panel.id}',${i},'speaker',this.value)">
+          <button type="button" class="pln-picker-btn" title="Pick a speaker used elsewhere" onclick="openSpeakerPicker('${plannerState.selectedPageId}','${row.id}','${panel.id}',${i},this)">+</button>
+        </div>
       </div>
       <div class="field">
         <label>Speech Type</label>
@@ -666,7 +833,10 @@ function pln_renderInspector() {
         <label>Subjects in Scene</label>
         <button class="btn small" title="Copy speaker name(s) from the dialogue lines below" onclick="copySpeakersToSubjects('${plannerState.selectedPageId}','${row.id}','${panel.id}')">Copy Speaker</button>
       </div>
-      <input type="text" value="${_plnAttr(panel.subjects)}" placeholder="e.g. Bond, Aero" onchange="updatePanelField('${plannerState.selectedPageId}','${row.id}','${panel.id}','subjects',this.value)">
+      <div class="pln-input-with-picker">
+        <input type="text" value="${_plnAttr(panel.subjects)}" placeholder="e.g. Bond, Aero" onchange="updatePanelField('${plannerState.selectedPageId}','${row.id}','${panel.id}','subjects',this.value)">
+        <button type="button" class="pln-picker-btn" title="Pick a subject used elsewhere" onclick="openSubjectPicker('${plannerState.selectedPageId}','${row.id}','${panel.id}',this)">+</button>
+      </div>
     </div>
     <div class="field">
       <label>Scene Description</label>
