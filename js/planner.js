@@ -89,10 +89,39 @@ const PLN_SPEECH_TYPE_ALIASES = {
   narration: 'square', narrator: 'square', 'inner monologue': 'square',
   caption: 'rectangle', title: 'rectangle', sfx: 'rectangle',
 };
+// Canonical export label for each bubble-type value — this is the exact
+// text written to the "Speech Type" column on CSV/XLSX export, matching
+// the fixed vocabulary the bubble-shape recognizer expects on re-import.
+// Internal dropdown values (circle, spiked, bold, ...) never change —
+// only what gets written to/read from the file differs.
+const PLN_SPEECH_TYPE_EXPORT_LABELS = {
+  '':          'None',
+  circle:      'Circle – Dialogue',
+  square:      'Square – Narration / Inner Monologue',
+  rectangle:   'Rectangle – Titles',
+  thought:     'Cloud (dotted tail) – Thoughts',
+  fading:      'Cloud (sharp tail) – Weak / Fading speech',
+  dashed:      'Dashed (7 dash, 5 gap) – Whisper',
+  bold:        'Bold Circle – Intense / Monster dialogue',
+  spiked:      'Spiked – Yelling',
+  lilypad:     'Lilypad – Off-panel speech',
+};
+function pln_speechTypeExportLabel(value) {
+  return PLN_SPEECH_TYPE_EXPORT_LABELS[value || ''] ?? 'None';
+}
+// Reverse of the export map (export label, lowercased → internal value),
+// so files this planner exported import back onto the correct dropdown
+// option instead of falling through to blank/alias guessing.
+const PLN_SPEECH_TYPE_EXPORT_REVERSE = Object.fromEntries(
+  Object.entries(PLN_SPEECH_TYPE_EXPORT_LABELS).map(([val, label]) => [label.toLowerCase(), val])
+);
+
 function pln_normalizeSpeechType(raw) {
   const v = (raw || '').trim();
   if (!v) return '';
   const lower = v.toLowerCase();
+  if (lower === 'none') return '';
+  if (lower in PLN_SPEECH_TYPE_EXPORT_REVERSE) return PLN_SPEECH_TYPE_EXPORT_REVERSE[lower];
   if (PLN_SPEECH_TYPES.some(s => s.value === lower)) return lower;
   return PLN_SPEECH_TYPE_ALIASES[lower] || '';
 }
@@ -860,7 +889,7 @@ function pln_buildExportRows() {
           out.push([
             page.chp, p.scn || '', page.pg, p.pnl, row.row, lh, row.maxL, row.maxH,
             p.shotType || '', p.angleType || '', p.subjects || '', p.description || '',
-            d.speechType || '', d.speaker || '', d.dialogue || '',
+            pln_speechTypeExportLabel(d.speechType), d.speaker || '', d.dialogue || '',
           ]);
         });
       });
