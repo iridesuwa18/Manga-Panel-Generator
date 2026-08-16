@@ -66,6 +66,17 @@
   color: var(--text-3);
 }
 
+/* Lets a small action button (e.g. planner's "Copy Speaker" /
+   "Copy Subject") sit inline next to a field's label without
+   disturbing the label-then-input stacking .field otherwise uses. */
+.pln-field-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+.pln-field-label-row label { flex-shrink: 0; }
+
 input[type="text"],
 input[type="number"],
 input[type="search"],
