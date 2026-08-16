@@ -75,6 +75,25 @@
   padding: var(--sp-3);
   border-bottom: 1px solid var(--border);
 }
+/* Paste-CSV box — toggled open below the rail head via the "Paste"
+   button (mirrors the generator's Pages & Panels "Or paste CSV" box,
+   see components.css .field/textarea for the shared input styling). */
+.pln-paste-box {
+  flex-shrink: 0;
+  padding: var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.pln-paste-box textarea {
+  width: 100%;
+  min-height: 90px;
+}
+.pln-paste-actions {
+  display: flex;
+  gap: var(--sp-2);
+}
+.pln-paste-actions .btn.full { flex: 1; }
+
 .pln-page-list {
   flex: 1;
   min-height: 0;
