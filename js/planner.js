@@ -369,6 +369,32 @@ window.addDialogue = addDialogue;
 window.removeDialogue = removeDialogue;
 window.updateDialogueField = updateDialogueField;
 
+// ── Quick-copy between Subjects in Scene and dialogue Speaker
+//    fields — both fields describe "who's in this panel", just at
+//    different granularity (one name per line vs. a comma list for
+//    the whole panel), so this is plain text copy for fast pasting,
+//    not an attempt to keep them in sync afterward. ────────────────
+function copySpeakersToSubjects(pageId, rowId, panelId) {
+  const { panel } = pln_findPanel(pageId, rowId, panelId); if (!panel) return;
+  const names = [...new Set(panel.dialogues.map(d => (d.speaker || '').trim()).filter(Boolean))];
+  if (!names.length) { window.showToast?.('No speaker names yet to copy'); return; }
+  panel.subjects = names.join(', ');
+  pln_scheduleSave();
+  renderPlanner();
+  window.showToast?.('Copied speaker(s) to Subjects in Scene');
+}
+window.copySpeakersToSubjects = copySpeakersToSubjects;
+
+function copySubjectToSpeaker(pageId, rowId, panelId, dIdx) {
+  const { panel } = pln_findPanel(pageId, rowId, panelId); if (!panel?.dialogues[dIdx]) return;
+  if (!(panel.subjects || '').trim()) { window.showToast?.('No subjects text yet to copy'); return; }
+  panel.dialogues[dIdx].speaker = panel.subjects;
+  pln_scheduleSave();
+  renderPlanner();
+  window.showToast?.('Copied Subjects to Speaker');
+}
+window.copySubjectToSpeaker = copySubjectToSpeaker;
+
 // ── Divider drag: split a row's width at 5% increments ─────────
 function pln_wireDividers() {
   document.querySelectorAll('.pln-divider').forEach(div => {
@@ -598,7 +624,10 @@ function pln_renderInspector() {
         <button title="Remove line" onclick="removeDialogue('${plannerState.selectedPageId}','${row.id}','${panel.id}',${i})">&times;</button>
       </div>
       <div class="field">
-        <label>Speaker</label>
+        <div class="pln-field-label-row">
+          <label>Speaker</label>
+          <button class="btn small" title="Copy from Subjects in Scene" onclick="copySubjectToSpeaker('${plannerState.selectedPageId}','${row.id}','${panel.id}',${i})">Copy Subject</button>
+        </div>
         <input type="text" value="${_plnAttr(d.speaker)}" placeholder="e.g. Bond" onchange="updateDialogueField('${plannerState.selectedPageId}','${row.id}','${panel.id}',${i},'speaker',this.value)">
       </div>
       <div class="field">
@@ -633,7 +662,10 @@ function pln_renderInspector() {
       </select>
     </div>
     <div class="field">
-      <label>Subjects in Scene</label>
+      <div class="pln-field-label-row">
+        <label>Subjects in Scene</label>
+        <button class="btn small" title="Copy speaker name(s) from the dialogue lines below" onclick="copySpeakersToSubjects('${plannerState.selectedPageId}','${row.id}','${panel.id}')">Copy Speaker</button>
+      </div>
       <input type="text" value="${_plnAttr(panel.subjects)}" placeholder="e.g. Bond, Aero" onchange="updatePanelField('${plannerState.selectedPageId}','${row.id}','${panel.id}','subjects',this.value)">
     </div>
     <div class="field">
