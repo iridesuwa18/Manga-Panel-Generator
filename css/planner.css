@@ -431,6 +431,75 @@
 .pln-dialogue-head button { color: var(--text-3); font-size: 13px; }
 .pln-dialogue-head button:hover { color: var(--danger); }
 
+/* ── Inline "+" picker button — sits inside the Subjects / Speaker
+   input boxes, opens pln-picker-popup (built in planner.js) ──────── */
+.pln-input-with-picker { position: relative; }
+.pln-input-with-picker input { width: 100%; padding-right: 22px; }
+.pln-picker-btn {
+  position: absolute;
+  top: 50%;
+  right: 3px;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--text-3);
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.pln-picker-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+/* Floating popup (appended to document.body, not part of the normal
+   render tree — see pln_openPicker() in planner.js) */
+.pln-picker-popup {
+  position: fixed;
+  z-index: 900; /* above the script preview modal (800) */
+  display: flex;
+  flex-direction: column;
+  max-height: 260px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-float);
+  box-shadow: 0 12px 32px rgba(0,0,0,.55);
+  overflow: hidden;
+}
+.pln-picker-search {
+  flex-shrink: 0;
+  padding: var(--sp-2);
+  border-bottom: 1px solid var(--border);
+}
+.pln-picker-search input { width: 100%; }
+.pln-picker-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--sp-1);
+}
+.pln-picker-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 5px var(--sp-2);
+  font-family: var(--font-ui);
+  font-size: var(--type-xs);
+  color: var(--text);
+  border-radius: 2px;
+}
+.pln-picker-item:hover { background: var(--surface-3); color: var(--accent); }
+.pln-picker-empty {
+  padding: var(--sp-3) var(--sp-2);
+  font-family: var(--font-ui);
+  font-size: var(--type-xs);
+  color: var(--text-3);
+  text-align: center;
+}
+
 .pln-empty, .pln-empty-canvas {
   color: var(--text-3);
   font-family: var(--font-ui);
