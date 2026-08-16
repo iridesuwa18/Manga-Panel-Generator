@@ -69,6 +69,7 @@ function _plnAttr(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').
 // ── Persistence ──────────────────────────────────────────────
 let plannerState = null;
 let _plnSaveTimer = null;
+let _plnPasteOpen = false; // toggles the "Paste CSV" textarea in the page rail
 
 function pln_load() {
   try {
@@ -386,14 +387,59 @@ function pln_renderRail() {
       <button class="btn small danger" title="Delete page" onclick="event.stopPropagation();deletePlannerPage('${pg.id}')">&times;</button>
     </div>`;
   }).join('');
+
+  // Same pattern as the generator's Pages & Panels drawer "Or paste CSV"
+  // box (js/data.js parsePastedCSV + js/ui.js tplPages) — a plain
+  // textarea + parse button, just tucked behind a toggle here since the
+  // rail is narrower and has less room to spare permanently.
+  const pasteBox = _plnPasteOpen ? `
+    <div class="pln-paste-box">
+      <div class="field" style="margin-bottom:var(--sp-2);">
+        <label>Or paste CSV / Sheets rows</label>
+        <textarea id="pln-pasted-csv" placeholder="Chapter No., Scene No., Page No., ..."></textarea>
+      </div>
+      <div class="pln-paste-actions">
+        <button class="btn small full primary" onclick="parsePlannerPastedCSV()">Parse Pasted CSV</button>
+        <button class="btn small" onclick="togglePlannerPasteBox()">Cancel</button>
+      </div>
+    </div>` : '';
+
   return `
     <div class="pln-rail-head">
       <span class="section-title" style="margin:0;border:none;padding:0;">Pages</span>
-      <button class="btn small primary" onclick="addPlannerPage()">+ Page</button>
+      <div style="display:flex;gap:var(--sp-1);flex-shrink:0;">
+        <button class="btn small ${_plnPasteOpen ? 'active' : ''}" title="Paste CSV from a spreadsheet" onclick="togglePlannerPasteBox()">Paste</button>
+        <button class="btn small primary" onclick="addPlannerPage()">+ Page</button>
+      </div>
     </div>
+    ${pasteBox}
     <div class="pln-page-list">${items || '<div class="pln-empty">No pages yet — add one to start planning.</div>'}</div>
   `;
 }
+
+// ── Paste-CSV box toggle + parse (mirrors data.js's parsePastedCSV,
+//    but targets the planner's own textarea/state) ──────────────────
+function togglePlannerPasteBox() {
+  _plnPasteOpen = !_plnPasteOpen;
+  renderPlanner();
+  if (_plnPasteOpen) document.getElementById('pln-pasted-csv')?.focus();
+}
+window.togglePlannerPasteBox = togglePlannerPasteBox;
+
+function parsePlannerPastedCSV() {
+  const el = document.getElementById('pln-pasted-csv');
+  const text = (el?.value || '').trim();
+  if (!text) { window.showToast?.('Nothing to parse!'); return; }
+  _plnPasteOpen = false;
+  parsePlannerCSVText(text);
+  // parsePlannerCSVText() already calls renderPlanner() on a successful
+  // import, but bails out early (bad data, or the user cancelling the
+  // "this replaces your data" confirm) without one — call it again
+  // unconditionally so the box reliably closes either way. Cheap no-op
+  // re-render if it already ran.
+  renderPlanner();
+}
+window.parsePlannerPastedCSV = parsePlannerPastedCSV;
 
 function pln_renderCanvas() {
   const page = pln_findPage(plannerState.selectedPageId);
