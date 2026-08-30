@@ -133,7 +133,10 @@
     d.innerHTML = `
       <div class="drawer-header">
         <span>${def.label}</span>
-        <button class="btn small" onclick="closeDrawer()" aria-label="Close">&times;</button>
+        <div style="display:flex;gap:var(--sp-2);align-items:center;">
+          <button class="btn small primary" onclick="window.generateAll?.()" title="Regenerate the canvas with current changes">Generate</button>
+          <button class="btn small" onclick="closeDrawer()" aria-label="Close">&times;</button>
+        </div>
       </div>
       ${tabsHTML}
       <div class="drawer-body" id="drawerBody">${buildTabContent(rowId, tabId)}</div>
@@ -326,6 +329,7 @@
   function tplPages(tabId) {
     if (tabId === 'page') return `
       <div class="section">
+        <button class="btn primary full" onclick="window.generateAll?.()" style="margin-bottom:var(--sp-3)">&#9654; Generate</button>
         <div class="section-title">Mode</div>
         <div class="field" style="flex-direction:row;gap:var(--sp-2)">
           <button class="btn ${!pageBypageMode ? 'primary' : ''}" onclick="setPbpMode(false)">All Pages</button>
@@ -537,6 +541,13 @@
           <button id="bp-italic" class="btn small" onclick="window.bpToggle?.('italic')"><em>I</em></button>
         </div>
         <div class="field">
+          <label>All Bubbles &mdash; Font Size</label>
+          <div style="display:flex;gap:var(--sp-2);">
+            <button class="btn small full" title="Decrease font size on every bubble" onclick="window.adjustAllBubbleFontSizes?.(-2)">A&minus;</button>
+            <button class="btn small full" title="Increase font size on every bubble" onclick="window.adjustAllBubbleFontSizes?.(2)">A&plus;</button>
+          </div>
+        </div>
+        <div class="field">
           <label>Color</label>
           <input type="color" id="bp-color" oninput="window.bpUpdate?.('color',this.value)">
         </div>
@@ -565,11 +576,15 @@
         <div class="section-title" style="margin-top:var(--sp-3);">Tail</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-2);">
           <div class="field"><label>Angle&deg;</label><input type="number" id="bp-tail-angle" min="0" max="360" oninput="window.bpUpdatePos?.()"></div>
-          <div class="field"><label>Length</label><input type="number"  id="bp-tail-len"   min="0" oninput="window.bpUpdatePos?.()"></div>
+          <div class="field"><label>Tail Length</label><input type="number"  id="bp-tail-len"   min="0" oninput="window.bpUpdatePos?.()"></div>
           <div class="field"><label>Breadth</label><input type="number" id="bp-tail-breadth" min="0.1" max="30" step="0.1" oninput="window.bpUpdatePos?.()"></div>
-          <div class="field"><label>Dots</label><input type="number"    id="bp-dot-count"   min="1" max="12" oninput="window.bpUpdate?.('dotCount',+this.value)"></div>
-          <div class="field"><label>Spikes</label><input type="number"  id="bp-spike-count" min="5" max="40" oninput="window.bpUpdate?.('spikeCount',+this.value)"></div>
-          <div class="field"><label>Dashes</label><input type="number"  id="bp-dash-count"  min="2" max="20" oninput="window.bpUpdate?.('dashCount',+this.value)"></div>
+          <div class="field"><label>Dots <span style="opacity:.5">(Thought)</span></label><input type="number"    id="bp-dot-count"   min="1" max="12" oninput="window.bpUpdate?.('dotCount',+this.value)"></div>
+          <div class="field"><label>Spikes <span style="opacity:.5">(Spiked)</span></label><input type="number"  id="bp-spike-count" min="5" max="40" oninput="window.bpUpdate?.('spikeCount',+this.value)"></div>
+          <div class="field"><label>Other Spikes Length <span style="opacity:.5">(Spiked)</span></label><input type="number" id="bp-spike-len" step="1" oninput="window.bpUpdatePos?.()"></div>
+          <div class="field"><label>Arches <span style="opacity:.5">(Fading)</span></label><input type="number" id="bp-tail-arches" min="1" max="8" oninput="window.bpUpdatePos?.()"></div>
+          <div class="field"><label>Dash Number <span style="opacity:.5">(Dashed)</span></label><input type="number"  id="bp-dash-count"  min="4" max="200" oninput="window.bpUpdate?.('dashCount',+this.value)"></div>
+          <div class="field"><label>Dash Breadth <span style="opacity:.5">(Dashed)</span></label><input type="number" id="bp-dash-breadth" min="0.5" step="0.5" oninput="window.bpUpdatePos?.()"></div>
+          <div class="field"><label>Spacing <span style="opacity:.5">(Dashed)</span></label><input type="number" id="bp-dash-spacing" min="0.5" step="0.5" oninput="window.bpUpdatePos?.()"></div>
         </div>
 
         <div class="section-title" style="margin-top:var(--sp-3);">Locks</div>
