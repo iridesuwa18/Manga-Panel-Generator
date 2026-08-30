@@ -70,6 +70,12 @@ let panX = 0, panY = 0; // canvas pan offset, applied via #canvasInner transform
 
 let pageBypageMode = false;
 let snapEnabled = false;
+// Distance (px, in page-coordinate space) within which a dragged bubble
+// snaps to a panel edge when snapEnabled is on. Was referenced by
+// bubbles.js's getSnapX/getSnapY but never declared anywhere — turning
+// snapEnabled on used to throw ReferenceError: SNAP_THRESHOLD is not
+// defined the instant a bubble was dragged.
+const SNAP_THRESHOLD = 15;
 
 let activeRow = null;   // currently open rail row id, or null
 let activeDrawerTab = {}; // keyed by row id -> active tab id

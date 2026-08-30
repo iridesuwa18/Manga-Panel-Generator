@@ -38,12 +38,14 @@
     export:  { label: 'Import / Export',  tabs: [
       { id: 'svg',    label: 'SVG' },
       { id: 'png',    label: 'PNG' },
-      { id: 'json',   label: 'JSON' },
+      { id: 'mask',   label: 'Mask' },
+      { id: 'data',   label: 'Data' },
       { id: 'github', label: 'GitHub' },
     ]},
     pages:   { label: 'Pages & Panels',   tabs: [
-      { id: 'page',  label: 'Page Editor' },
-      { id: 'panel', label: 'Panel Editor' },
+      { id: 'page',   label: 'Page Editor' },
+      { id: 'import', label: 'Import Data' },
+      { id: 'panel',  label: 'Panel Editor' },
     ]},
     bubbles: { label: 'Bubbles & Text',   tabs: [
       { id: 'bubble', label: 'Bubble Editor' },
@@ -51,7 +53,6 @@
     ]},
     layers:  { label: 'Layers',           tabs: [
       { id: 'layers', label: 'Layers' },
-      { id: 'editor', label: 'Editor' },
     ]},
     preview: { label: 'Preview Options',  action: true, tabs: [
       { id: 'undo',   label: 'Undo' },
@@ -133,10 +134,7 @@
     d.innerHTML = `
       <div class="drawer-header">
         <span>${def.label}</span>
-        <div style="display:flex;gap:var(--sp-2);align-items:center;">
-          <button class="btn small primary" onclick="window.generateAll?.()" title="Regenerate the canvas with current changes">Generate</button>
-          <button class="btn small" onclick="closeDrawer()" aria-label="Close">&times;</button>
-        </div>
+        <button class="btn small" onclick="closeDrawer()" aria-label="Close">&times;</button>
       </div>
       ${tabsHTML}
       <div class="drawer-body" id="drawerBody">${buildTabContent(rowId, tabId)}</div>
@@ -166,8 +164,10 @@
       window.populateGitHubFields?.();
     }
     if (rowId === 'pages' && tabId === 'page') {
-      window.renderTable?.();
       window.rebuildPageList?.();
+    }
+    if (rowId === 'pages' && tabId === 'import') {
+      window.renderTable?.();
     }
     if (rowId === 'pages' && tabId === 'panel') {
       const pg = window._pbpCurrentPage || window.getPages?.()[0]?.pg;
@@ -195,11 +195,6 @@
       // NOTE: selectedBubble is a `let` in state.js — it doesn't attach
       // to `window` across <script> tags (only function declarations
       // do), so this reads the bare identifier instead of window.selectedBubble.
-      const pg = selectedBubble?.pgKey || window.getPages?.()[0]?.pg;
-      window.refreshLayersPanel?.(pg);
-    }
-    if (rowId === 'layers' && tabId === 'editor') {
-      // Editor tab: if a bubble is selected, show its properties
       const pg = selectedBubble?.pgKey || window.getPages?.()[0]?.pg;
       window.refreshLayersPanel?.(pg);
     }
@@ -255,9 +250,14 @@
               document.getElementById('pngPageSel').value,
               document.getElementById('pngTransparentBg').checked
             ) ?? window.showToast?.('PNG export not wired yet')">&#8595; Export PNG</button>
-        </div>
+        </div>`;
+      case 'mask': return `
         <div class="section">
           <div class="section-title">Export Mask</div>
+          <p style="color:var(--text-3);font-size:var(--type-sm);margin-bottom:var(--sp-2)">
+            White = inside each panel, transparent = gaps + speech bubbles
+            (body + text). For use as a Procreate clipping mask.
+          </p>
           <div class="field">
             <label>Page</label>
             <select id="maskPageSel">
@@ -269,19 +269,12 @@
             <input type="checkbox" id="maskPerPanel">
             <label style="text-transform:none;font-size:var(--type-sm)">Export each panel as its own file</label>
           </div>
-          <div style="font-size:var(--type-sm);color:var(--text-3);margin-bottom:var(--sp-2)">
-            White = inside each panel, transparent = gaps + speech bubbles (body + text). For use as a Procreate clipping mask.
-          </div>
           <button class="btn primary full" onclick="window.exportAllMaskPNG?.(
               document.getElementById('maskPageSel').value,
               document.getElementById('maskPerPanel').checked
             ) ?? window.showToast?.('Mask export not wired yet')">&#8595; Export Mask PNG</button>
-        </div>
-        <div class="section">
-          <div class="section-title">Export Data</div>
-          <button class="btn full" onclick="exportExcel()">&#8595; Export Excel / CSV</button>
         </div>`;
-      case 'json': return `
+      case 'data': return `
         <div class="section">
           <div class="section-title">Export Project</div>
           <button class="btn primary full" onclick="window.exportProjectJSON?.() ?? window.showToast?.('JSON export not wired yet')">&#8595; Export JSON</button>
@@ -295,6 +288,14 @@
         <div class="section">
           <div class="section-title">Autosave</div>
           <button class="btn full" onclick="window.restoreAutoSave?.() ?? window.showToast?.('Autosave restore not wired yet')">Restore Autosave</button>
+        </div>
+        <div class="section">
+          <div class="section-title">Panel Data (Excel / CSV)</div>
+          <p style="color:var(--text-3);font-size:var(--type-sm);margin-bottom:var(--sp-2)">
+            The raw chapter/scene/panel table, not the full project —
+            see Pages &amp; Panels &rarr; Import Data to bring it back in.
+          </p>
+          <button class="btn full" onclick="exportExcel()">&#8595; Export Excel / CSV</button>
         </div>`;
       case 'github': return `
         <div class="section">
@@ -321,15 +322,15 @@
 
   // ============================================================
   // Row 2 — Pages & Panels
-  // Page Editor tab embeds the existing data table (#dataTableBody,
-  // data.js) and page list (#pageList, pages.js) verbatim — those
-  // files already target these exact ids. Panel Editor is stubbed
-  // until panels.js (Step 7).
+  // Three tabs: Page Editor (mode + per-page list, #pageList from
+  // pages.js), Import Data (CSV/Excel import + the raw #dataTableBody
+  // table from data.js — split out of Page Editor since it's a
+  // separate workflow from browsing/configuring pages), and Panel
+  // Editor (per-panel geometry, panels.js).
   // ============================================================
   function tplPages(tabId) {
     if (tabId === 'page') return `
       <div class="section">
-        <button class="btn primary full" onclick="window.generateAll?.()" style="margin-bottom:var(--sp-3)">&#9654; Generate</button>
         <div class="section-title">Mode</div>
         <div class="field" style="flex-direction:row;gap:var(--sp-2)">
           <button class="btn ${!pageBypageMode ? 'primary' : ''}" onclick="setPbpMode(false)">All Pages</button>
@@ -345,6 +346,14 @@
           </div>` : `<select id="pageEditorPageSel" style="display:none">${pageOptionsHTML()}</select>`}
       </div>
 
+      <div class="section">
+        <div class="section-title">Page List</div>
+        <div id="noPages" style="color:var(--text-3);font-size:var(--type-sm)">No pages yet.</div>
+        <div id="pageList"></div>
+      </div>
+    `;
+
+    if (tabId === 'import') return `
       <div class="section">
         <div class="section-title">Import Data</div>
         <div class="drop-zone" id="dropZone"
@@ -363,13 +372,11 @@
       </div>
 
       <div class="section">
-        <div class="section-title">Page List</div>
-        <div id="noPages" style="color:var(--text-3);font-size:var(--type-sm)">No pages yet.</div>
-        <div id="pageList"></div>
-      </div>
-
-      <div class="section">
         <div class="section-title">Raw Data</div>
+        <p style="color:var(--text-3);font-size:var(--type-sm);margin-bottom:var(--sp-2)">
+          Every panel row across every page — edit directly, or use this
+          as a fallback when Import Data or Quick Layout don't fit.
+        </p>
         <div class="table-wrap">
           <table>
             <thead><tr>
@@ -393,6 +400,32 @@
           <select id="panelEditorPageSel" onchange="window.refreshPanelsPanel?.(this.value)">
             ${pageOptionsHTML()}
           </select>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Panel Style</div>
+        <p style="color:var(--text-3);font-size:var(--type-sm);margin-bottom:var(--sp-2)">
+          Applies to every panel on every page.
+        </p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-2);">
+          <div class="field">
+            <label>Fill Color</label>
+            <input type="color" id="panelFillColorInput" onchange="window.setPanelStyle?.('fill', this.value)">
+          </div>
+          <div class="field">
+            <label>Border Color</label>
+            <input type="color" id="panelStrokeColorInput" onchange="window.setPanelStyle?.('stroke', this.value)">
+          </div>
+        </div>
+        <div class="field">
+          <label>Border Width</label>
+          <input type="number" id="panelStrokeWidthInput" min="1" max="40" step="1"
+            onchange="window.setPanelStyle?.('strokeWidth', +this.value)">
+        </div>
+        <div class="field" style="flex-direction:row;align-items:center;gap:var(--sp-2)">
+          <input type="checkbox" id="snapToggleInput" onchange="window.setSnapEnabled?.(this.checked)">
+          <label style="text-transform:none;font-size:var(--type-sm)">Snap bubbles to panel edges while dragging</label>
         </div>
       </div>
 
@@ -541,13 +574,6 @@
           <button id="bp-italic" class="btn small" onclick="window.bpToggle?.('italic')"><em>I</em></button>
         </div>
         <div class="field">
-          <label>All Bubbles &mdash; Font Size</label>
-          <div style="display:flex;gap:var(--sp-2);">
-            <button class="btn small full" title="Decrease font size on every bubble" onclick="window.adjustAllBubbleFontSizes?.(-2)">A&minus;</button>
-            <button class="btn small full" title="Increase font size on every bubble" onclick="window.adjustAllBubbleFontSizes?.(2)">A&plus;</button>
-          </div>
-        </div>
-        <div class="field">
           <label>Color</label>
           <input type="color" id="bp-color" oninput="window.bpUpdate?.('color',this.value)">
         </div>
@@ -563,6 +589,10 @@
           <label>Border Width</label>
           <input type="number" id="bp-border-width" min="1" max="12" step="0.5" oninput="window.bpUpdate?.('borderWidth',+this.value)">
         </div>
+        <div class="field">
+          <label>Clip to Panel</label>
+          <select id="bp-clip-panel" onchange="window.bpSetClipPanel?.(this.value)"></select>
+        </div>
 
         <div class="section-title" style="margin-top:var(--sp-3);">Position &amp; Size</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-2);">
@@ -573,18 +603,14 @@
         </div>
         <div class="field"><label>Rotation&deg;</label><input type="number" id="bp-rot" onchange="window.bpUpdatePos?.()"></div>
 
-        <div class="section-title" style="margin-top:var(--sp-3);">Tail</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-2);">
-          <div class="field"><label>Angle&deg;</label><input type="number" id="bp-tail-angle" min="0" max="360" oninput="window.bpUpdatePos?.()"></div>
-          <div class="field"><label>Tail Length</label><input type="number"  id="bp-tail-len"   min="0" oninput="window.bpUpdatePos?.()"></div>
-          <div class="field"><label>Breadth</label><input type="number" id="bp-tail-breadth" min="0.1" max="30" step="0.1" oninput="window.bpUpdatePos?.()"></div>
-          <div class="field"><label>Dots <span style="opacity:.5">(Thought)</span></label><input type="number"    id="bp-dot-count"   min="1" max="12" oninput="window.bpUpdate?.('dotCount',+this.value)"></div>
-          <div class="field"><label>Spikes <span style="opacity:.5">(Spiked)</span></label><input type="number"  id="bp-spike-count" min="5" max="40" oninput="window.bpUpdate?.('spikeCount',+this.value)"></div>
-          <div class="field"><label>Other Spikes Length <span style="opacity:.5">(Spiked)</span></label><input type="number" id="bp-spike-len" step="1" oninput="window.bpUpdatePos?.()"></div>
-          <div class="field"><label>Arches <span style="opacity:.5">(Fading)</span></label><input type="number" id="bp-tail-arches" min="1" max="8" oninput="window.bpUpdatePos?.()"></div>
-          <div class="field"><label>Dash Number <span style="opacity:.5">(Dashed)</span></label><input type="number"  id="bp-dash-count"  min="4" max="200" oninput="window.bpUpdate?.('dashCount',+this.value)"></div>
-          <div class="field"><label>Dash Breadth <span style="opacity:.5">(Dashed)</span></label><input type="number" id="bp-dash-breadth" min="0.5" step="0.5" oninput="window.bpUpdatePos?.()"></div>
-          <div class="field"><label>Spacing <span style="opacity:.5">(Dashed)</span></label><input type="number" id="bp-dash-spacing" min="0.5" step="0.5" oninput="window.bpUpdatePos?.()"></div>
+        <div class="section-title" id="bp-tail-title" style="margin-top:var(--sp-3);">Tail</div>
+        <div id="bp-tail-section" style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-2);">
+          <div class="field" id="bp-tail-angle-field"><label>Angle&deg;</label><input type="number" id="bp-tail-angle" min="0" max="360" oninput="window.bpUpdatePos?.()"></div>
+          <div class="field" id="bp-tail-len-field"><label>Length</label><input type="number"  id="bp-tail-len"   min="0" oninput="window.bpUpdatePos?.()"></div>
+          <div class="field" id="bp-tail-breadth-field"><label>Breadth</label><input type="number" id="bp-tail-breadth" min="0.1" max="30" step="0.1" oninput="window.bpUpdatePos?.()"></div>
+          <div class="field" id="bp-dot-field"><label>Dots</label><input type="number"    id="bp-dot-count"   min="1" max="12" oninput="window.bpUpdate?.('dotCount',+this.value)"></div>
+          <div class="field" id="bp-spike-field"><label>Spikes</label><input type="number"  id="bp-spike-count" min="5" max="40" oninput="window.bpUpdate?.('spikeCount',+this.value)"></div>
+          <div class="field" id="bp-dash-field"><label>Dashes</label><input type="number"  id="bp-dash-count"  min="2" max="20" oninput="window.bpUpdate?.('dashCount',+this.value)"></div>
         </div>
 
         <div class="section-title" style="margin-top:var(--sp-3);">Locks</div>
@@ -672,16 +698,10 @@
         <div id="layerListBody" style="color:var(--text-3);font-size:var(--type-sm);">
           Loading layers…
         </div>
-      </div>`;
-
-    if (tabId === 'editor') return `
-      <div class="section">
-        ${pgSel}
-        <div id="layerEditorBody" style="color:var(--text-3);font-size:var(--type-sm);">
-          Select a layer above to edit its properties here.
-        </div>
-        <div id="layerListBody" style="max-height:200px;overflow-y:auto;margin-top:var(--sp-3);border-top:1px solid var(--border);padding-top:var(--sp-2);">
-        </div>
+        <p style="color:var(--text-3);font-size:var(--type-xs);margin-top:var(--sp-3);">
+          Click a bubble or text row above to select it, then use the
+          Bubbles &amp; Text drawer to edit its properties.
+        </p>
       </div>`;
 
     return '';

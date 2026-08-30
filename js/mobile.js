@@ -15,10 +15,10 @@
 
   // Tab definitions matching ui.js ROWS
   const TAB_DEFS = {
-    export:  [{ id: 'svg', label: 'SVG' }, { id: 'png', label: 'PNG' }, { id: 'json', label: 'JSON' }, { id: 'github', label: 'GitHub' }],
-    pages:   [{ id: 'page', label: 'Page Editor' }, { id: 'panel', label: 'Panel Editor' }],
+    export:  [{ id: 'svg', label: 'SVG' }, { id: 'png', label: 'PNG' }, { id: 'mask', label: 'Mask' }, { id: 'data', label: 'Data' }, { id: 'github', label: 'GitHub' }],
+    pages:   [{ id: 'page', label: 'Page Editor' }, { id: 'import', label: 'Import Data' }, { id: 'panel', label: 'Panel Editor' }],
     bubbles: [{ id: 'bubble', label: 'Bubble Editor' }, { id: 'text', label: 'Text Editor' }],
-    layers:  [{ id: 'layers', label: 'Layers' }, { id: 'editor', label: 'Editor' }],
+    layers:  [{ id: 'layers', label: 'Layers' }],
     preview: [{ id: 'undo', label: 'Undo' }, { id: 'redo', label: 'Redo' }, { id: 'generate', label: 'Generate' }, { id: 'blank', label: 'Create Blank' }, { id: 'sample', label: 'Sample' }],
   };
   const FIRST_TABS = { export:'svg', pages:'page', bubbles:'bubble', layers:'layers', preview:'undo' };

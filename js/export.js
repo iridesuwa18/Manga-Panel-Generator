@@ -65,7 +65,10 @@ async function buildFontDefs() {
 
 function getExportFillColor(transparentOverride) {
   if (transparentOverride) return 'none';
-  return document.getElementById('panelFill')?.value || '#ffffff';
+  // Was reading a #panelFill DOM element that ui.js never created —
+  // silently always fell back to white. Now reflects the real panel
+  // fill color set via the Panel Editor's Panel Style controls.
+  return panelFillColor || '#ffffff';
 }
 
 // ── SVG string builder (for export) ─────────────────────────
@@ -73,8 +76,12 @@ function getExportFillColor(transparentOverride) {
 function buildExportSVGString(pg, fontDefsStr, transparent) {
   const pgNum = parseInt((pg.match(/\d+/) || [1])[0]);
   const fillColor   = getExportFillColor(transparent);
-  const strokeColor = document.getElementById('panelStroke')?.value || '#111111';
-  const strokeW     = parseInt(document.getElementById('strokeWidth')?.value) || 8;
+  // Same fix as getExportFillColor — #panelStroke/#strokeWidth never
+  // existed in ui.js, so exports always used #111111 / 8 regardless of
+  // what was actually set, and out of sync with the on-screen render
+  // (which reads panelStrokeColor/panelStrokeWidth via generate.js).
+  const strokeColor = panelStrokeColor || '#111111';
+  const strokeW     = panelStrokeWidth || 8;
   const ps          = pageSettings[pg] || { mode: 'safe', gutter: 12 };
   const pageRows    = rows.filter(r => r.pg === pg);
 
@@ -458,10 +465,13 @@ function buildSaveData() {
     pageBypageMode,
     pbpCurrentPage: window._pbpCurrentPage || null,
     globalSettings: {
-      scale:       document.getElementById('scaleSlider')?.value,
-      panelFill:   document.getElementById('panelFill')?.value,
-      panelStroke: document.getElementById('panelStroke')?.value,
-      strokeWidth: document.getElementById('strokeWidth')?.value,
+      // scaleSlider is legacy — canvas scale is pinch/scroll-driven
+      // now (canvas.js), no such element exists; left harmless via ?.
+      scale:        document.getElementById('scaleSlider')?.value,
+      panelFill:    panelFillColor,
+      panelStroke:  panelStrokeColor,
+      strokeWidth:  panelStrokeWidth,
+      snapEnabled:  snapEnabled,
     }
   };
 }
@@ -524,10 +534,14 @@ function restoreSaveData(data) {
   }
   if (data.globalSettings) {
     const gs = data.globalSettings;
-    if (gs.scale)       { const sl = document.getElementById('scaleSlider'); if (sl) { sl.value = gs.scale; updateScale?.(gs.scale); } }
-    if (gs.panelFill)   { const el = document.getElementById('panelFill');   if (el) el.value = gs.panelFill; }
-    if (gs.panelStroke) { const el = document.getElementById('panelStroke'); if (el) el.value = gs.panelStroke; }
-    if (gs.strokeWidth) { const el = document.getElementById('strokeWidth'); if (el) el.value = gs.strokeWidth; }
+    if (gs.scale)         { const sl = document.getElementById('scaleSlider'); if (sl) { sl.value = gs.scale; updateScale?.(gs.scale); } }
+    if (gs.panelFill)     panelFillColor   = gs.panelFill;
+    if (gs.panelStroke)   panelStrokeColor = gs.panelStroke;
+    if (gs.strokeWidth)   panelStrokeWidth = gs.strokeWidth;
+    if (gs.snapEnabled !== undefined) snapEnabled = !!gs.snapEnabled;
+    // Reflect the restored values in the Panel Editor drawer if it's
+    // currently open (safe no-op otherwise).
+    window.refreshPanelsPanel?.(window._pbpCurrentPage || window.getPages?.()[0]?.pg);
   }
 }
 window.restoreSaveData = restoreSaveData;

@@ -309,6 +309,20 @@ function ppSplitHTML(pg, idx) {
 }
 window.ppSplitHTML = ppSplitHTML;
 
+// ── Global panel style (fill/stroke color, stroke width) ──────
+// panelFillColor/panelStrokeColor/panelStrokeWidth (state.js) used to
+// have no UI control at all — generate.js read them, but nothing ever
+// wrote to them, so panels were permanently stuck at their defaults.
+function setPanelStyle(kind, val) {
+  if (kind === 'fill') panelFillColor = val;
+  else if (kind === 'stroke') panelStrokeColor = val;
+  else if (kind === 'strokeWidth') panelStrokeWidth = Math.max(1, val || 8);
+  window.snapshotState?.();
+  window.generateAll?.();
+  window.scheduleAutoSave?.();
+}
+window.setPanelStyle = setPanelStyle;
+
 // ── Main panel editor renderer (targets #panelEditorBody) ─────
 function refreshPanelsPanel(pg) {
   // Target new drawer body id
@@ -318,6 +332,18 @@ function refreshPanelsPanel(pg) {
   const sel = document.getElementById('panelEditorPageSel');
   if (sel && pg) sel.value = pg;
   syncLockBtn(pg);
+
+  // Panel Style + Snap controls live above #panelEditorBody in the
+  // template and don't depend on whether this page has panels yet, so
+  // sync them before the early-return below.
+  const fillEl = document.getElementById('panelFillColorInput');
+  const strokeEl = document.getElementById('panelStrokeColorInput');
+  const swEl = document.getElementById('panelStrokeWidthInput');
+  const snapEl = document.getElementById('snapToggleInput');
+  if (fillEl) fillEl.value = panelFillColor;
+  if (strokeEl) strokeEl.value = panelStrokeColor;
+  if (swEl) swEl.value = panelStrokeWidth;
+  if (snapEl) snapEl.checked = !!snapEnabled;
 
   const baseRects = _lastBaseRects[pg] || [];
   const ovs = panelOverrides[pg] || {};
