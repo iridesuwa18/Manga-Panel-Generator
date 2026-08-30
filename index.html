@@ -79,7 +79,10 @@
   <div id="mobMenuOverlay">
     <div class="mob-menu-header">
       <span class="mob-menu-title">Menu</span>
-      <button id="mobMenuCloseBtn" aria-label="Close menu" onclick="closeMobileMenu()">&times;</button>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn small primary" onclick="window.generateAll?.()" title="Regenerate the canvas with current changes">Generate</button>
+        <button id="mobMenuCloseBtn" aria-label="Close menu" onclick="closeMobileMenu()">&times;</button>
+      </div>
     </div>
 
     <!-- ── MOBILE ACCORDION NAV ── -->
