@@ -67,6 +67,14 @@ function setGhStatus(msg, color) {
 // ── Save to GitHub ────────────────────────────────────────────
 
 async function saveToGitHub() {
+  // Safety guard: never push a save when there's nothing to save.
+  // Without this, an empty/blank session could silently overwrite
+  // a good save already sitting in the repo.
+  if (!getPages?.().length) {
+    setGhStatus('No pages to save — add a page first.', 'var(--danger)');
+    showToast('Nothing to save: no pages exist yet');
+    return;
+  }
   const api = getGitHubAPIUrl();
   if (!api?.url || !api.token) {
     setGhStatus('Enter repo and token first.', 'var(--danger)');
