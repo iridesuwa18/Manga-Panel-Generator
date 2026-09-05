@@ -453,9 +453,19 @@ function updateTextStyle(textDiv, b) {
 }
 window.updateTextStyle = updateTextStyle;
 
+// Text-overflow detection — purely a canvas editing hint (dims the
+// bubble + adds a red "!" badge so you notice text is spilling out).
+// Never touches the exported PNG/SVG: export.js rebuilds each bubble
+// fresh via buildBubbleSVG/buildBubbleTextSVGNative and never reads
+// this class or any opacity based on it.
+//
+// Slack is scaled to the text box size (not a flat 2px) so normal
+// line-wrapping/rounding doesn't falsely trigger it — a couple of
+// stray px inside a large bubble is nothing, but the same 2px inside
+// a small one WAS enough to flag it before.
 function checkBubbleOverflow(wrap, b) {
   const textDiv = wrap.querySelector('.bubble-text'); if (!textDiv) return;
-  let slack = 2;
+  let slack = Math.max(4, Math.round(Math.min(textDiv.clientWidth, textDiv.clientHeight) * 0.06));
   if (b) { if (b.type === 'thought') slack = Math.round(textDiv.clientHeight * 0.18); else if (b.type === 'rectangle' || b.type === 'square') slack = Math.round(textDiv.clientHeight * 0.12); }
   wrap.classList.toggle('text-overflow', textDiv.scrollHeight > textDiv.clientHeight + slack || textDiv.scrollWidth > textDiv.clientWidth + slack);
 }
