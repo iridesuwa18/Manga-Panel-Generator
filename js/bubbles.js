@@ -37,16 +37,26 @@ window._customFontDataURLs = _customFontDataURLs;
 // editing a bubble afterward always overrides these via the Bubble
 // Editor. Tweak the values here to change what a fresh bubble of a
 // given type starts out looking like.
+// Font-per-type rule: every type uses BubbleSans EXCEPT Bold (Permanent
+// Marker), Rectangle (TGLEngschrift — the only one) and Fading
+// (XLTightBoo — the only one). Default size: BubbleSans types = 50,
+// TGLEngschrift types = 70. Bold/Fading aren't covered by that rule so
+// they keep their own reasonable defaults (64 / 60).
+//
+// Bold/italic-by-default rule (applies to the bubble TEXT, independent
+// of the shape's own name): only Spiked defaults to bold; only
+// Thought, Fading and Dashed default to italic. Every other type
+// (including the "Bold" shape itself) defaults to neither.
 const BUBBLE_TYPE_PRESETS = {
-  circle:    { font: 'BubbleSans',        fontSize: 60 },                    // normal speech
-  thought:   { font: 'Caveat',            fontSize: 56, italic: true },      // thought bubble
-  spiked:    { font: 'Bangers',           fontSize: 72, bold: true },        // shout/yell
-  bold:      { font: 'Permanent Marker',  fontSize: 64, bold: true, borderWidth: 6 }, // intense/monster
-  fading:    { font: 'BubbleSans',        fontSize: 52, italic: true },      // weak/trailing off
-  dashed:    { font: 'BubbleSans',        fontSize: 44, italic: true },      // whisper
-  lilypad:   { font: 'BubbleSans',        fontSize: 54 },                    // off-panel aside
-  square:    { font: 'TGLEngschrift',     fontSize: 50, italic: true },      // narration/inner monologue
-  rectangle: { font: 'TGLEngschrift',     fontSize: 58, bold: true },        // caption/title box
+  circle:    { font: 'BubbleSans',        fontSize: 50 },                    // normal speech
+  thought:   { font: 'BubbleSans',        fontSize: 50, italic: true },      // thought bubble
+  spiked:    { font: 'BubbleSans',        fontSize: 50, bold: true },        // shout/yell
+  bold:      { font: 'Permanent Marker',  fontSize: 64, borderWidth: 6 },    // intense/monster
+  fading:    { font: 'XLTightBoo',        fontSize: 60, italic: true },      // weak/trailing off
+  dashed:    { font: 'BubbleSans',        fontSize: 50, italic: true },      // whisper
+  lilypad:   { font: 'BubbleSans',        fontSize: 50 },                    // off-panel aside
+  square:    { font: 'BubbleSans',        fontSize: 50 },                    // narration/inner monologue
+  rectangle: { font: 'TGLEngschrift',     fontSize: 70 },                    // caption/title box
 };
 window.BUBBLE_TYPE_PRESETS = BUBBLE_TYPE_PRESETS;
 
@@ -109,14 +119,23 @@ window.setSnapEnabled = setSnapEnabled;
 
 // ── defaultBubble ────────────────────────────────────────────
 function defaultBubble(type, text, speaker, index) {
-  const preset = BUBBLE_TYPE_PRESETS[type] || { font: 'BubbleSans', fontSize: 60 };
+  const preset = BUBBLE_TYPE_PRESETS[type] || { font: 'BubbleSans', fontSize: 50 };
   const b = {
     id: 'b' + Date.now() + Math.random().toString(36).slice(2, 6),
     type, text, speaker: speaker || '',
     x: -9999, y: -9999, w: 600, h: 400, rotate: 0,
     font: preset.font, fontSize: preset.fontSize, bold: !!preset.bold, italic: !!preset.italic,
     tailAngle: 225, tailLen: 150, tailBreadth: 7,
-    extraTails: [], dotCount: 4, spikeCount: 16, dashCount: 7,
+    // Spiked: how far the non-tail spikes extend/retract (px, can go
+    // negative to retract them inward). Replaces the old "Breadth"
+    // widening-only behavior for this type.
+    spikeLen: 0,
+    // Fading/"wavy" tail: number of alternating wave bumps per edge.
+    tailArches: 2,
+    extraTails: [], dotCount: 4, spikeCount: 16,
+    // Dashed: DASH NUMBER (count around the bubble), DASH BREADTH (px
+    // length of each mark) and SPACING (px gap between marks).
+    dashCount: 50, dashBreadth: 10, dashSpacing: 4,
     lineHeight: 1.3, padRatio: 0.14,
     borderWidth: preset.borderWidth != null ? preset.borderWidth : DEFAULT_BUBBLE_BORDER,
     lockMove: false, lockResize: false, lockRotate: false,
@@ -124,6 +143,7 @@ function defaultBubble(type, text, speaker, index) {
     color: '#111111', clipPanel: null,
   };
   if (type === 'lilypad') { b.tailLen = 20; b.tailBreadth = 1; }
+  if (type === 'thought') { b.dotCount = 2; }
   sizeBubbleToText(b);
   return b;
 }
@@ -142,8 +162,12 @@ function updateBubbleFieldVisibility(type) {
   const sec = document.getElementById('bp-tail-section');
   if (sec) sec.style.display = hasTail ? 'grid' : 'none';
   setDisp('bp-dot-field', type === 'thought');
-  setDisp('bp-spike-field', type === 'thought' || type === 'fading' || type === 'spiked');
+  setDisp('bp-spike-field', type === 'spiked');
+  setDisp('bp-spike-len-field', type === 'spiked');
+  setDisp('bp-arches-field', type === 'fading');
   setDisp('bp-dash-field', type === 'dashed');
+  setDisp('bp-dash-breadth-field', type === 'dashed');
+  setDisp('bp-dash-spacing-field', type === 'dashed');
 }
 window.updateBubbleFieldVisibility = updateBubbleFieldVisibility;
 
@@ -496,40 +520,147 @@ function svgThought(svg,cx,cy,rx,ry,b,sw) {
   const dots=Math.max(1,b.dotCount||4);
   for(let i=0;i<dots;i++){const t=(i+1)/(dots+1),px=bx+(tipX-bx)*t,py=by_+(tipY-by_)*t,r=Math.max(1,5.5*(b.tailBreadth||1)*(1-t*0.6));const c=document.createElementNS('http://www.w3.org/2000/svg','circle');c.setAttribute('cx',px);c.setAttribute('cy',py);c.setAttribute('r',r);c.setAttribute('stroke','#111');c.setAttribute('stroke-width',1.5);c.setAttribute('fill','#fff');svg.appendChild(c);}
 }
+// Fading ("wavy tail") bubble. The tail is built as ONE continuous
+// path fused with the scalloped body outline (a gap is cut directly
+// into the body boundary at the tail angle, same masking approach the
+// Circle bubble uses), rather than two separately-stroked overlapping
+// shapes — so there's no seam and no double outline where they meet.
+//   b.tailArches  — number of alternating wave bumps per tail edge.
+//   b.tailBreadth — thickness of the tail where it meets the body.
+//   b.tailLen     — how far the tail stretches out; the arches keep
+//                   their set width regardless of length.
 function svgFading(svg,cx,cy,rx,ry,b,sw) {
   sw = sw != null ? sw : 2;
-  const n=Math.max(4,b.spikeCount||Math.round((rx+ry)/16)); let d='';
-  for(let i=0;i<n;i++){const a1=(i/n)*Math.PI*2,a2=((i+1)/n)*Math.PI*2,am=(a1+a2)/2,bump=0.07;const ox=cx+rx*(1+bump*1.3)*Math.cos(am),oy=cy+ry*(1+bump*1.3)*Math.sin(am);const x1=cx+rx*(1+bump)*Math.cos(a1),y1=cy+ry*(1+bump)*Math.sin(a1);const x2=cx+rx*(1+bump)*Math.cos(a2),y2=cy+ry*(1+bump)*Math.sin(a2);d+=(i===0?`M ${x1} ${y1} `:'')+`Q ${ox} ${oy} ${x2} ${y2} `;}
-  mkPath(svg,d+'Z','#111','#fff',sw);
-  if(b.tailLen<=0)return;
-  const tar=(b.tailAngle*Math.PI)/180, perp=tar+Math.PI/2;
-  const bx=cx+rx*Math.cos(tar), by_=cy+ry*Math.sin(tar);
-  const tipX=cx+(rx+b.tailLen)*Math.cos(tar), tipY=cy+(ry+b.tailLen)*Math.sin(tar);
-  const baseW=Math.min(rx,ry)*0.3*(b.tailBreadth||1.0);
-  const s1x=bx+baseW*Math.cos(perp),s1y=by_+baseW*Math.sin(perp),s2x=bx-baseW*Math.cos(perp),s2y=by_-baseW*Math.sin(perp);
-  const m1=0.35,m2=0.65,amp=baseW*0.8;
-  const cp1x=(bx+(tipX-bx)*m1)+amp*Math.cos(perp),cp1y=(by_+(tipY-by_)*m1)+amp*Math.sin(perp);
-  const cp2x=(bx+(tipX-bx)*m2)-amp*Math.cos(perp),cp2y=(by_+(tipY-by_)*m2)-amp*Math.sin(perp);
-  const cp3x=(bx+(tipX-bx)*m1)-amp*Math.cos(perp),cp3y=(by_+(tipY-by_)*m1)-amp*Math.sin(perp);
-  const cp4x=(bx+(tipX-bx)*m2)+amp*Math.cos(perp),cp4y=(by_+(tipY-by_)*m2)+amp*Math.sin(perp);
-  mkPath(svg,`M ${s1x} ${s1y} Q ${cp1x} ${cp1y} ${bx+(tipX-bx)*m2} ${by_+(tipY-by_)*m2} Q ${cp2x} ${cp2y} ${tipX} ${tipY} Q ${cp3x} ${cp3y} ${bx+(tipX-bx)*m1} ${by_+(tipY-by_)*m1} Q ${cp4x} ${cp4y} ${s2x} ${s2y} Z`,'#111','#fff',1.5);
+  const n = Math.max(4, b.spikeCount || Math.round((rx+ry)/16));
+  const bump = 0.07;
+  const tailLen = b.tailLen || 0;
+  const hasTail = tailLen > 0;
+  const tar = (b.tailAngle*Math.PI)/180;
+
+  function segAt(i) {
+    const a1=(i/n)*Math.PI*2, a2=((i+1)/n)*Math.PI*2, am=(a1+a2)/2;
+    return {
+      am,
+      x1:cx+rx*(1+bump)*Math.cos(a1),     y1:cy+ry*(1+bump)*Math.sin(a1),
+      ox:cx+rx*(1+bump*1.3)*Math.cos(am), oy:cy+ry*(1+bump*1.3)*Math.sin(am),
+      x2:cx+rx*(1+bump)*Math.cos(a2),     y2:cy+ry*(1+bump)*Math.sin(a2),
+    };
+  }
+
+  if (!hasTail) {
+    let d='';
+    for (let i=0;i<n;i++){ const s=segAt(i); d += (i===0?`M ${s.x1} ${s.y1} `:'') + `Q ${s.ox} ${s.oy} ${s.x2} ${s.y2} `; }
+    mkPath(svg,d+'Z','#111','#fff',sw);
+    return;
+  }
+
+  // The body-boundary segment closest to the tail angle becomes the
+  // gap the tail plugs into.
+  let gapIdx = 0, bestD = Infinity;
+  for (let i=0;i<n;i++) {
+    let diff = segAt(i).am - tar;
+    while (diff > Math.PI) diff -= Math.PI*2;
+    while (diff < -Math.PI) diff += Math.PI*2;
+    if (Math.abs(diff) < bestD) { bestD = Math.abs(diff); gapIdx = i; }
+  }
+  const gapSeg = segAt(gapIdx);
+
+  // Walk the boundary starting right after the gap, all the way
+  // around, ending right before it — one continuous open arc.
+  let d = '';
+  for (let k=1;k<n;k++) {
+    const s = segAt((gapIdx+k) % n);
+    d += (k===1?`M ${s.x1} ${s.y1} `:'') + `Q ${s.ox} ${s.oy} ${s.x2} ${s.y2} `;
+  }
+  // The open arc now starts at gapSeg.x2/y2 and its last drawn point
+  // is gapSeg.x1/y1 — the tail fills the space between them.
+
+  const arches = Math.max(1, Math.round(b.tailArches != null ? b.tailArches : 2));
+  const breadth = b.tailBreadth != null ? b.tailBreadth : 1.0;
+  const baseW = Math.min(rx,ry) * 0.28 * breadth;
+  const perp = tar + Math.PI/2;
+  const rootX = (gapSeg.x1+gapSeg.x2)/2, rootY = (gapSeg.y1+gapSeg.y2)/2;
+  const tipX = cx+(rx+tailLen)*Math.cos(tar), tipY = cy+(ry+tailLen)*Math.sin(tar);
+
+  // Walks from (x0,y0) to (x1e,y1e) in `arches` quadratic segments,
+  // oscillating perpendicular to that line. wideAtStart=true tapers
+  // the amplitude from baseW down to 0 (start→end); false does the
+  // reverse (0 up to baseW), so both tail edges taper to a point at
+  // the tip and stay full width where they meet the body.
+  function wavyEdge(x0,y0,x1e,y1e,wideAtStart) {
+    let dd = '';
+    for (let j=1;j<=arches;j++){
+      const t1=(j-1)/arches, t2=j/arches, tm=(t1+t2)/2;
+      const widthT = wideAtStart ? (1-tm) : tm;
+      const amp = baseW * widthT;
+      const alt = (j % 2 === 1) ? 1 : -1;
+      const cx_ = x0+(x1e-x0)*tm, cy_ = y0+(y1e-y0)*tm;
+      const cpx = cx_ + amp*alt*Math.cos(perp), cpy = cy_ + amp*alt*Math.sin(perp);
+      const ex = x0+(x1e-x0)*t2, ey = y0+(y1e-y0)*t2;
+      dd += `Q ${cpx} ${cpy} ${ex} ${ey} `;
+    }
+    return dd;
+  }
+
+  d += wavyEdge(gapSeg.x1, gapSeg.y1, tipX, tipY, true);
+  d += wavyEdge(tipX, tipY, gapSeg.x2, gapSeg.y2, false);
+  mkPath(svg, d+'Z', '#111', '#fff', sw);
 }
+// Ramanujan's approximation of an ellipse's circumference — used to
+// turn "DASH NUMBER" into an actual evenly-spaced dash count instead
+// of the old stroke-dasharray value (which only ever set each dash's
+// visual length and never really changed how many appeared).
+function ellipseCircumference(rx, ry) {
+  const h = Math.pow(rx-ry, 2) / Math.pow(rx+ry, 2);
+  return Math.PI*(rx+ry)*(1 + (3*h)/(10+Math.sqrt(4-3*h)));
+}
+// Dashed bubble: DASH NUMBER sets how many dashes actually go around
+// the bubble (unit = circumference / dashCount). DASH BREADTH and
+// SPACING act as a ratio within that unit — raising one relative to
+// the other visibly thickens/thins the marks and widens/narrows the
+// gaps, while DASH NUMBER independently controls the total count.
 function svgDashedBubble(svg,cx,cy,rx,ry,b,sw) {
   sw = sw != null ? sw : 2.5;
-  const dc=b.dashCount||7, dashArr=`${dc},5`;
+  const dashNum = Math.max(2, b.dashCount || 50);
+  const breadthPx = Math.max(0.5, b.dashBreadth != null ? b.dashBreadth : 10);
+  const spacingPx = Math.max(0.5, b.dashSpacing != null ? b.dashSpacing : 4);
+  const circumference = ellipseCircumference(rx, ry);
+  const unit = Math.max(1, circumference / dashNum);
+  const ratio = breadthPx / (breadthPx + spacingPx);
+  const dashLen = Math.max(0.5, Math.min(unit - 0.5, unit * ratio));
+  const gapLen = Math.max(0.5, unit - dashLen);
+  const dashArr = `${dashLen.toFixed(2)},${gapLen.toFixed(2)}`;
   if(b.tailLen<=0){const el=document.createElementNS('http://www.w3.org/2000/svg','ellipse');el.setAttribute('cx',cx);el.setAttribute('cy',cy);el.setAttribute('rx',rx);el.setAttribute('ry',ry);el.setAttribute('stroke','#111');el.setAttribute('stroke-width',sw);el.setAttribute('fill','#fff');el.setAttribute('stroke-dasharray',dashArr);svg.appendChild(el);return;}
   const tar=(b.tailAngle*Math.PI)/180, baseGapD=Math.min(0.25,7/Math.max(rx,ry)), gapHalf=baseGapD*(b.tailBreadth||1.0);
   const [x1,y1]=ep(cx,cy,rx,ry,tar-gapHalf),[x2,y2]=ep(cx,cy,rx,ry,tar+gapHalf);
   const tipX=cx+(rx+b.tailLen)*Math.cos(tar), tipY=cy+(ry+b.tailLen)*Math.sin(tar);
   mkPath(svg,`M ${x2} ${y2} A ${rx} ${ry} 0 1 1 ${x1} ${y1} L ${tipX} ${tipY} Z`,'#111','#fff',sw,dashArr);
 }
+// Spiked bubble tail/spike geometry:
+//   b.tailLen  — extends ONLY the single outer spike nearest the tail
+//                angle, turning it into the "tail" that points at the
+//                speaker (same field/meaning as every other bubble
+//                type's tail length).
+//   b.spikeLen — extends or retracts every OTHER outer spike (px,
+//                can go negative to pull them in). Replaces the old
+//                "Breadth" field, which could only ever widen spikes
+//                and never shrink them.
 function svgSpikedBubble(svg,cx,cy,rx,ry,b,sw) {
   sw = sw != null ? sw : 2;
-  const n=Math.max(5,b.spikeCount||16), tar=(b.tailAngle*Math.PI)/180, tailLen=b.tailLen||0, breadth=b.tailBreadth||1, total=n*2;
+  const n=Math.max(5,b.spikeCount||16), tar=(b.tailAngle*Math.PI)/180, tailLen=b.tailLen||0;
+  const otherLen = b.spikeLen || 0;
+  const total=n*2, spikeStep=(2*Math.PI)/total;
+  const minRx = rx*0.15, minRy = ry*0.15; // never let a retracted spike collapse past the center
   const pts=[];
-  for(let i=0;i<total;i++){const a=(i/total)*Math.PI*2-Math.PI/2,r=(i%2===0)?1:0.62;pts.push({x:cx+rx*r*Math.cos(a),y:cy+ry*r*Math.sin(a),a,isOuter:i%2===0});}
-  if(tailLen>0){const spikeStep=(2*Math.PI)/total, halfSpread=spikeStep*Math.max(0.5,(breadth-1)*0.5);
-    pts.forEach(p=>{if(!p.isOuter)return;let diff=p.a-tar;while(diff>Math.PI)diff-=Math.PI*2;while(diff<-Math.PI)diff+=Math.PI*2;const absDiff=Math.abs(diff);if(absDiff<=halfSpread+spikeStep){const inf=Math.max(0,1-absDiff/(halfSpread+spikeStep));p.x=cx+(rx+tailLen*inf)*Math.cos(p.a);p.y=cy+(ry+tailLen*inf)*Math.sin(p.a);}});}
+  for(let i=0;i<total;i++){
+    const a=(i/total)*Math.PI*2-Math.PI/2, isOuter=i%2===0;
+    if(!isOuter){ pts.push({x:cx+rx*0.62*Math.cos(a),y:cy+ry*0.62*Math.sin(a)}); continue; }
+    let diff=a-tar; while(diff>Math.PI)diff-=Math.PI*2; while(diff<-Math.PI)diff+=Math.PI*2;
+    const isTailSpike = tailLen>0 && Math.abs(diff)<=spikeStep*0.55;
+    const extra = isTailSpike ? tailLen : otherLen;
+    const rAdjX = Math.max(minRx, rx+extra), rAdjY = Math.max(minRy, ry+extra);
+    pts.push({x:cx+rAdjX*Math.cos(a),y:cy+rAdjY*Math.sin(a)});
+  }
   mkPath(svg,pts.map((p,i)=>`${i===0?'M':'L'} ${p.x} ${p.y}`).join(' ')+' Z','#111','#fff',sw);
 }
 function svgLilypad(svg,cx,cy,rx,ry,b,sw) {
@@ -649,7 +780,11 @@ function syncBubbleEditorFields(b) {
   set('bp-tail-breadth', b.tailBreadth != null ? b.tailBreadth : 1.0);
   set('bp-dot-count', b.dotCount || 4);
   set('bp-spike-count', b.spikeCount || 16);
-  set('bp-dash-count', b.dashCount || 7);
+  set('bp-spike-len', b.spikeLen || 0);
+  set('bp-tail-arches', b.tailArches != null ? b.tailArches : 2);
+  set('bp-dash-count', b.dashCount || 50);
+  set('bp-dash-breadth', b.dashBreadth != null ? b.dashBreadth : 10);
+  set('bp-dash-spacing', b.dashSpacing != null ? b.dashSpacing : 4);
   document.getElementById('bp-bold')?.classList.toggle('active', !!b.bold);
   document.getElementById('bp-italic')?.classList.toggle('active', !!b.italic);
   document.getElementById('lock-move')?.classList.toggle('active', !!b.lockMove);
@@ -712,7 +847,7 @@ window.bpToggle = bpToggle;
 function bpLockToggle(field){const ab=getActiveBubble();if(!ab)return;snapshotState?.();const key='lock'+field[0].toUpperCase()+field.slice(1);ab.data[key]=!ab.data[key];applyBubbleStyle(ab.el,ab.data);document.getElementById('lock-'+field)?.classList.toggle('active',ab.data[key]);}
 window.bpLockToggle = bpLockToggle;
 
-function bpUpdatePos(){const ab=getActiveBubble();if(!ab)return;const b=ab.data,wrap=ab.el,g=id=>{const e=document.getElementById(id);return e?+e.value:null;},gm=(id,fb)=>{const v=g(id);return v!==null?v:fb;};b.x=gm('bp-x',b.x);b.y=gm('bp-y',b.y);b.w=Math.max(100,gm('bp-w',b.w));b.h=Math.max(80,gm('bp-h',b.h));b.rotate=gm('bp-rot',b.rotate);b.tailAngle=gm('bp-tail-angle',b.tailAngle);b.tailLen=gm('bp-tail-len',b.tailLen);b.tailBreadth=gm('bp-tail-breadth',b.tailBreadth||1.0);b.lineHeight=gm('bp-line-height',b.lineHeight!=null?b.lineHeight:1.3);b.padRatio=gm('bp-pad-ratio',b.padRatio!=null?b.padRatio:0.14);applyBubble(b,wrap,ab.pgKey);}
+function bpUpdatePos(){const ab=getActiveBubble();if(!ab)return;const b=ab.data,wrap=ab.el,g=id=>{const e=document.getElementById(id);return e?+e.value:null;},gm=(id,fb)=>{const v=g(id);return v!==null?v:fb;};b.x=gm('bp-x',b.x);b.y=gm('bp-y',b.y);b.w=Math.max(100,gm('bp-w',b.w));b.h=Math.max(80,gm('bp-h',b.h));b.rotate=gm('bp-rot',b.rotate);b.tailAngle=gm('bp-tail-angle',b.tailAngle);b.tailLen=gm('bp-tail-len',b.tailLen);b.tailBreadth=gm('bp-tail-breadth',b.tailBreadth||1.0);b.spikeLen=gm('bp-spike-len',b.spikeLen||0);b.tailArches=gm('bp-tail-arches',b.tailArches!=null?b.tailArches:2);b.dashBreadth=gm('bp-dash-breadth',b.dashBreadth!=null?b.dashBreadth:10);b.dashSpacing=gm('bp-dash-spacing',b.dashSpacing!=null?b.dashSpacing:4);b.lineHeight=gm('bp-line-height',b.lineHeight!=null?b.lineHeight:1.3);b.padRatio=gm('bp-pad-ratio',b.padRatio!=null?b.padRatio:0.14);applyBubble(b,wrap,ab.pgKey);}
 window.bpUpdatePos = bpUpdatePos;
 
 function bpSetClipPanel(val){const ab=getActiveBubble();if(!ab)return;snapshotState?.();ab.data.clipPanel=(val===''||val===null)?null:parseInt(val);applyBubble(ab.data,ab.el,ab.pgKey);}
@@ -720,6 +855,26 @@ window.bpSetClipPanel = bpSetClipPanel;
 
 function deleteSelectedBubble(){if(!selectedBubble)return;const{el,data,pgKey}=selectedBubble;bubbles[pgKey]=(bubbles[pgKey]||[]).filter(b=>b.id!==data.id);el.remove();selectedBubble=null;refreshLayersPanel?.(pgKey);}
 window.deleteSelectedBubble = deleteSelectedBubble;
+
+// ── Global font size adjust (A+ / A-) ─────────────────────────
+// Bumps every bubble's font size, on every page, up or down by
+// `delta` px in one go — for quickly nudging all currently-set
+// sizes without opening each bubble individually.
+function adjustAllBubbleFontSizes(delta) {
+  let count = 0;
+  snapshotState?.();
+  Object.keys(bubbles).forEach(pg => {
+    (bubbles[pg] || []).forEach(b => {
+      b.fontSize = Math.max(6, (b.fontSize || 40) + delta);
+      count++;
+    });
+    renderBubblesOnPage(pg);
+  });
+  if (selectedBubble) syncBubbleEditorFields(selectedBubble.data);
+  window.scheduleAutoSave?.();
+  showToast(count ? `Font size ${delta > 0 ? 'increased' : 'decreased'} for ${count} bubble(s)` : 'No bubbles yet');
+}
+window.adjustAllBubbleFontSizes = adjustAllBubbleFontSizes;
 
 function duplicateBubbleById(pgKey, id){const bbs=bubbles[pgKey]||[];const b=bbs.find(x=>x.id===id);if(!b)return;snapshotState?.();const nb=JSON.parse(JSON.stringify(b));nb.id='b'+Date.now()+Math.random().toString(36).slice(2,6);nb.x+=40;nb.y+=40;nb.zIndex=(bbs.length+1);bbs.push(nb);renderBubblesOnPage(pgKey);refreshLayersPanel?.(pgKey);showToast('Bubble duplicated');}
 window.duplicateBubbleById = duplicateBubbleById;
