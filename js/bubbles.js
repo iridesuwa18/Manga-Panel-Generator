@@ -144,6 +144,7 @@ function defaultBubble(type, text, speaker, index) {
   };
   if (type === 'lilypad') { b.tailLen = 20; b.tailBreadth = 1; }
   if (type === 'thought') { b.dotCount = 2; }
+  if (type === 'fading') { b.tailArches = 3; b.tailBreadth = 2; }
   sizeBubbleToText(b);
   return b;
 }
@@ -575,7 +576,12 @@ function svgFading(svg,cx,cy,rx,ry,b,sw) {
   // The open arc now starts at gapSeg.x2/y2 and its last drawn point
   // is gapSeg.x1/y1 — the tail fills the space between them.
 
-  const arches = Math.max(1, Math.round(b.tailArches != null ? b.tailArches : 2));
+  // Even arch counts make the two tail edges' waves land in sync,
+  // which reads as two squashed blobs (or a figure-8) instead of a
+  // wavy taper — odd counts keep them offset so the wave actually
+  // shows. Always bump an even value up to the next odd one.
+  let arches = Math.max(1, Math.round(b.tailArches != null ? b.tailArches : 3));
+  if (arches % 2 === 0) arches += 1;
   const breadth = b.tailBreadth != null ? b.tailBreadth : 1.0;
   const baseW = Math.min(rx,ry) * 0.28 * breadth;
   const perp = tar + Math.PI/2;
