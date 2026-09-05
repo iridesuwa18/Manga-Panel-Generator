@@ -14,6 +14,7 @@
 // ============================================================
 
 let _layerSelected = new Set();
+let _layerSelectedPage = null; // page key the current selection belongs to
 
 // ── Layer icon (text-only per spec F — no emoji in UI chrome) ─
 function layerIcon(type) {
@@ -29,6 +30,13 @@ function refreshLayersPanel(pg) {
   if (!pg) {
     body.innerHTML = '<div style="color:var(--text-3);font-size:var(--type-sm);">No page selected.</div>';
     return;
+  }
+
+  // Selection is scoped to a single page — switching pages resets it
+  // instead of letting checks pile up across pages.
+  if (pg !== _layerSelectedPage) {
+    _layerSelected.clear();
+    _layerSelectedPage = pg;
   }
 
   const bbs = bubbles[pg] || [];
