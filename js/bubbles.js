@@ -713,9 +713,37 @@ function buildBubbleTextSVGNative(b) {
   const lineH = fontSize * (b.lineHeight != null ? b.lineHeight : 1.3);
   let measureCtx = null;
   try { const oc=new OffscreenCanvas(1,1); measureCtx=oc.getContext('2d'); measureCtx.font=`${fstyle} ${weight} ${fontSize}px ${familyRaw}`; } catch(_) { measureCtx=null; }
-  function measureWord(w) { if(measureCtx){try{return measureCtx.measureText(w).width;}catch(_){}} const ratio=/XLTight|TGL|Engschrift/i.test(familyRaw)?0.42:/Bangers/i.test(familyRaw)?0.52:/Permanent|Marker/i.test(familyRaw)?0.65:/Caveat/i.test(familyRaw)?0.50:0.55; return w.length*fontSize*ratio; }
+  function measureStr(s) { if(measureCtx){try{return measureCtx.measureText(s).width;}catch(_){}} const ratio=/XLTight|TGL|Engschrift/i.test(familyRaw)?0.42:/Bangers/i.test(familyRaw)?0.52:/Permanent|Marker/i.test(familyRaw)?0.65:/Caveat/i.test(familyRaw)?0.50:0.55; return s.length*fontSize*ratio; }
+  // NOTE: measure the *whole candidate line* rather than summing each
+  // word's width separately — summing ignores kerning between glyphs,
+  // which can shift the wrap point by a few px vs. what the browser
+  // (which shapes the full line at once) shows on canvas.
   const rawLines = b.text.split('\n'), lines = [];
-  rawLines.forEach(seg => { const words=seg.split(' '); let cur='', curW=0; words.forEach(word=>{const ww=measureWord(word),spaceW=cur?measureWord(' '):0;if(cur&&curW+spaceW+ww>maxW){lines.push(cur);cur=word;curW=ww;}else{cur=cur?cur+' '+word:word;curW+=spaceW+ww;}}); if(cur)lines.push(cur); });
+  rawLines.forEach(seg => {
+    const words = seg.split(' ');
+    let cur = '';
+    words.forEach(word => {
+      // A single word too wide to fit a whole line on its own: hard-break
+      // it character by character, mirroring the on-canvas CSS rule
+      // `word-break:break-word` — otherwise it would just overflow the
+      // bubble in the exported image instead of wrapping like on canvas.
+      if (word && measureStr(word) > maxW && word.length > 1) {
+        if (cur) { lines.push(cur); cur = ''; }
+        let chunk = '';
+        for (const ch of word) {
+          const candidate = chunk + ch;
+          if (chunk && measureStr(candidate) > maxW) { lines.push(chunk); chunk = ch; }
+          else chunk = candidate;
+        }
+        cur = chunk;
+        return;
+      }
+      const candidate = cur ? cur + ' ' + word : word;
+      if (cur && measureStr(candidate) > maxW) { lines.push(cur); cur = word; }
+      else cur = candidate;
+    });
+    lines.push(cur); // push even when empty, to preserve blank lines from "\n\n" like white-space:pre-wrap does
+  });
   const totalH=lines.length*lineH, startY=b.h/2-totalH/2+fontSize*0.85;
   const tspans=lines.map((line,i)=>`<tspan x="${b.w/2}" dy="${i===0?0:lineH}">${line.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</tspan>`).join('');
   return `<text x="${b.w/2}" y="${startY.toFixed(1)}" text-anchor="middle" font-family="${family}" font-size="${fontSize}" font-weight="${weight}" font-style="${fstyle}" fill="${color}">${tspans}</text>`;

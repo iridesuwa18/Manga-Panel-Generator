@@ -61,6 +61,36 @@ async function buildFontDefs() {
   return `<defs><style>${rules.join('')}</style></defs>`;
 }
 
+// ── Font-readiness helper ────────────────────────────────────
+// Bubble fonts (BubbleSans, XLTightBoo, TGLEngschrift, Bangers,
+// Permanent Marker, Caveat, any uploaded custom font) are declared
+// via lazy-loading @font-face rules. If a bubble's font hasn't
+// already been used/painted on screen, the browser may not have
+// finished loading it yet. buildBubbleTextSVGNative() measures text
+// synchronously with OffscreenCanvas — if the font isn't ready at
+// that moment, measureText() silently falls back to a generic font
+// with very different character widths, producing line-wrap points
+// that don't match what's shown on the canvas. Explicitly loading
+// every font actually used by the bubbles being exported (and
+// awaiting document.fonts.ready) before we build any SVG strings
+// fixes that mismatch.
+async function ensureFontsLoadedForBubbles(bubbleList) {
+  if (!document.fonts || !document.fonts.load) return;
+  const specs = new Set();
+  bubbleList.forEach(b => {
+    const familyRaw = (window.BUBBLE_FONTS && window.BUBBLE_FONTS[b.font]) || 'BubbleSans, sans-serif';
+    const weight = b.bold ? 'bold' : 'normal';
+    const fstyle = b.italic ? 'italic' : 'normal';
+    const size = b.fontSize || 40;
+    specs.add(`${fstyle} ${weight} ${size}px ${familyRaw}`);
+  });
+  try {
+    await Promise.all(Array.from(specs).map(spec => document.fonts.load(spec).catch(() => {})));
+    await document.fonts.ready;
+  } catch (_) { /* best effort — fall through and export with whatever is loaded */ }
+}
+window.ensureFontsLoadedForBubbles = ensureFontsLoadedForBubbles;
+
 // ── Transparent-background helper ────────────────────────────
 
 function getExportFillColor(transparentOverride) {
@@ -169,6 +199,8 @@ async function exportAllSVG(pageFilter, transparent) {
   }
   showToast('Building fonts… please wait');
   const fontDefsStr = await buildFontDefs();
+  const allBubbles = containers.flatMap(c => (bubbles[c.dataset.pg] || []));
+  await ensureFontsLoadedForBubbles(allBubbles);
   const downloads = [];
   containers.forEach(c => {
     const pg     = c.dataset.pg;
@@ -392,6 +424,8 @@ async function exportAllPNG(pageFilter, transparent) {
   }
   showToast('Rendering PNGs… this may take a moment');
   const fontDefsStr = await buildFontDefs();
+  const allBubbles = containers.flatMap(c => (bubbles[c.dataset.pg] || []));
+  await ensureFontsLoadedForBubbles(allBubbles);
   const total = containers.length;
   let done = 0;
   for (const c of containers) {
